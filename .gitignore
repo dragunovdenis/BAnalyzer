@@ -48,3 +48,9 @@ Thumbs.db
 *.mov
 *.wmv
 
+.vs/
+BAnalyzer/bin/
+BAnalyzer/obj/
+BAnalyzerCore/bin/
+BAnalyzerCore/obj/
+*.user
