@@ -32,13 +32,13 @@ namespace BAnalyzer
     /// <summary>
     /// Interaction logic for ExchangeChartControl.xaml
     /// </summary>
-    public partial class ExchangeChartControl : INotifyPropertyChanged
+    public partial class ExchangeChartControl : INotifyPropertyChanged, IDisposable
     {
         private BAnalyzerCore.Binance _client = null!;
 
         private ObservableCollection<string> _symbols = null!;
 
-        private readonly Timer _updateTimer;
+        private Timer _updateTimer;
         private TimeFrame _currentTimeFrame = null!;
         private ExchangeData _currentExchangeData = null!;
 
@@ -141,12 +141,18 @@ namespace BAnalyzer
         /// <summary>
         /// Sticks and price data struct.
         /// </summary>
-        private class ChartData(List<OHLC> sticks, BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp)
+        private class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
+            BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp)
         {
             /// <summary>
             /// Sticks.
             /// </summary>
             public List<OHLC> Sticks { get; } = sticks;
+
+            /// <summary>
+            /// Trade volume data for each stick.
+            /// </summary>
+            public List<double> TradeVolumeData { get; } = tradeVolumeData;
 
             /// <summary>
             /// Price.
@@ -180,7 +186,7 @@ namespace BAnalyzer
             public DateTime End => DateTime.UtcNow;
 
             /// <summary>
-            /// Discretization of measurements.
+            /// Discretization of measurements (in time).
             /// </summary>
             public KlineInterval Discretization { get; } = discretization;
 
@@ -230,10 +236,12 @@ namespace BAnalyzer
                 High = (double)x.HighPrice,
                 Low = (double)x.LowPrice,
                 TimeSpan = timeFrame.Discretization.ToTimeSpan(),
-                DateTime = x.OpenTime.ToLocalTime()
+                DateTime = x.OpenTime.Add(0.5 * timeFrame.Discretization.ToTimeSpan()).ToLocalTime()
             }).ToList();
 
-            return new ChartData(plotSticks, price, exchange.Stamp, timeFrame.Stamp);
+            var volumeData = sticks.Select(x => (double)x.QuoteVolume).ToList();
+
+            return new ChartData(plotSticks, volumeData, price, exchange.Stamp, timeFrame.Stamp);
         }
 
         /// <summary>
@@ -241,36 +249,98 @@ namespace BAnalyzer
         /// </summary>
         private void VisualizeSticksAndPrice(ChartData chartData)
         {
-            if (chartData == null! || _currentTimeFrame == null! ||
-                _currentExchangeData == null! ||
+            if (chartData == null || _currentTimeFrame == null ||
+                _currentExchangeData == null ||
                 chartData.ExchangeStamp != _currentExchangeData.Stamp ||
                 chartData.TimeFrameStamp != _currentTimeFrame.Stamp)
                 return;
 
-            Plot.Plot.Clear();
+            MainPlot.Plot.Clear();
+            VolPlot.Plot.Clear();
             var sticks = chartData.Sticks;
             if (sticks.Count > 0)
             {
-                var signal = Plot.Plot.Add.Candlestick(sticks);
-                signal.Axes.YAxis = Plot.Plot.Axes.Right;
-                Plot.Plot.Axes.DateTimeTicksBottom();
-                var startTimeOa = sticks.First().DateTime.ToOADate();
-                var endTimeOa = sticks.Last().DateTime.Add(sticks.Last().TimeSpan).ToOADate();
+                var signal = MainPlot.Plot.Add.Candlestick(sticks);
+                signal.Axes.YAxis = MainPlot.Plot.Axes.Right;
+                MainPlot.Plot.Axes.DateTimeTicksBottom();
+                
+                var stickSpan = sticks.First().TimeSpan;
+                var startTimeOa = sticks.First().DateTime.Add(-0.5 * stickSpan).ToOADate();
+                var endTimeOa = sticks.Last().DateTime.Add(0.5 * stickSpan).ToOADate();
 
-                Plot.Plot.Axes.SetLimitsX(startTimeOa, endTimeOa);
+                MainPlot.Plot.Axes.SetLimitsX(startTimeOa, endTimeOa);
+                MainPlot.Refresh();
+
+                var volBars = VolPlot.Plot.Add.Bars(sticks.Select(x => x.DateTime.ToOADate()).ToList(), chartData.TradeVolumeData);
+                volBars.Axes.YAxis = VolPlot.Plot.Axes.Right;
+
+                var barWidth = ((endTimeOa - startTimeOa) / volBars.Bars.Count()) * 0.8;
+
+                var barId = 0;
+                foreach (var bar in volBars.Bars)
+                {
+                    bar.Size = barWidth;
+                    var stick = sticks[barId++];
+                    bar.FillColor = stick.Open <= stick.Close
+                        ? Color.FromColor(System.Drawing.Color.DarkCyan)
+                        : Color.FromColor(System.Drawing.Color.Red);
+
+                    bar.BorderLineWidth = 0;
+                }
+
+                ScottPlot.TickGenerators.NumericAutomatic volumeTicksGenerator = new()
+                {
+                    LabelFormatter = VolumeTicksFormater
+                };
+
+                VolPlot.Plot.Axes.Right.TickGenerator = volumeTicksGenerator;
+
+                ScottPlot.TickGenerators.NumericAutomatic voidTicksGenerator = new()
+                {
+                    LabelFormatter = (c) => ""
+                };
+
+                VolPlot.Plot.Axes.Bottom.TickGenerator = voidTicksGenerator;
+                VolPlot.Plot.Axes.AutoScale();
+                VolPlot.Plot.Axes.SetLimitsX(startTimeOa, endTimeOa);
+                VolPlot.Refresh();
             }
 
             var priceData = chartData.Price;
-            if (priceData != null!)
+            if (priceData != null)
             {
                 Price = $"{priceData.Price.ToString(CultureInfo.InvariantCulture)} USDT";
                 PriceTime = priceData.Timestamp?.ToLocalTime().ToString(CultureInfo.InvariantCulture) ??
                             string.Empty;
             }
-
-            Plot.Refresh();
         }
 
+        /// <summary>
+        /// Ticks formater for the vertical axes of the volume chart.
+        /// </summary>
+        private static string VolumeTicksFormater(double position)
+        {
+            if (position < 1e3)
+                return ((int)position).ToString();
+
+            if (position < 1e6)
+                return $"{(int)(position / 1e3)}K";
+
+            if (position < 1e9)
+                return $"{(int)(position / 1e6)}M";
+
+            if (position < 1e12)
+                return $"{(int)(position / 1e9)}B";
+            
+            if (position < 1e15)
+                return $"{(int)(position / 1e12)}T";
+
+            return "$$$";
+        }
+
+        /// <summary>
+        /// Method to update chart asynchronously
+        /// </summary>
         private void UpdateChartInBackground()
         {
             Task.Run(() =>
@@ -280,11 +350,21 @@ namespace BAnalyzer
             });
         }
 
+        /// <summary>
+        /// Constructor.
+        /// </summary>
         public ExchangeChartControl()
         {
             InitializeComponent();
-            Plot.Interaction.Disable();
-            Plot.Plot.Axes.Left.SetTicks(Array.Empty<double>(), Array.Empty<string>()); ;
+            MainPlot.Interaction.Disable();
+            MainPlot.Plot.Axes.Left.SetTicks([], []);
+
+            VolPlot.Interaction.Disable();
+            VolPlot.Plot.Axes.Left.SetTicks([], []);
+            VolPlot.Plot.Axes.Bottom.SetTicks([], []);
+            
+            MainPlot.Plot.Layout.Fixed(new PixelPadding(20, 70, 40, 10));
+            VolPlot.Plot.Layout.Fixed(new PixelPadding(20, 70, 40, 10));
             AvailableTimeIntervals =
                 new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
                     Where(x => x != KlineInterval.OneSecond));
@@ -312,12 +392,12 @@ namespace BAnalyzer
 
         public event Action<ExchangeChartControl> Ready = null!;
 
-        public event PropertyChangedEventHandler? PropertyChanged;
+        public event PropertyChangedEventHandler PropertyChanged;
 
         /// <summary>
         /// Property changed handler.
         /// </summary>
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -325,7 +405,7 @@ namespace BAnalyzer
         /// <summary>
         /// Field setter.
         /// </summary>
-        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
         {
             if (EqualityComparer<T>.Default.Equals(field, value)) return false;
             field = value;
@@ -345,5 +425,16 @@ namespace BAnalyzer
             view.Filter = item => item.ToString()!.StartsWith(text, StringComparison.InvariantCultureIgnoreCase);
         }
 
+        /// <summary>
+        /// Disposes resources.
+        /// </summary>
+        public void Dispose()
+        {
+            _updateTimer?.Dispose();
+            _updateTimer = null;
+            
+            _client?.Dispose();
+            _client = null;
+        }
     }
 }

@@ -45,7 +45,7 @@ namespace BAnalyzer
         /// <summary>
         /// Property changed handler of all exchange controls.
         /// </summary>
-        private void Exchange_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        private void Exchange_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             ExchangeChartControl exchange;
             if (e.PropertyName == nameof(exchange.CurrentTimeInterval) && SyncIntervals)
@@ -57,12 +57,12 @@ namespace BAnalyzer
             }
         }
 
-        public event PropertyChangedEventHandler? PropertyChanged;
+        public event PropertyChangedEventHandler PropertyChanged;
         
         /// <summary>
         /// Property changed handler.
         /// </summary>
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -70,7 +70,7 @@ namespace BAnalyzer
         /// <summary>
         /// Field setter.
         /// </summary>
-        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
         {
             if (EqualityComparer<T>.Default.Equals(field, value)) return false;
             field = value;
@@ -180,6 +180,14 @@ namespace BAnalyzer
 
             Grid.SetColumn(exchangeWaiting, colIdMoving);
             Grid.SetRow(exchangeWaiting, rowIdMoving);
+        }
+
+        private void MainWindow_OnClosing(object sender, CancelEventArgs e)
+        {
+            foreach (var ec in _exchangeControls)
+                ec.Dispose();
+
+            _exchangeControls.Clear();
         }
     }
 }
