@@ -23,7 +23,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             xmlns:local="clr-namespace:BAnalyzer"
             mc:Ignorable="d"
             Title="MainWindow" Height="450" Width="800" Name="Ui">
-    <Grid DataContext= "{Binding ElementName = Ui}">
+    <Grid Name="MainGrid" DataContext= "{Binding ElementName = Ui}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
@@ -40,9 +40,5 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 </MenuItem>
             </Menu>
         </DockPanel>
-        <local:ExchangeChartControl Grid.Row="1" Grid.Column="0" x:Name="Exchange0" Ready="Exchange_OnReady"/>
-        <local:ExchangeChartControl Grid.Row="2" Grid.Column="0" x:Name="Exchange1" Ready="Exchange_OnReady"/>
-        <local:ExchangeChartControl Grid.Row="1" Grid.Column="1" x:Name="Exchange2" Ready="Exchange_OnReady"/>
-        <local:ExchangeChartControl Grid.Row="2" Grid.Column="1" x:Name="Exchange3" Ready="Exchange_OnReady"/>
     </Grid>
 </Window>

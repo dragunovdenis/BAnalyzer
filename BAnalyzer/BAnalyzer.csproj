@@ -10,11 +10,9 @@
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="ScottPlot.WPF" Version="5.0.35" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\BAnalyzerCore\BAnalyzerCore.csproj" />
   </ItemGroup>

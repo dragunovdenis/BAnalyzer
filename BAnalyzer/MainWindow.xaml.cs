@@ -18,6 +18,9 @@
 using Binance.Net.Enums;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace BAnalyzer
 {
@@ -33,7 +36,9 @@ namespace BAnalyzer
         {
             InitializeComponent();
 
-            foreach (var ec in GetExchangeControls())
+            _exchangeControls = SetUpExchangeControls();
+
+            foreach (var ec in _exchangeControls)
                 ec.PropertyChanged += Exchange_PropertyChanged;
         }
 
@@ -42,11 +47,12 @@ namespace BAnalyzer
         /// </summary>
         private void Exchange_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(Exchange0.CurrentTimeInterval) && SyncIntervals)
+            ExchangeChartControl exchange;
+            if (e.PropertyName == nameof(exchange.CurrentTimeInterval) && SyncIntervals)
             {
                 var newInterval = (sender as ExchangeChartControl)!.CurrentTimeInterval;
 
-                foreach (var ec in GetExchangeControls())
+                foreach (var ec in _exchangeControls)
                     ec.CurrentTimeInterval = newInterval;
             }
         }
@@ -72,37 +78,58 @@ namespace BAnalyzer
             return true;
         }
 
+        private readonly IReadOnlyList<string> _defaultExchangeStockNames =
+            new[] { "BTCUSDT", "ETHUSDT", "SOLUSDT", "RVNUSDT" };
+        
+        private readonly IList<ExchangeChartControl> _exchangeControls;
+        
         /// <summary>
-        /// Returns collection of all the exchange controls.
+        /// Sets up the exchange controls and returns them.
         /// </summary>
-        private IEnumerable<ExchangeChartControl> GetExchangeControls() =>
-            new[] { Exchange0, Exchange1, Exchange2, Exchange3 };
+        private IList<ExchangeChartControl> SetUpExchangeControls()
+        {
+            if (_defaultExchangeStockNames.Count != 4)
+                throw new InvalidOperationException("Unexpected number of stock names");
+            
+            var result = new List<ExchangeChartControl>();
+            
+            for (var rowId = 1; rowId < 3; rowId++)
+            for (var colId = 0; colId < 2; colId++)
+            {
+                var exchangeControl = new ExchangeChartControl()
+                {
+                    AllowDrop = true,
+                    SelectedSymbol = _defaultExchangeStockNames[result.Count],
+                };
+                
+                exchangeControl.Ready += Exchange_OnReady;
+                exchangeControl.MouseDown += Exchange_OnMouseDown;
+                exchangeControl.DragEnter += Exchange_OnDragEnter;
+
+                Grid.SetColumn(exchangeControl, colId);
+                Grid.SetRow(exchangeControl, rowId);
+                MainGrid.Children.Add(exchangeControl);
+                result.Add(exchangeControl);
+            }
+
+            return result;
+        }
 
         /// <summary>
         /// "Ready" event handler.
         /// </summary>
         private void Exchange_OnReady(ExchangeChartControl sender)
         {
-            if  (sender == Exchange0)
-                Exchange0.SelectedSymbol = "BTCUSDT";
-
-            if (sender == Exchange1)
-                Exchange1.SelectedSymbol = "ETHUSDT";
-
-            if (sender == Exchange2)
-                Exchange2.SelectedSymbol = "SOLUSDT";
-
-            if (sender == Exchange3)
-                Exchange3.SelectedSymbol = "RVNUSDT";
+            if  (sender != null! && _exchangeControls.Contains(sender))
+                sender.SelectedSymbol = _defaultExchangeStockNames[_exchangeControls.IndexOf(sender)];
         }
-
 
         /// <summary>
         /// Sets given interval descriptor to all the exchange controls.
         /// </summary>
         private void SynchronizeIntervals(KlineInterval interval)
         {
-            foreach (var ec in GetExchangeControls())
+            foreach (var ec in _exchangeControls)
                 ec.CurrentTimeInterval = interval;
         }
 
@@ -117,8 +144,42 @@ namespace BAnalyzer
             set
             {
                 if (SetField(ref _syncIntervals, value))
-                    SynchronizeIntervals(Exchange0.CurrentTimeInterval);
+                    SynchronizeIntervals(_exchangeControls.First().CurrentTimeInterval);
             }
+        }
+
+       
+        /// <summary>
+        /// Mouse down event handler.
+        /// </summary>
+        private void Exchange_OnMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is ExchangeChartControl exchange)
+                DragDrop.DoDragDrop(exchange, exchange, DragDropEffects.Move);
+        }
+
+        /// <summary>
+        /// Drop enter event handler.
+        /// </summary>
+        private void Exchange_OnDragEnter(object sender, DragEventArgs e)
+        {
+            var exchangeMoving = (ExchangeChartControl)e.Data.GetData(typeof(ExchangeChartControl))!;
+            
+            if (!(sender is ExchangeChartControl exchangeWaiting) || exchangeMoving == null! ||
+                exchangeWaiting == exchangeMoving)
+                return;
+
+            var colIdMoving = Grid.GetColumn(exchangeMoving);
+            var rowIdMoving = Grid.GetRow(exchangeMoving);
+
+            var colIdWaiting = Grid.GetColumn(exchangeWaiting);
+            var rowIdWaiting = Grid.GetRow(exchangeWaiting);
+
+            Grid.SetColumn(exchangeMoving, colIdWaiting);
+            Grid.SetRow(exchangeMoving, rowIdWaiting);
+
+            Grid.SetColumn(exchangeWaiting, colIdMoving);
+            Grid.SetRow(exchangeWaiting, rowIdMoving);
         }
     }
 }
