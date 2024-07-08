@@ -21,6 +21,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace BAnalyzer
 {
@@ -100,6 +101,8 @@ namespace BAnalyzer
                 {
                     AllowDrop = true,
                     SelectedSymbol = _defaultExchangeStockNames[result.Count],
+                    BorderBrush = Brushes.Black,
+                    BorderThickness = new Thickness(1, 1, colId == 1 ? 1 : 0, rowId == 2 ? 1 : 0),
                 };
                 
                 exchangeControl.Ready += Exchange_OnReady;
@@ -180,6 +183,9 @@ namespace BAnalyzer
 
             Grid.SetColumn(exchangeWaiting, colIdMoving);
             Grid.SetRow(exchangeWaiting, rowIdMoving);
+
+            (exchangeMoving.BorderThickness, exchangeWaiting.BorderThickness) =
+                (exchangeWaiting.BorderThickness, exchangeMoving.BorderThickness);
         }
 
         private void MainWindow_OnClosing(object sender, CancelEventArgs e)

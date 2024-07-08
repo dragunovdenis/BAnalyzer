@@ -23,9 +23,12 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using BAnalyzerCore;
+using ScottPlot.Plottables;
+using ScottPlot.WPF;
 
 namespace BAnalyzer
 {
@@ -97,9 +100,31 @@ namespace BAnalyzer
             get => _price;
             private set => SetField(ref _price, value);
         }
+        
+        private string _priceColor = "Black";
+
+        /// <summary>
+        /// Color of the price tag in use
+        /// </summary>
+        public string PriceColor
+        {
+            get => _priceColor;
+            private set => SetField(ref _priceColor, value);
+        }
 
         private string _priceTime = null!;
 
+        private string _infoTipString;
+
+        /// <summary>
+        /// Field bound to the info-popup.
+        /// </summary>
+        public string InfoTipString
+        {
+            get => _infoTipString;
+            private set => SetField(ref _infoTipString, value);
+        }
+        
         /// <summary>
         /// Timestamp of the current price.
         /// </summary>
@@ -139,6 +164,15 @@ namespace BAnalyzer
         }
 
         /// <summary>
+        /// Returns "true" if the given instance of a candle-stick is green,
+        /// i.e. its close price is above its open price.
+        /// </summary>
+        private static bool IsGreen(OHLC stick)
+        {
+            return stick.Close >= stick.Open;
+        }
+        
+        /// <summary>
         /// Sticks and price data struct.
         /// </summary>
         private class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
@@ -155,6 +189,11 @@ namespace BAnalyzer
             public List<double> TradeVolumeData { get; } = tradeVolumeData;
 
             /// <summary>
+            /// Array of stick times in OLEA format.
+            /// </summary>
+            private readonly double[] _times = sticks.Select(x => x.DateTime.ToOADate()).ToArray();
+
+            /// <summary>
             /// Price.
             /// </summary>
             public BinancePrice Price { get; } = price;
@@ -168,6 +207,106 @@ namespace BAnalyzer
             /// Time stamp of the time frame data the current instance was built from.
             /// </summary>
             public DateTime TimeFrameStamp { get; } = timeFrameStamp;
+
+            /// <summary>
+            /// Returns the time of the opening of the first candle-stick.
+            /// </summary>
+            public DateTime GetBeginTime()
+            {
+                if (Sticks == null || Sticks.Count == 0)
+                    throw new InvalidOperationException("Invalid collection of candle-sticks.");
+                
+                var stickSpan = Sticks.First().TimeSpan;
+                return Sticks.First().DateTime.Add(-0.5 * stickSpan);
+            }
+
+            /// <summary>
+            /// Returns the time of the closing of the last candle-stick.
+            /// </summary>
+            public DateTime GetEndTime()
+            {
+                if (Sticks == null || Sticks.Count == 0)
+                    throw new InvalidOperationException("Invalid collection of candle-sticks.");
+
+                var stickSpan = Sticks.First().TimeSpan;
+                return Sticks.Last().DateTime.Add(0.5 * stickSpan);
+            }
+
+            /// <summary>
+            /// Returns "true" if the last candle-stick in the corresponding collection is green.
+            /// </summary>
+            /// <returns></returns>
+            public bool IsPriceUp()
+            {
+                if (Sticks == null || Sticks.Count == 0)
+                    throw new InvalidOperationException("Invalid collection of candle-sticks.");
+
+                return IsGreen(Sticks.Last());
+            }
+            
+            /// <summary>
+            /// Returns index of a stick that corresponds to the given time-point
+            /// in OLE Automation date equivalent format or "-1" if the given time
+            /// point falls outside the time-frame of the chart.
+            /// </summary>
+            private int GetStickId(double timeOa)
+            {
+                if (GetBeginTime().ToOADate() > timeOa ||
+                    GetEndTime().ToOADate() < timeOa)
+                    return -1;
+                
+                var id = Array.BinarySearch(_times, timeOa);
+                
+                if (id >= 0)
+                    return id;
+
+                var idInverted = ~id;
+
+                if (idInverted == 0)
+                    return 0;
+
+                if (idInverted == _times.Length)
+                    return _times.Length - 1;
+
+                return _times[idInverted] - timeOa < timeOa - _times[idInverted - 1] ? idInverted : idInverted - 1;
+            }
+
+            /// <summary>
+            /// Returns index of a stick that corresponds to the given time-point
+            /// in OLE Automation date equivalent format and the given price or "-1"
+            /// if such a stick can't be found.
+            /// </summary>
+            public int GetStickId(double timeOa, double price)
+            {
+                var preliminaryId = GetStickId(timeOa);
+
+                if (preliminaryId < 0)
+                    return -1;
+                
+                var stick = Sticks[preliminaryId];
+
+                return (stick.Low <= price && stick.High >= price) ? preliminaryId : -1;
+            }
+
+            /// <summary>
+            /// Returns index of trade volume bar (which coincides with the index of the corresponding stick)
+            /// that corresponds to the given time-point in OLE Automation date equivalent format and the given price or "-1"
+            /// if such a stick can't be found.
+            /// </summary>
+            public int GetVolumeBarId(double timeOa, double price)
+            {
+                if (price <= 0)
+                    return -1;
+                
+                var preliminaryId = GetStickId(timeOa);
+
+                if (preliminaryId < 0)
+                    return -1;
+
+                var volume = TradeVolumeData[preliminaryId];
+
+                return volume >= price ? preliminaryId : -1;
+            }
         }
 
         /// <summary>
@@ -217,17 +356,17 @@ namespace BAnalyzer
         /// </summary>
         private ChartData RetrieveSticksAndPrice()
         {
-            var (timeFrame, exchange) =
-                Dispatcher.Invoke(() => (_currentTimeFrame, _currentExchangeData));
+            var (timeFrame, exchange, client) =
+                Dispatcher.Invoke(() => (_currentTimeFrame, _currentExchangeData, _client));
 
             if (timeFrame == null! || timeFrame.Discretization == default ||
-                exchange == null! || exchange.ExchangeDescriptor is null or "" || _client == null!)
+                exchange == null! || exchange.ExchangeDescriptor is null or "" || client == null!)
                 return null!;
 
-            var sticks = _client.GetCandleSticks(timeFrame.Begin, timeFrame.End,
+            var sticks = client.GetCandleSticks(timeFrame.Begin, timeFrame.End,
                 timeFrame.Discretization, exchange.ExchangeDescriptor).Result;
 
-            var price = _client.GetCurrentPrice(exchange.ExchangeDescriptor).Result;
+            var price = client.GetCurrentPrice(exchange.ExchangeDescriptor).Result;
 
             var plotSticks = sticks.Select(x => new OHLC()
             {
@@ -245,6 +384,86 @@ namespace BAnalyzer
         }
 
         /// <summary>
+        /// Builds candle-sticks chart based on the given data.
+        /// </summary>
+        private CandlestickPlot BuildCandleSticks(ChartData chartData)
+        {
+            MainPlot.Plot.Clear();
+
+            if (chartData.Sticks.Count == 0)
+            {
+                MainPlot.Refresh();
+                return null;
+            }
+
+            var result = MainPlot.Plot.Add.Candlestick(chartData.Sticks);
+            result.Axes.YAxis = MainPlot.Plot.Axes.Right;
+            MainPlot.Plot.Axes.DateTimeTicksBottom();
+
+            MainPlot.Plot.Axes.SetLimitsX(chartData.GetBeginTime().ToOADate(), chartData.GetEndTime().ToOADate());
+            MainPlot.Refresh();
+
+            return result;
+        }
+
+        /// <summary>
+        /// Builds volume bar chart based on the given data.
+        /// </summary>
+        private BarPlot BuildVolumeChart(ChartData chartData)
+        {
+            VolPlot.Plot.Clear();
+
+            if (chartData.Sticks.Count == 0)
+            {
+                VolPlot.Refresh();
+                return null;
+            }
+
+            var sticks = chartData.Sticks;
+            var result = VolPlot.Plot.Add.Bars(sticks.Select(x => x.DateTime.ToOADate()).ToList(), chartData.TradeVolumeData);
+            result.Axes.YAxis = VolPlot.Plot.Axes.Right;
+
+            var startTimeOa = chartData.GetBeginTime().ToOADate();
+            var endTimeOa = chartData.GetEndTime().ToOADate();
+            var barWidth = ((endTimeOa - startTimeOa) / result.Bars.Count()) * 0.8;
+
+            var barId = 0;
+            foreach (var bar in result.Bars)
+            {
+                bar.Size = barWidth;
+                var stick = sticks[barId++];
+                bar.FillColor = IsGreen(stick)
+                    ? Color.FromColor(System.Drawing.Color.DarkCyan)
+                    : Color.FromColor(System.Drawing.Color.Red);
+
+                bar.BorderLineWidth = 0;
+            }
+
+            ScottPlot.TickGenerators.NumericAutomatic volumeTicksGenerator = new()
+            {
+                LabelFormatter = VolumeFormater
+            };
+
+            VolPlot.Plot.Axes.Right.TickGenerator = volumeTicksGenerator;
+
+            ScottPlot.TickGenerators.NumericAutomatic voidTicksGenerator = new()
+            {
+                LabelFormatter = (c) => ""
+            };
+
+            VolPlot.Plot.Axes.Bottom.TickGenerator = voidTicksGenerator;
+            VolPlot.Plot.Axes.AutoScale();
+            VolPlot.Plot.Axes.SetLimitsX(startTimeOa, endTimeOa);
+            VolPlot.Refresh();
+
+            return result;
+        }
+
+        private CandlestickPlot _candlestickPlot;
+        private BarPlot _volumePlot;
+        private ChartData _chartData;
+
+        /// <summary>
         /// Visualizes the given sticks-and-price data. Must be called in UI thread.
         /// </summary>
         private void VisualizeSticksAndPrice(ChartData chartData)
@@ -255,70 +474,24 @@ namespace BAnalyzer
                 chartData.TimeFrameStamp != _currentTimeFrame.Stamp)
                 return;
 
-            MainPlot.Plot.Clear();
-            VolPlot.Plot.Clear();
-            var sticks = chartData.Sticks;
-            if (sticks.Count > 0)
-            {
-                var signal = MainPlot.Plot.Add.Candlestick(sticks);
-                signal.Axes.YAxis = MainPlot.Plot.Axes.Right;
-                MainPlot.Plot.Axes.DateTimeTicksBottom();
-                
-                var stickSpan = sticks.First().TimeSpan;
-                var startTimeOa = sticks.First().DateTime.Add(-0.5 * stickSpan).ToOADate();
-                var endTimeOa = sticks.Last().DateTime.Add(0.5 * stickSpan).ToOADate();
-
-                MainPlot.Plot.Axes.SetLimitsX(startTimeOa, endTimeOa);
-                MainPlot.Refresh();
-
-                var volBars = VolPlot.Plot.Add.Bars(sticks.Select(x => x.DateTime.ToOADate()).ToList(), chartData.TradeVolumeData);
-                volBars.Axes.YAxis = VolPlot.Plot.Axes.Right;
-
-                var barWidth = ((endTimeOa - startTimeOa) / volBars.Bars.Count()) * 0.8;
-
-                var barId = 0;
-                foreach (var bar in volBars.Bars)
-                {
-                    bar.Size = barWidth;
-                    var stick = sticks[barId++];
-                    bar.FillColor = stick.Open <= stick.Close
-                        ? Color.FromColor(System.Drawing.Color.DarkCyan)
-                        : Color.FromColor(System.Drawing.Color.Red);
-
-                    bar.BorderLineWidth = 0;
-                }
-
-                ScottPlot.TickGenerators.NumericAutomatic volumeTicksGenerator = new()
-                {
-                    LabelFormatter = VolumeTicksFormater
-                };
-
-                VolPlot.Plot.Axes.Right.TickGenerator = volumeTicksGenerator;
-
-                ScottPlot.TickGenerators.NumericAutomatic voidTicksGenerator = new()
-                {
-                    LabelFormatter = (c) => ""
-                };
-
-                VolPlot.Plot.Axes.Bottom.TickGenerator = voidTicksGenerator;
-                VolPlot.Plot.Axes.AutoScale();
-                VolPlot.Plot.Axes.SetLimitsX(startTimeOa, endTimeOa);
-                VolPlot.Refresh();
-            }
+            _chartData = chartData;
+            _candlestickPlot = BuildCandleSticks(chartData);
+            _volumePlot = BuildVolumeChart(chartData);
 
             var priceData = chartData.Price;
             if (priceData != null)
             {
-                Price = $"{priceData.Price.ToString(CultureInfo.InvariantCulture)} USDT";
+                Price = $"{priceData.Price:0.#####}";
+                PriceColor = chartData.IsPriceUp() ? "Green" : "Red";
                 PriceTime = priceData.Timestamp?.ToLocalTime().ToString(CultureInfo.InvariantCulture) ??
-                            string.Empty;
+                            DateTime.Now.ToString(CultureInfo.InvariantCulture);
             }
         }
 
         /// <summary>
         /// Ticks formater for the vertical axes of the volume chart.
         /// </summary>
-        private static string VolumeTicksFormater(double position)
+        private static string VolumeFormater(double position)
         {
             if (position < 1e3)
                 return ((int)position).ToString();
@@ -356,21 +529,95 @@ namespace BAnalyzer
         public ExchangeChartControl()
         {
             InitializeComponent();
+
+            InitializePlots();
+
+            AvailableTimeIntervals =
+                new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
+                    Where(x => x != KlineInterval.OneSecond));
+            
+            Connect();
+            _updateTimer = new Timer(x => UpdateChartInBackground(),
+                new AutoResetEvent(false), 1000, 1000);
+
+            MainPlot.MouseMove += MainPlot_MouseMove;
+
+            VolPlot.MouseMove += VolPlot_MouseMove;
+        }
+
+        /// <summary>
+        /// Initializes plot controls.
+        /// </summary>
+        private void InitializePlots()
+        {
             MainPlot.Interaction.Disable();
             MainPlot.Plot.Axes.Left.SetTicks([], []);
 
             VolPlot.Interaction.Disable();
             VolPlot.Plot.Axes.Left.SetTicks([], []);
             VolPlot.Plot.Axes.Bottom.SetTicks([], []);
-            
-            MainPlot.Plot.Layout.Fixed(new PixelPadding(20, 70, 40, 10));
-            VolPlot.Plot.Layout.Fixed(new PixelPadding(20, 70, 40, 10));
-            AvailableTimeIntervals =
-                new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
-                    Where(x => x != KlineInterval.OneSecond));
-            Connect();
-            _updateTimer = new Timer(x => UpdateChartInBackground(),
-                new AutoResetEvent(false), 1000, 1000);
+
+            var padding = new PixelPadding(40, 70, 40, 10);
+            MainPlot.Plot.Layout.Fixed(padding);
+            VolPlot.Plot.Layout.Fixed(padding);
+        }
+
+        /// <summary>
+        /// Mouse-move event handler for the main plot.
+        /// </summary>
+        private void MainPlot_MouseMove(object sender, MouseEventArgs e)
+        {
+            DisplayTipInfo(InfoTip, MainPlot, _candlestickPlot, _chartData,
+                (t, p) => _chartData.GetStickId(t, p), e, showBelowPointer: true);
+        }
+
+        /// <summary>
+        /// Mouse-move event handle for the volume plot.
+        /// </summary>
+        private void VolPlot_MouseMove(object sender, MouseEventArgs e)
+        {
+            DisplayTipInfo(InfoTip, VolPlot, _volumePlot, _chartData,
+                (t, p) => _chartData.GetVolumeBarId(t, p),  e, showBelowPointer: false);
+        }
+
+        /// <summary>
+        /// Visualizes tip information of the corresponding popup control.
+        /// </summary>
+        private void DisplayTipInfo(Popup popup, WpfPlot plot, IPlottable chart, ChartData data,
+            Func<double, double, int> stickIdExtractor, MouseEventArgs e, bool showBelowPointer)
+        {
+            if (chart == null || data == null)
+            {
+                popup.IsOpen = false;
+                return;
+            }
+
+            var pixel = plot.GetPlotPixelPosition(e);
+            var dataPt = plot.Plot.GetCoordinates(pixel, xAxis: chart.Axes.XAxis, yAxis: chart.Axes.YAxis);
+            var stickId = stickIdExtractor(dataPt.X, dataPt.Y);
+
+            if (stickId < 0)
+            {
+                popup.IsOpen = false;
+                return;
+            }
+           
+            var stick = data.Sticks[stickId];
+            var volume = data.TradeVolumeData[stickId];
+
+            InfoTipString = $"{stick.DateTime.ToShortDateString()}/{stick.DateTime.ToShortTimeString()}\n" +
+                           $"O: {stick.Open:0.#####} USDT\n" +
+                           $"C: {stick.Close:0.#####} USDT\n" +
+                           $"L: {stick.Low:0.#####} USDT\n" +
+                           $"H: {stick.High:0.#####} USDT\n" +
+                           $"V: {volume:0.##} USDT";
+
+            var position = e.GetPosition(plot);
+            popup.PlacementTarget = plot;
+            popup.HorizontalOffset = position.X + 20;
+            popup.VerticalOffset = position.Y + (showBelowPointer ? 20 : -100);
+
+            if (!popup.IsOpen) popup.IsOpen = true;
         }
 
         /// <summary>

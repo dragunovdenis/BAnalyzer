@@ -42,7 +42,7 @@ namespace BAnalyzerCore
         /// </summary>
         public async Task<IList<string>> GetSymbols()
         {
-            var exchangeInfo = await _client.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync();
+            var exchangeInfo = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync();
             if (!exchangeInfo.Success)
                 throw new Exception("Failed to get exchange info");
 
@@ -54,7 +54,7 @@ namespace BAnalyzerCore
         /// </summary>
         public async Task<IList<IBinanceKline>> GetCandleSticks(DateTime startTime, DateTime endTime, KlineInterval granularity, string symbol)
         {
-            var klines = await _client.UsdFuturesApi.ExchangeData.
+            var klines = await _client.SpotApi.ExchangeData.
                 GetKlinesAsync(symbol, granularity, startTime: startTime, endTime: endTime);
             if (!klines.Success)
                 throw new Exception("Failed to get exchange info");
@@ -71,7 +71,7 @@ namespace BAnalyzerCore
             if (symbol is null or "")
                 return null;
 
-            var price = await _client.UsdFuturesApi.ExchangeData.GetPriceAsync(symbol);
+            var price = await _client.SpotApi.ExchangeData.GetPriceAsync(symbol);
 
             if (price.Success)
                 return price.Data;
