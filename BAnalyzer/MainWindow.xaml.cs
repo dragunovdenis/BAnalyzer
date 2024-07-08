@@ -48,10 +48,10 @@ namespace BAnalyzer
         /// </summary>
         private void Exchange_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            ExchangeChartControl exchange;
+            CryptoExchangeControl exchange;
             if (e.PropertyName == nameof(exchange.CurrentTimeInterval) && SyncIntervals)
             {
-                var newInterval = (sender as ExchangeChartControl)!.CurrentTimeInterval;
+                var newInterval = (sender as CryptoExchangeControl)!.CurrentTimeInterval;
 
                 foreach (var ec in _exchangeControls)
                     ec.CurrentTimeInterval = newInterval;
@@ -82,22 +82,22 @@ namespace BAnalyzer
         private readonly IReadOnlyList<string> _defaultExchangeStockNames =
             new[] { "BTCUSDT", "ETHUSDT", "SOLUSDT", "RVNUSDT" };
         
-        private readonly IList<ExchangeChartControl> _exchangeControls;
+        private readonly IList<CryptoExchangeControl> _exchangeControls;
         
         /// <summary>
         /// Sets up the exchange controls and returns them.
         /// </summary>
-        private IList<ExchangeChartControl> SetUpExchangeControls()
+        private IList<CryptoExchangeControl> SetUpExchangeControls()
         {
             if (_defaultExchangeStockNames.Count != 4)
                 throw new InvalidOperationException("Unexpected number of stock names");
             
-            var result = new List<ExchangeChartControl>();
+            var result = new List<CryptoExchangeControl>();
             
             for (var rowId = 1; rowId < 3; rowId++)
             for (var colId = 0; colId < 2; colId++)
             {
-                var exchangeControl = new ExchangeChartControl()
+                var exchangeControl = new CryptoExchangeControl()
                 {
                     AllowDrop = true,
                     SelectedSymbol = _defaultExchangeStockNames[result.Count],
@@ -121,10 +121,13 @@ namespace BAnalyzer
         /// <summary>
         /// "Ready" event handler.
         /// </summary>
-        private void Exchange_OnReady(ExchangeChartControl sender)
+        private void Exchange_OnReady(CryptoExchangeControl sender)
         {
-            if  (sender != null! && _exchangeControls.Contains(sender))
+            if (sender != null! && _exchangeControls.Contains(sender))
+            {
                 sender.SelectedSymbol = _defaultExchangeStockNames[_exchangeControls.IndexOf(sender)];
+                sender.CurrentTimeInterval = KlineInterval.FifteenMinutes;
+            }
         }
 
         /// <summary>
@@ -157,7 +160,7 @@ namespace BAnalyzer
         /// </summary>
         private void Exchange_OnMouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is ExchangeChartControl exchange)
+            if (sender is CryptoExchangeControl exchange)
                 DragDrop.DoDragDrop(exchange, exchange, DragDropEffects.Move);
         }
 
@@ -166,9 +169,9 @@ namespace BAnalyzer
         /// </summary>
         private void Exchange_OnDragEnter(object sender, DragEventArgs e)
         {
-            var exchangeMoving = (ExchangeChartControl)e.Data.GetData(typeof(ExchangeChartControl))!;
+            var exchangeMoving = (CryptoExchangeControl)e.Data.GetData(typeof(CryptoExchangeControl));
             
-            if (!(sender is ExchangeChartControl exchangeWaiting) || exchangeMoving == null! ||
+            if (!(sender is CryptoExchangeControl exchangeWaiting) || exchangeMoving == null ||
                 exchangeWaiting == exchangeMoving)
                 return;
 
@@ -188,6 +191,9 @@ namespace BAnalyzer
                 (exchangeWaiting.BorderThickness, exchangeMoving.BorderThickness);
         }
 
+        /// <summary>
+        /// Closing event handler.
+        /// </summary>
         private void MainWindow_OnClosing(object sender, CancelEventArgs e)
         {
             foreach (var ec in _exchangeControls)

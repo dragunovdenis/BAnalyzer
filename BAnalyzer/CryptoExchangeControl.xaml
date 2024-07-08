@@ -15,27 +15,41 @@ HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTIO
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
 
-<UserControl x:Class="BAnalyzer.ExchangeChartControl"
+<UserControl x:Class="BAnalyzer.CryptoExchangeControl"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                 xmlns:wpf="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+                 xmlns:bAnalyzer="clr-namespace:BAnalyzer"
                  mc:Ignorable="d" 
                  d:DesignHeight="450" d:DesignWidth="800" Name="Ui">
     <Grid DataContext= "{Binding ElementName = Ui}">
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="4*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <wpf:WpfPlot Grid.Column="0" Grid.Row="0" x:Name="MainPlot"/>
-        <wpf:WpfPlot Grid.Column="0" Grid.Row="1" x:Name="VolPlot"/>
-        <Popup Grid.Column="0" Grid.Row="2" Name="InfoTip" AllowsTransparency="True" Placement="Relative">
-            <TextBlock Background="LightGreen" Text="{Binding InfoTipString, Mode=OneWay}"/>
-        </Popup>
+        <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal">
+            <ComboBox ItemsSource= "{Binding Symbols, UpdateSourceTrigger=PropertyChanged}"
+                      SelectedIndex="0" SelectedItem="{Binding SelectedSymbol}" IsEditable="True"
+                      Margin="30, 5, 5, 5" Width="100" PreviewTextInput="UIElement_OnPreviewTextInput"/>
+            <ComboBox ItemsSource= "{Binding AvailableTimeIntervals, UpdateSourceTrigger=PropertyChanged}"
+                      SelectedIndex="0" SelectedItem="{Binding CurrentTimeInterval}" Margin="5" Width="100"/>
+            <TextBlock Margin="5" Width="250">
+                <TextBlock.Inlines>
+                    <Run FontWeight="Bold" FontSize="16" Text="Spot Price: "/>
+                    <Run FontWeight="Bold" FontSize="16"
+                         Foreground="{Binding PriceColor, Mode=OneWay}"
+                         Text="{Binding Price, Mode=OneWay}"/>
+                    <Run FontWeight="Bold" FontSize="16" Text="USDT"/>
+                </TextBlock.Inlines>
+            </TextBlock>
+        </StackPanel>
+        <bAnalyzer:ExchangeChartControl Grid.Column="1" Grid.Row="1" x:Name ="Chart"/> 
     </Grid>
 </UserControl>
