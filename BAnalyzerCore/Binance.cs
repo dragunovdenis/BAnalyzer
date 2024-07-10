@@ -20,63 +20,68 @@ using Binance.Net.Interfaces;
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Spot;
 
-namespace BAnalyzerCore
+namespace BAnalyzerCore;
+
+/// <summary>
+/// Wrapper of the Binance client.
+/// </summary>
+public class Binance : IDisposable
 {
+    private readonly BinanceRestClient _client = new();
+
     /// <summary>
-    /// Wrapper of the Binance client.
+    /// Constructor.
     /// </summary>
-    public class Binance : IDisposable
+    public void Dispose()
     {
-        private readonly BinanceRestClient _client = new();
+        _client.Dispose();
+    }
 
-        /// <summary>
-        /// Constructor.
-        /// </summary>
-        public void Dispose()
-        {
-            _client.Dispose();
-        }
+    /// <summary>
+    /// Returns all the available coin pairs (in form of strings, called symbols)
+    /// </summary>
+    public async Task<IList<string>> GetSymbols()
+    {
+        var exchangeInfo = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync();
+        if (!exchangeInfo.Success)
+            throw new Exception("Failed to get exchange info");
 
-        /// <summary>
-        /// Returns all the available coin pairs (in form of strings, called symbols)
-        /// </summary>
-        public async Task<IList<string>> GetSymbols()
-        {
-            var exchangeInfo = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync();
-            if (!exchangeInfo.Success)
-                throw new Exception("Failed to get exchange info");
+        return exchangeInfo.Data.Symbols.Select(x => x.Name).ToArray();
+    }
 
-            return exchangeInfo.Data.Symbols.Select(x => x.Name).ToArray();
-        }
-
-        /// <summary>
-        /// Gets candle-stick data
-        /// </summary>
-        public async Task<IList<IBinanceKline>> GetCandleSticks(DateTime startTime, DateTime endTime, KlineInterval granularity, string symbol)
-        {
-            var klines = await _client.SpotApi.ExchangeData.
-                GetKlinesAsync(symbol, granularity, startTime: startTime, endTime: endTime);
-            if (!klines.Success)
-                throw new Exception("Failed to get exchange info");
+    /// <summary>
+    /// Gets candle-stick data
+    /// </summary>
+    public async Task<IList<IBinanceKline>> GetCandleSticks(DateTime startTime, DateTime endTime, KlineInterval granularity, string symbol)
+    {
+        var klines = await _client.SpotApi.ExchangeData.
+            GetUiKlinesAsync(symbol, granularity, startTime: startTime, endTime: endTime);
+        if (!klines.Success)
+            throw new Exception("Failed to get exchange info");
 
 
-            return klines.Data.ToArray();
-        }
+        return klines.Data.ToArray();
+    }
 
-        /// <summary>
-        /// Returns current price for the given symbol.
-        /// </summary>
-        public async Task<BinancePrice> GetCurrentPrice(string symbol)
-        {
-            if (symbol is null or "")
-                return null;
+    /// <summary>
+    /// Returns an order book for the given exchange symbol.
+    /// </summary>
+    public async Task<BinanceOrderBook> GetOrders(string symbol)
+    {
+        var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(symbol);
+        return result.Data;
+    }
 
-            var price = await _client.SpotApi.ExchangeData.GetPriceAsync(symbol);
+    /// <summary>
+    /// Returns current price for the given symbol.
+    /// </summary>
+    public async Task<BinancePrice> GetCurrentPrice(string symbol)
+    {
+        if (symbol is null or "")
+            return null;
 
-            if (price.Success)
-                return price.Data;
+        var price = await _client.SpotApi.ExchangeData.GetPriceAsync(symbol);
 
-            return null!;
-        }
+        return price.Success ? price.Data : null!;
     }
 }

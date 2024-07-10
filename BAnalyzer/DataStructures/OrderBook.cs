@@ -15,20 +15,22 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using Binance.Net.Enums;
+using Binance.Net.Objects.Models.Spot;
 
-namespace BAnalyzerCore;
+namespace BAnalyzer.DataStructures;
 
 /// <summary>
-/// Extension methods for the KlineIntervalType
+/// Book of orders.
 /// </summary>
-public static class KlineIntervalExtensions
+public class OrderBook(BinanceOrderBook book, DateTime stamp)
 {
     /// <summary>
-    /// Converts interval token into the corresponding time span.
+    /// The book.
     /// </summary>
-    public static TimeSpan ToTimeSpan(this KlineInterval interval)
-    {
-        return TimeSpan.FromSeconds((int)interval);
-    }
+    public BinanceOrderBook Book { get; } = book;
+
+    /// <summary>
+    /// Time stamp.
+    /// </summary>
+    public DateTime Stamp { get; } = stamp;
 }

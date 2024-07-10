@@ -17,20 +17,19 @@
 
 using ScottPlot;
 
-namespace BAnalyzer.DataStructures
+namespace BAnalyzer.DataStructures;
+
+/// <summary>
+/// Extension methods for OHLC class
+/// </summary>
+public static class OhlcExtensions
 {
     /// <summary>
-    /// Extension methods for OHLC class
+    /// Returns "true" if the given instance of a candle-stick is green,
+    /// i.e. its close price is above its open price.
     /// </summary>
-    public static class OhlcExtensions
+    public static bool IsGreen(this OHLC data)
     {
-        /// <summary>
-        /// Returns "true" if the given instance of a candle-stick is green,
-        /// i.e. its close price is above its open price.
-        /// </summary>
-        public static bool IsGreen(this OHLC data)
-        {
-            return data.Close >= data.Open;
-        }
+        return data.Close >= data.Open;
     }
 }

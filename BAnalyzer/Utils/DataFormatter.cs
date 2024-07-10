@@ -15,20 +15,30 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using Binance.Net.Enums;
+namespace BAnalyzer.Utils;
 
-namespace BAnalyzerCore;
-
-/// <summary>
-/// Extension methods for the KlineIntervalType
-/// </summary>
-public static class KlineIntervalExtensions
+public static class DataFormatter
 {
     /// <summary>
-    /// Converts interval token into the corresponding time span.
+    /// Formats given number to an approximate compact from.
     /// </summary>
-    public static TimeSpan ToTimeSpan(this KlineInterval interval)
+    public static string FormatApproxCompact(double position)
     {
-        return TimeSpan.FromSeconds((int)interval);
+        if (Math.Abs(position) < 1e3)
+            return $"{position:0.#}";
+
+        if (Math.Abs(position) < 1e6)
+            return $"{position / 1e3:0.#}K";
+
+        if (Math.Abs(position) < 1e9)
+            return $"{position / 1e6:0.#}M";
+
+        if (Math.Abs(position) < 1e12)
+            return $"{position / 1e9:0.#}B";
+
+        if (Math.Abs(position) < 1e15)
+            return $"{position / 1e12:0.#}T";
+
+        throw new ArgumentException("Unexpected range of the input argument.");
     }
 }
