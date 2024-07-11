@@ -32,15 +32,12 @@ public class Binance : IDisposable
     /// <summary>
     /// Constructor.
     /// </summary>
-    public void Dispose()
-    {
-        _client.Dispose();
-    }
+    public void Dispose() => _client.Dispose();
 
     /// <summary>
     /// Returns all the available coin pairs (in form of strings, called symbols)
     /// </summary>
-    public async Task<IList<string>> GetSymbols()
+    public async Task<IList<string>> GetSymbolsAsync()
     {
         var exchangeInfo = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync();
         if (!exchangeInfo.Success)
@@ -50,15 +47,19 @@ public class Binance : IDisposable
     }
 
     /// <summary>
+    /// Returns all the available coin pairs (in form of strings, called symbols)
+    /// </summary>
+    public IList<string> GetSymbols() => Task.Run(async () => await GetSymbolsAsync()).Result;
+
+    /// <summary>
     /// Gets candle-stick data
     /// </summary>
-    public async Task<IList<IBinanceKline>> GetCandleSticks(DateTime startTime, DateTime endTime, KlineInterval granularity, string symbol)
+    public async Task<IList<IBinanceKline>> GetCandleSticksAsync(DateTime startTime, DateTime endTime, KlineInterval granularity, string symbol)
     {
         var klines = await _client.SpotApi.ExchangeData.
             GetUiKlinesAsync(symbol, granularity, startTime: startTime, endTime: endTime);
         if (!klines.Success)
             throw new Exception("Failed to get exchange info");
-
 
         return klines.Data.ToArray();
     }

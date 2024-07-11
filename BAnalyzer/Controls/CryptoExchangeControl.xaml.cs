@@ -32,7 +32,7 @@ namespace BAnalyzer.Controls;
 /// </summary>
 public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 {
-    private BAnalyzerCore.Binance _client = null!;
+    private readonly BAnalyzerCore.Binance _client = null!;
 
     private ObservableCollection<string> _symbols = null!;
 
@@ -62,7 +62,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     public ObservableCollection<string> Symbols
     {
         get => _symbols;
-        private set => SetField(ref _symbols, value);
+        private init => SetField(ref _symbols, value);
     }
 
     private string _selectedSymbol = null!;
@@ -180,7 +180,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Retrieves the sticks-and-price data for the given time interval.
     /// </summary>
-    private ChartData RetrieveSticksAndPrice()
+    private async Task<ChartData> RetrieveSticksAndPrice()
     {
         var (timeFrame, exchange, client) =
             Dispatcher.Invoke(() => (_currentTimeFrame, _currentExchangeData, _client));
@@ -189,9 +189,9 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             exchange == null || exchange.ExchangeDescriptor is null or "" || client == null)
             return null;
 
-        var sticks = client.GetCandleSticks(timeFrame.Begin, timeFrame.End,
-            timeFrame.Discretization, exchange.ExchangeDescriptor).Result;
-        var price = client.GetCurrentPrice(exchange.ExchangeDescriptor).Result;
+        var sticks = await client.GetCandleSticksAsync(timeFrame.Begin, timeFrame.End,
+            timeFrame.Discretization, exchange.ExchangeDescriptor);
+        var price = await client.GetCurrentPrice(exchange.ExchangeDescriptor);
 
         return new ChartData(sticks, price, exchange.Stamp, timeFrame.Stamp);
     }
@@ -199,13 +199,13 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Retrieves order data for the current symbol.
     /// </summary>
-    private OrderBook RetrieveOrderBook()
+    private async Task<OrderBook> RetrieveOrderBook()
     {
         var (exchange, client) = Dispatcher.Invoke(() => (_currentExchangeData, _client));
             
         if (exchange == null || exchange.ExchangeDescriptor is null or "" || client == null) return null;
             
-        return new OrderBook(_client.GetOrders(exchange.ExchangeDescriptor).Result, exchange.Stamp);
+        return new OrderBook(await _client.GetOrders(exchange.ExchangeDescriptor), exchange.Stamp);
     }
 
     /// <summary>
@@ -257,11 +257,11 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private void UpdateChartInBackground()
     {
-        Task.Run(() =>
+        Task.Run(async () =>
         {
-            var sticksAndPrice = RetrieveSticksAndPrice();
-            var orderBook = RetrieveOrderBook();
-            Dispatcher.BeginInvoke(() =>
+            var sticksAndPrice = await RetrieveSticksAndPrice();
+            var orderBook = await RetrieveOrderBook();
+            Dispatcher.Invoke(() =>
             {
                 VisualizeSticksAndPrice(sticksAndPrice);
                 VisualizeOrders(orderBook);
@@ -272,7 +272,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Constructor.
     /// </summary>
-    public CryptoExchangeControl()
+    public CryptoExchangeControl(BAnalyzerCore.Binance client, IList<string> exchangeSymbols)
     {
         InitializeComponent();
 
@@ -280,30 +280,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
                 Where(x => x != KlineInterval.OneSecond));
             
-        Connect();
+        _client = client;
+        Symbols = new ObservableCollection<string>(exchangeSymbols);
         _updateTimer = new Timer(x => UpdateChartInBackground(),
             new AutoResetEvent(false), 1000, 1000);
     }
-
-    /// <summary>
-    /// "Connects" to Binance server.
-    /// </summary>
-    private void Connect()
-    {
-        Task.Run(() =>
-        {
-            var binance = new BAnalyzerCore.Binance();
-            return binance;
-        }).ContinueWith(async (t) =>
-        {
-            _client = t.Result;
-            Symbols = new ObservableCollection<string>((await _client.GetSymbols()).Where(x => x.EndsWith("USDT")));
-            Ready?.Invoke(this);
-        }, TaskScheduler.FromCurrentSynchronizationContext());
-    }
-
-    public event Action<CryptoExchangeControl> Ready = null!;
-
+    
     public event PropertyChangedEventHandler PropertyChanged;
 
     /// <summary>
@@ -344,8 +326,5 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     {
         _updateTimer?.Dispose();
         _updateTimer = null;
-            
-        _client?.Dispose();
-        _client = null;
     }
 }

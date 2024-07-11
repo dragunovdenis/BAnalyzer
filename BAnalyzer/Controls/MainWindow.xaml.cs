@@ -21,6 +21,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using BAnalyzer.Controllers;
 using Binance.Net.Enums;
 
 namespace BAnalyzer.Controls;
@@ -93,19 +94,21 @@ public partial class MainWindow : INotifyPropertyChanged
             throw new InvalidOperationException("Unexpected number of stock names");
             
         var result = new List<CryptoExchangeControl>();
-            
+
+        var exchangeSymbols = BinanceClientController.ExchangeSymbols.Where(x => x.EndsWith("USDT")).ToArray();
+
         for (var rowId = 1; rowId < 3; rowId++)
         for (var colId = 0; colId < 2; colId++)
         {
-            var exchangeControl = new CryptoExchangeControl()
+            var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client, exchangeSymbols)
             {
                 AllowDrop = true,
                 SelectedSymbol = _defaultExchangeStockNames[result.Count],
                 BorderBrush = Brushes.Black,
                 BorderThickness = new Thickness(1, 1, colId == 1 ? 1 : 0, rowId == 2 ? 1 : 0),
+                CurrentTimeInterval = KlineInterval.FifteenMinutes,
             };
                 
-            exchangeControl.Ready += Exchange_OnReady;
             exchangeControl.MouseDown += Exchange_OnMouseDown;
             exchangeControl.DragEnter += Exchange_OnDragEnter;
 
@@ -116,18 +119,6 @@ public partial class MainWindow : INotifyPropertyChanged
         }
 
         return result;
-    }
-
-    /// <summary>
-    /// "Ready" event handler.
-    /// </summary>
-    private void Exchange_OnReady(CryptoExchangeControl sender)
-    {
-        if (sender != null! && _exchangeControls.Contains(sender))
-        {
-            sender.SelectedSymbol = _defaultExchangeStockNames[_exchangeControls.IndexOf(sender)];
-            sender.CurrentTimeInterval = KlineInterval.FifteenMinutes;
-        }
     }
 
     /// <summary>

@@ -55,7 +55,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Price USDT" Binding="{Binding Price, Converter= {StaticResource FloatToCompactConverter}}" Width="*">
+                <DataGridTextColumn Header="Price USDT" Binding="{Binding Price}" Width="*">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextStyle}"/>
                     </DataGridTextColumn.ElementStyle>
