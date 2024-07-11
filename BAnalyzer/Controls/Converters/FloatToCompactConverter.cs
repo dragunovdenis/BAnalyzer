@@ -15,33 +15,27 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-namespace BAnalyzer.Utils;
+using System.Globalization;
+using System.Windows.Data;
+using BAnalyzer.Utils;
 
-public static class DataFormatter
+namespace BAnalyzer.Controls.Converters
 {
     /// <summary>
-    /// Formats given number to an approximate compact from.
+    /// Converts floating point value into a compact string representation.
     /// </summary>
-    public static string FloatToCompact(double position)
+    class FloatToCompactConverter : IValueConverter
     {
-        if (Math.Abs(position) < 1)
-            return $"{position:0.####}";
+        /// <summary>
+        /// Straight conversion.
+        /// </summary>
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+            DataFormatter.FloatToCompact((double)value);
 
-        if (Math.Abs(position) < 1e3)
-            return $"{position:0.##}";
-
-        if (Math.Abs(position) < 1e6)
-            return $"{position / 1e3:0.#}K";
-
-        if (Math.Abs(position) < 1e9)
-            return $"{position / 1e6:0.#}M";
-
-        if (Math.Abs(position) < 1e12)
-            return $"{position / 1e9:0.#}B";
-
-        if (Math.Abs(position) < 1e15)
-            return $"{position / 1e12:0.#}T";
-
-        throw new ArgumentException("Unexpected range of the input argument.");
+        /// <summary>
+        /// Back conversion.
+        /// </summary>
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+            throw new NotImplementedException();
     }
 }

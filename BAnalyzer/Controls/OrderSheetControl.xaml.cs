@@ -112,29 +112,17 @@ public partial class OrderSheetControl : INotifyPropertyChanged
         if (sender is DataGridRow row)
         {
             int currentRowId = Sheet.ItemContainerGenerator.IndexFromContainer(row);
-            for (int i = 0; i < Sheet.Items.Count; i++)
+
+            if (Sheet.Items[0] is OrderItem firstOrderItem)
+                firstOrderItem.Selected = currentRowId > 0;
+
+            for (int rowId = 1; rowId < Sheet.Items.Count; rowId++)
             {
-                if (Sheet.Items[i] is OrderItem orderItem)
-                    orderItem.Selected = i <= currentRowId;
+                if (Sheet.Items[rowId] is OrderItem orderItem)
+                    orderItem.Selected = rowId <= currentRowId;
             }
 
             OnMarginOrderChanged?.Invoke();
-        }
-    }
-
-    /// <summary>
-    /// Row mouse-leave event handler.
-    /// </summary>
-    private void DataGridRow_OnMouseLeave(object sender, MouseEventArgs e)
-    {
-        if (sender is DataGridRow row)
-        {
-            int currentRowId = Sheet.ItemContainerGenerator.IndexFromContainer(row);
-            if (currentRowId >= 0 && Sheet.Items[currentRowId] is OrderItem orderItem)
-            {
-                orderItem.Selected = false;
-                OnMarginOrderChanged?.Invoke();
-            }
         }
     }
 }

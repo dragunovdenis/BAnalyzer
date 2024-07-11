@@ -23,16 +23,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800" Name="Ui">
     <UserControl.Resources>
-        <Style x:Key="SelectionStyle" TargetType="TextBlock">
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding Selected}" Value="True">
-                    <Setter Property="Background" Value="{Binding SelectionColor, ElementName=Ui}"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding Selected}" Value="false">
-                    <Setter Property="Background" Value="{Binding BackgroundColor, ElementName=Ui}"/>
-                </DataTrigger>
-            </Style.Triggers>
+        <Style x:Key="CellTextStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{Binding PriceColor, ElementName = Ui}" />
+            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
     </UserControl.Resources>
     <Grid DataContext="{Binding ElementName = Ui}">
@@ -42,34 +35,39 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <DataGrid Name="Sheet" IsReadOnly="True" AutoGenerateColumns="False" CanUserSortColumns = "False"
                   CanUserResizeColumns="False" CanUserResizeRows="False" GridLinesVisibility ="None"
                   ItemsSource="{Binding Orders, Mode = OneWay}"
-                  Background="{Binding BackgroundColor}"
-                  RowBackground="{Binding BackgroundColor}">
+                  Background="{Binding BackgroundColor}">
             <DataGrid.CellStyle>
                 <Style TargetType="DataGridCell">
-                    <Setter Property="IsHitTestVisible" Value="False"/>
                     <Setter Property="IsEnabled" Value="False"/>
                 </Style>
             </DataGrid.CellStyle>
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <EventSetter Event="MouseEnter" Handler="DataGridRow_OnMouseEnter"/>
-                    <EventSetter Event="MouseLeave" Handler="DataGridRow_OnMouseLeave"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Selected}" Value="True">
+                            <Setter Property="Background" Value="{Binding SelectionColor, ElementName=Ui}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Selected}" Value="False">
+                            <Setter Property="Background" Value="{Binding BackgroundColor, ElementName=Ui}"/>
+                        </DataTrigger>
+                    </Style.Triggers>
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Price USDT" Binding="{Binding Price, StringFormat=0.#####}" Width="*" FontWeight="Bold">
+                <DataGridTextColumn Header="Price USDT" Binding="{Binding Price, Converter= {StaticResource FloatToCompactConverter}}" Width="*">
                     <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource SelectionStyle}"/>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextStyle}"/>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, StringFormat=0.#####}" Width="*">
+                <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, Converter= {StaticResource FloatToCompactConverter}}" Width="*">
                     <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource SelectionStyle}"/>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextStyle}"/>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Volume USDT" Binding="{Binding Volume, StringFormat=0.#####}" Width="*">
+                <DataGridTextColumn Header="Volume USDT" Binding="{Binding Volume, Converter= {StaticResource FloatToCompactConverter}}" Width="*">
                     <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource SelectionStyle}"/>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextStyle}"/>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
             </DataGrid.Columns>

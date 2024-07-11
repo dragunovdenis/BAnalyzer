@@ -108,7 +108,7 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
 
         ScottPlot.TickGenerators.NumericAutomatic volumeTicksGenerator = new()
         {
-            LabelFormatter = DataFormatter.FormatApproxCompact
+            LabelFormatter = DataFormatter.FloatToCompact
         };
 
         VolPlot.Plot.Axes.Right.TickGenerator = volumeTicksGenerator;
@@ -197,7 +197,7 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
                         $"C: {stick.Close:0.#####} USDT\n" +
                         $"L: {stick.Low:0.#####} USDT\n" +
                         $"H: {stick.High:0.#####} USDT\n" +
-                        $"V: {DataFormatter.FormatApproxCompact(volume)} USDT";
+                        $"V: {DataFormatter.FloatToCompact(volume)} USDT";
 
         var position = e.GetPosition(plot);
         popup.PlacementTarget = plot;

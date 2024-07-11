@@ -142,7 +142,7 @@ public partial class ExchangeOrdersControl : INotifyPropertyChanged
     /// Build volume info string according to the given data.
     /// </summary>
     private string BuildVolumeInfoString(double volumeUsdt, double volumeCurrency) =>
-        $"{DataFormatter.FormatApproxCompact(volumeUsdt)} USDT/{DataFormatter.FormatApproxCompact(volumeCurrency)} {_baseAssetAbbreviation}";
+        $"{DataFormatter.FloatToCompact(volumeUsdt)} USDT/{DataFormatter.FloatToCompact(volumeCurrency)} {_baseAssetAbbreviation}";
     
     /// <summary>
     /// Updates information about "aggregate" volume of the "bid" orders.
