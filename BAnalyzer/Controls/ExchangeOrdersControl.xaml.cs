@@ -156,7 +156,7 @@ public partial class ExchangeOrdersControl : INotifyPropertyChanged
     /// <summary>
     /// Margin order change event handler.
     /// </summary>
-    private void BidSheet_OnOnMarginOrderChanged() => UpdateBidVolumeInfo();
+    private void BidSheet_OnOrderSelectionChanged() => UpdateBidVolumeInfo();
 
     /// <summary>
     /// Updates information about "aggregate" volume of the "ask" orders.
@@ -170,5 +170,5 @@ public partial class ExchangeOrdersControl : INotifyPropertyChanged
     /// <summary>
     /// Margin order change event handler.
     /// </summary>
-    private void AskSheet_OnOnMarginOrderChanged() => UpdateAskVolumeInfo();
+    private void AskSheet_OnOrderSelectionChanged() => UpdateAskVolumeInfo();
 }

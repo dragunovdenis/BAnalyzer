@@ -20,11 +20,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-                 xmlns:bAnalyzer="clr-namespace:BAnalyzer"
                  xmlns:controls="clr-namespace:BAnalyzer.Controls"
                  mc:Ignorable="d" 
                  d:DesignHeight="450" d:DesignWidth="800" Name="Ui">
-    <Grid DataContext= "{Binding ElementName = Ui}">
+    <Grid DataContext= "{Binding ElementName = Ui}"
+          Background="{DynamicResource BackgroundColor}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
@@ -38,10 +38,20 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal">
             <ComboBox ItemsSource= "{Binding Symbols, UpdateSourceTrigger=PropertyChanged}"
                       SelectedIndex="0" SelectedItem="{Binding SelectedSymbol}" IsEditable="True"
-                      Margin="30, 5, 5, 5" Width="100" PreviewTextInput="UIElement_OnPreviewTextInput"/>
+                      Margin="30, 5, 5, 5" Width="100" PreviewTextInput="UIElement_OnPreviewTextInput"
+                      ItemContainerStyle="{StaticResource ComboBoxItemStyle}">
+                <ComboBox.Resources>
+                    <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ScrollBarStyle}"/>
+                </ComboBox.Resources>
+            </ComboBox>
             <ComboBox ItemsSource= "{Binding AvailableTimeIntervals, UpdateSourceTrigger=PropertyChanged}"
-                      SelectedIndex="0" SelectedItem="{Binding CurrentTimeInterval}" Margin="5" Width="110"/>
-            <TextBlock Margin="5" Width="250">
+                      SelectedIndex="0" SelectedItem="{Binding CurrentTimeInterval}" Margin="5" Width="110"
+                      ItemContainerStyle="{StaticResource ComboBoxItemStyle}">
+                <ComboBox.Resources>
+                    <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ScrollBarStyle}"/>
+                </ComboBox.Resources>
+            </ComboBox>
+            <TextBlock Margin="5" Width="250" Foreground = "{DynamicResource ForegroundColor}">
                 <TextBlock.Inlines>
                     <Run FontWeight="Bold" FontSize="16" Text="Spot Price (USDT): "/>
                     <Run FontWeight="Bold" FontSize="16"
@@ -50,11 +60,12 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 </TextBlock.Inlines>
             </TextBlock>
         </StackPanel>
-        <TabControl Grid.Column="1" Grid.Row="1" Margin="2">
-            <TabItem Header="Chart">
-                <controls:ExchangeChartControl  x:Name ="Chart"/>
+        <TabControl Grid.Column="1" Grid.Row="1" BorderThickness="0"
+                    Background="{DynamicResource BackgroundColor}">
+            <TabItem Header="Chart" Style="{StaticResource TabItemStyle}">
+                <controls:ExchangeChartControl  x:Name ="Chart" DarkMode = "{Binding DarkMode, UpdateSourceTrigger=PropertyChanged, Mode=OneWay}"/>
             </TabItem>
-            <TabItem Header="Orders">
+            <TabItem Header="Orders"  Style="{StaticResource TabItemStyle}">
                 <controls:ExchangeOrdersControl x:Name="Orders"/>
             </TabItem>
         </TabControl>

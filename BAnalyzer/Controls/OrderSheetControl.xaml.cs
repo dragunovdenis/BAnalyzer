@@ -77,7 +77,7 @@ public partial class OrderSheetControl : INotifyPropertyChanged
     /// <summary>
     /// Event that gets raised each time index of the margin order changes.
     /// </summary>
-    public event Action OnMarginOrderChanged;
+    public event Action OnOrderSelectionChanged;
 
     /// <summary>
     /// Constructor.
@@ -122,7 +122,7 @@ public partial class OrderSheetControl : INotifyPropertyChanged
                     orderItem.Selected = rowId <= currentRowId;
             }
 
-            OnMarginOrderChanged?.Invoke();
+            OnOrderSelectionChanged?.Invoke();
         }
     }
 }

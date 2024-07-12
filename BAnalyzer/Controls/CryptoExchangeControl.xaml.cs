@@ -135,6 +135,17 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         }
     }
 
+    private bool _darkMode = true;
+
+    /// <summary>
+    /// Switches between white and dark modes.
+    /// </summary>
+    public bool DarkMode
+    {
+        get => _darkMode;
+        set => SetField(ref _darkMode, value);
+    }
+    
     /// <summary>
     /// Representation of a time frame.
     /// </summary>

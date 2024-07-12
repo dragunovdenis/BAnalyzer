@@ -17,6 +17,7 @@
 
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -126,7 +127,6 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
         return result;
     }
 
-
     /// <summary>
     /// Updates plots based on the current chart data.
     /// </summary>
@@ -135,6 +135,7 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
         _chartData = chartData;
         _candlestickPlot = BuildCandleSticks(_chartData);
         _volumePlot = BuildVolumeChart(_chartData);
+        ApplyColorPalettes();
     }
         
     /// <summary>
@@ -147,6 +148,45 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
 
         MainPlot.MouseMove += MainPlot_MouseMove;
         VolPlot.MouseMove += VolPlot_MouseMove;
+    }
+
+    /// <summary>
+    /// Applies current color palette to all the plots.
+    /// </summary>
+    private void ApplyColorPalettes()
+    {
+        ScottPlotPalette.Apply(MainPlot.Plot);
+        MainPlot.Refresh();
+        ScottPlotPalette.Apply(VolPlot.Plot);
+        VolPlot.Refresh();
+    }
+
+    /// <summary>
+    /// The corresponding dependency property.
+    /// </summary>
+    public static readonly DependencyProperty DarkModeProperty =
+        DependencyProperty.Register(
+            name: "DarkMode",
+            propertyType: typeof(bool),
+            ownerType: typeof(ExchangeChartControl),
+            typeMetadata: new FrameworkPropertyMetadata(defaultValue: true, DarkModeValueChanged));
+
+    private static void DarkModeValueChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs eventArgs)
+    {
+        if (dependencyObject is ExchangeChartControl control)
+        {
+            if (eventArgs.NewValue != eventArgs.OldValue)
+                control.ApplyColorPalettes();
+        }
+    }
+
+    /// <summary>
+    /// Switches between white/black color modes.
+    /// </summary>
+    public bool DarkMode
+    {
+        get => (bool)GetValue(DarkModeProperty);
+        set => SetValue(DarkModeProperty, value);
     }
 
     /// <summary>

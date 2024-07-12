@@ -42,6 +42,8 @@ public partial class MainWindow : INotifyPropertyChanged
 
         foreach (var ec in _exchangeControls)
             ec.PropertyChanged += Exchange_PropertyChanged;
+
+        ApplyTheme();
     }
 
     /// <summary>
@@ -145,6 +147,31 @@ public partial class MainWindow : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Applies current theme to the whole application.
+    /// </summary>
+    private void ApplyTheme()
+    {
+        AppThemeController.ApplyTheme(new Uri(_darkMode ? "../Themes/Dark.xaml" : "../Themes/Light.xaml",
+            UriKind.Relative));
+
+        foreach (var ec in _exchangeControls)
+            ec.DarkMode = _darkMode;
+    }
+
+    private bool _darkMode = true;
+
+    /// <summary>
+    /// Switches between the "white" and "dark" themes.
+    /// </summary>
+    public bool DarkMode
+    {
+        get => _darkMode;
+        set
+        {
+            if (SetField(ref _darkMode, value)) ApplyTheme();
+        }
+    }
        
     /// <summary>
     /// Mouse down event handler.
