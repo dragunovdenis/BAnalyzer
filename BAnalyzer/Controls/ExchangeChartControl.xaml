@@ -35,7 +35,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <wpf:WpfPlot Grid.Column="0" Grid.Row="0" x:Name="MainPlot"/>
         <wpf:WpfPlot Grid.Column="0" Grid.Row="1" x:Name="VolPlot"/>
         <Popup Grid.Column="0" Grid.Row="2" Name="InfoTip" AllowsTransparency="True" Placement="Relative">
-            <TextBlock Background="LightGreen" Text="{Binding InfoTipString, Mode=OneWay}"/>
+            <TextBlock Background="{DynamicResource BackgroundColor}"
+                       Text="{Binding InfoTipString, Mode=OneWay}"/>
         </Popup>
     </Grid>
 </UserControl>

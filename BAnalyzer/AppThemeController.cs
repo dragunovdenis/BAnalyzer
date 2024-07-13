@@ -17,11 +17,19 @@
 
 using System.Windows;
 
-namespace BAnalyzer
+namespace BAnalyzer;
+
+/// <summary>
+/// Controller to manage application themes
+/// </summary>
+class AppThemeController
 {
     /// <summary>
-    /// Interaction logic for App.xaml
+    /// Applies theme defined by its relative uri path.
     /// </summary>
-    public partial class App : Application
-    { }
+    public static void ApplyTheme(Uri themeUri)
+    {
+        Application.Current.Resources.Clear();
+        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = themeUri });
+    }
 }

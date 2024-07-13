@@ -34,7 +34,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         </Grid.RowDefinitions>
         <TextBlock Grid.Column="0" Grid.Row="0" Text="Bid" HorizontalAlignment="Center" Name="BidText" Margin="5" FontWeight="Bold"/>
         <TextBlock Grid.Column="1" Grid.Row="0" Text="Ask" HorizontalAlignment="Center" Name="AskText" Margin="5" FontWeight="Bold"/>
-        <controls:OrderSheetControl Grid.Column="0" Grid.Row="1" x:Name = "BidSheet" PriceColor="Green" OnMarginOrderChanged="BidSheet_OnOnMarginOrderChanged"/>
-        <controls:OrderSheetControl Grid.Column="1" Grid.Row="1" x:Name = "AskSheet" PriceColor="Red" OnMarginOrderChanged="AskSheet_OnOnMarginOrderChanged"/>
+        <controls:OrderSheetControl Grid.Column="0" Grid.Row="1" x:Name = "BidSheet" PriceColor="Green" OnOrderSelectionChanged="BidSheet_OnOrderSelectionChanged"/>
+        <controls:OrderSheetControl Grid.Column="1" Grid.Row="1" x:Name = "AskSheet" PriceColor="Red" OnOrderSelectionChanged="AskSheet_OnOrderSelectionChanged"/>
     </Grid>
 </UserControl>

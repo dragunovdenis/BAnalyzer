@@ -20,9 +20,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-            xmlns:local="clr-namespace:BAnalyzer"
             mc:Ignorable="d"
-            Title="MainWindow" Height="450" Width="800" Name="Ui" Closing="MainWindow_OnClosing">
+            Title="BAnalyzer" Height="450" Width="800" Name="Ui" Closing="MainWindow_OnClosing">
     <Grid Name="MainGrid" DataContext= "{Binding ElementName = Ui}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -33,10 +32,16 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <RowDefinition Height="*"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <DockPanel>
-            <Menu DockPanel.Dock="Top">
+        <DockPanel Grid.ColumnSpan="2">
+            <Menu DockPanel.Dock="Top" Background = "{DynamicResource BackgroundColor}"
+                  Foreground="{DynamicResource ForegroundColor}">
                 <MenuItem Header="_Edit">
-                    <MenuItem IsCheckable="true" IsChecked="{Binding SyncIntervals}" Header="_Synchronize intervals"/>
+                    <MenuItem IsCheckable="true" IsChecked="{Binding SyncIntervals}" Header="_Synchronize intervals"
+                              Background = "{DynamicResource BackgroundColor}"/>
+                </MenuItem>
+                <MenuItem Header="_View">
+                    <MenuItem IsCheckable="true" IsChecked="{Binding DarkMode}" Header="_Dark mode"
+                              Background = "{DynamicResource BackgroundColor}"/>
                 </MenuItem>
             </Menu>
         </DockPanel>

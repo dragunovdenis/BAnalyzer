@@ -16,12 +16,37 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System.Windows;
+using System.Windows.Media;
+using ScottPlot;
+using SkiaSharp.Views.WPF;
+using Color = ScottPlot.Color;
 
-namespace BAnalyzer
+namespace BAnalyzer.Utils;
+
+/// <summary>
+/// The "white" palette.
+/// </summary>
+public static class ScottPlotPalette
 {
     /// <summary>
-    /// Interaction logic for App.xaml
+    /// Returns color loaded from the resource dictionary by the given identifier.
     /// </summary>
-    public partial class App : Application
-    { }
+    private static Color LoadResourceColor(string resourceName) =>
+        Color.FromSKColor(((SolidColorBrush)Application.Current.TryFindResource(resourceName)).Color.ToSKColor());
+
+    /// <summary>
+    /// Applies palette to the plot
+    /// </summary>
+    public static void Apply(Plot plot)
+    {
+        var backgroundColor = LoadResourceColor("BackgroundColor");
+        var lineColor = LoadResourceColor("PlotLineColor");
+        var foregroundColor = LoadResourceColor("ForegroundColor");
+            
+        plot.FigureBackground.Color = backgroundColor;
+        plot.DataBackground.Color = backgroundColor;
+        plot.Axes.Color(foregroundColor);
+        plot.Grid.MajorLineColor = lineColor;
+        plot.Legend.OutlineColor = foregroundColor;
+    }
 }
