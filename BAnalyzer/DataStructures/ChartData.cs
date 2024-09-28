@@ -25,14 +25,17 @@ namespace BAnalyzer.DataStructures;
 /// Sticks and price data struct.
 /// </summary>
 public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
-    BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp)
+    BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp,
+    IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize)
 {
 
     /// <summary>
     /// Constructor.
     /// </summary>
-    public ChartData(IList<IBinanceKline> candleStickData, BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp) :
-        this(ToOhlc(candleStickData), ToTradeVolumes(candleStickData), price, exchangeStamp, timeFrameStamp)
+    public ChartData(IList<IBinanceKline> candleStickData, BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp,
+        IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize) :
+        this(ToOhlc(candleStickData), ToTradeVolumes(candleStickData), price, exchangeStamp, timeFrameStamp,
+            priceIndicatorPoints, volumeIndicatorPoints, indicatorWindowSize)
     {}
 
     /// <summary>
@@ -54,7 +57,7 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
     /// <summary>
     /// Converter.
     /// </summary>
-    private static List<double> ToTradeVolumes(IList<IBinanceKline> candleStickData) =>
+    public static List<double> ToTradeVolumes(IList<IBinanceKline> candleStickData) =>
         candleStickData.Select(x => (double)x.QuoteVolume).ToList();
 
     /// <summary>
@@ -88,6 +91,21 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
     public DateTime TimeFrameStamp { get; } = timeFrameStamp;
 
     /// <summary>
+    /// Indicator points calculate with respect to price.
+    /// </summary>
+    public IList<int> PriceIndicatorPoints { get; } = priceIndicatorPoints;
+
+    /// <summary>
+    /// Indicator points calculate with respect to trade volume.
+    /// </summary>
+    public IList<int> VolumeIndicatorPoints { get; } = volumeIndicatorPoints;
+
+    /// <summary>
+    /// Window size used to calculate indicator points
+    /// </summary>
+    public int IndicatorWindowSize { get; } = indicatorWindowSize;
+
+    /// <summary>
     /// Returns the time of the opening of the first candle-stick.
     /// </summary>
     public DateTime GetBeginTime()
@@ -114,13 +132,11 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
     /// <summary>
     /// Returns "true" if the current instance was qualified as "valid".
     /// </summary>
-    /// <returns></returns>
     public bool IsValid() => Sticks is { Count: > 0 };
         
     /// <summary>
     /// Returns "true" if the last candle-stick in the corresponding collection is green.
     /// </summary>
-    /// <returns></returns>
     public bool IsPriceUp()
     {
         if (Sticks == null || Sticks.Count == 0)

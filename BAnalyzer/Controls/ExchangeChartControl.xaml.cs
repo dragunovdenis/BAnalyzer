@@ -67,6 +67,12 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
         result.Axes.YAxis = MainPlot.Plot.Axes.Right;
         MainPlot.Plot.Axes.DateTimeTicksBottom();
 
+        var timeline = chartData.Sticks.Select(x => x.DateTime.ToOADate()).ToArray();
+
+        foreach (var changePt in chartData.PriceIndicatorPoints)
+            MainPlot.Plot.Add.HorizontalSpan(timeline[Math.Max(changePt - 1, 0)],
+                timeline[Math.Min(changePt + 1, timeline.Length - 1)]);
+
         MainPlot.Plot.Axes.SetLimitsX(chartData.GetBeginTime().ToOADate(), chartData.GetEndTime().ToOADate());
         MainPlot.Refresh();
 
@@ -106,6 +112,12 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
 
             bar.BorderLineWidth = 0;
         }
+
+        var timeline = chartData.Sticks.Select(x => x.DateTime.ToOADate()).ToArray();
+
+        foreach (var changePt in chartData.VolumeIndicatorPoints)
+            VolPlot.Plot.Add.HorizontalSpan(timeline[Math.Max(changePt - 1, 0)],
+                timeline[Math.Min(changePt + 1, timeline.Length - 1)]);
 
         ScottPlot.TickGenerators.NumericAutomatic volumeTicksGenerator = new()
         {

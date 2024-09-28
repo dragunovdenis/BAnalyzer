@@ -24,6 +24,7 @@ using System.Windows.Input;
 using BAnalyzer.DataStructures;
 using BAnalyzerCore;
 using Binance.Net.Enums;
+using Binance.Net.Interfaces;
 
 namespace BAnalyzer.Controls;
 
@@ -39,6 +40,17 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     private Timer _updateTimer;
     private TimeFrame _currentTimeFrame = null!;
     private ExchangeData _currentExchangeData = null!;
+
+    private bool _spikeIndicator = true;
+
+    /// <summary>
+    /// Flag determining indicator type
+    /// </summary>
+    public bool SpikeIndicator
+    {
+        get => _spikeIndicator;
+        set => SetField(ref _spikeIndicator, value);
+    }
 
     /// <summary>
     /// Updates current exchange data field.
@@ -189,6 +201,39 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
+    /// Returns price and volume indicators calculated according to the current settings.
+    /// </summary>
+    private async Task<(IList<int> PriceIndicators, IList<int> VolumeIndicators)> CalculateIndicatorPoints(
+        IList<IBinanceKline> sticks, List<double> tradeVolumeData, int windowSize)
+    {
+        return await Task.Run(async () =>
+        {
+            var spikeIndicator = Dispatcher.Invoke(() => _spikeIndicator);
+
+            var priceDataLow = sticks.Select(x => new TimeSeriesAnalyzer.Input
+                { InData = (float)x.LowPrice }).ToArray();
+
+            var priceDataHigh = sticks.Select(x => new TimeSeriesAnalyzer.Input
+                { InData = (float)x.HighPrice }).ToArray();
+
+            var priceIndicatorsLow = spikeIndicator ? await TimeSeriesAnalyzer.DetectSpikesAsync(priceDataLow, windowSize) :
+                await TimeSeriesAnalyzer.DetectChangePointsAsync(priceDataLow, windowSize);
+
+            var priceIndicatorsHigh = spikeIndicator ? await TimeSeriesAnalyzer.DetectSpikesAsync(priceDataHigh, windowSize) :
+                await TimeSeriesAnalyzer.DetectChangePointsAsync(priceDataHigh, windowSize);
+
+            var priceIndicators = priceIndicatorsLow.ToHashSet().Concat(priceIndicatorsHigh).ToArray();
+
+            var volumeData = tradeVolumeData.Select(x => new TimeSeriesAnalyzer.Input { InData = (float)x }).ToArray();
+
+            var volumeIndicators = spikeIndicator ? await TimeSeriesAnalyzer.DetectSpikesAsync(volumeData, windowSize) :
+                await TimeSeriesAnalyzer.DetectChangePointsAsync(volumeData, windowSize);
+
+            return (priceIndicators, volumeIndicators);
+        });
+    }
+
+    /// <summary>
     /// Retrieves the sticks-and-price data for the given time interval.
     /// </summary>
     private async Task<ChartData> RetrieveSticksAndPrice()
@@ -204,7 +249,13 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             timeFrame.Discretization, exchange.ExchangeDescriptor);
         var price = await client.GetCurrentPrice(exchange.ExchangeDescriptor);
 
-        return new ChartData(sticks, price, exchange.Stamp, timeFrame.Stamp);
+        var windowSize = 10;
+
+        var (priceIndicators, volumeIndicators) =
+            await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks), windowSize);
+
+        return new ChartData(sticks, price, exchange.Stamp, timeFrame.Stamp,
+            priceIndicators, volumeIndicators, windowSize);
     }
 
     /// <summary>
