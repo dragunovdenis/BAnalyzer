@@ -38,8 +38,9 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     private ObservableCollection<string> _symbols = null!;
 
     private Timer _updateTimer;
-    private TimeFrame _currentTimeFrame = null!;
-    private ExchangeData _currentExchangeData = null!;
+    private TimeFrame CurrentTimeFrame => new(TimeDiscretization, _timeStamp, Settings.StickRange);
+    private ExchangeData CurrentExchangeData => new(ExchangeDescriptor, _timeStamp);
+    private DateTime _timeStamp;
 
     private bool _spikeIndicator = true;
 
@@ -52,21 +53,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         set => SetField(ref _spikeIndicator, value);
     }
 
-    /// <summary>
-    /// Updates current exchange data field.
-    /// </summary>
-    private void UpdateExchangeData(string exchangeDescriptor)
-    {
-        _currentExchangeData = new ExchangeData(exchangeDescriptor, DateTime.Now);
-    }
-
-    /// <summary>
-    /// Updates current time frame.
-    /// </summary>
-    private void UpdateCurrentTimeFrame(KlineInterval discretization)
-    {
-        _currentTimeFrame = new TimeFrame(discretization, DateTime.Now);
-    }
+    private void UpdateTimeStamp() => _timeStamp = DateTime.Now;
 
     /// <summary>
     /// Collection of available symbols
@@ -77,23 +64,22 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         private init => SetField(ref _symbols, value);
     }
 
-    private string _selectedSymbol = null!;
+    /// <summary>
+    /// The selected exchange descriptor.
+    /// </summary>
+    public string ExchangeDescriptor
+    {
+        get => _settings.ExchangeDescriptor;
+        set => _settings.ExchangeDescriptor = value;
+    }
 
     /// <summary>
-    /// The selected symbol.
+    /// Currently selected time interval.
     /// </summary>
-    public string SelectedSymbol
+    public KlineInterval TimeDiscretization
     {
-        get => _selectedSymbol;
-        set
-        {
-            if (SetField(ref _selectedSymbol, value))
-            {
-                UpdateExchangeData(_selectedSymbol);
-                UpdateCurrentTimeFrame(_currentTimeInterval);
-                UpdateChartInBackground();
-            }
-        }
+        get => _settings.TimeDiscretization;
+        set => _settings.TimeDiscretization = value;
     }
 
     private string _price = null!;
@@ -129,24 +115,6 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         private init => SetField(ref _availableTimeIntervals, value);
     }
 
-    private KlineInterval _currentTimeInterval;
-
-    /// <summary>
-    /// Currently selected time interval,
-    /// </summary>
-    public KlineInterval CurrentTimeInterval
-    {
-        get => _currentTimeInterval;
-        set
-        {
-            if (SetField(ref _currentTimeInterval, value))
-            {
-                UpdateCurrentTimeFrame(_currentTimeInterval);
-                UpdateChartInBackground();
-            }
-        }
-    }
-
     private bool _darkMode = true;
 
     /// <summary>
@@ -161,12 +129,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Representation of a time frame.
     /// </summary>
-    private class TimeFrame(KlineInterval discretization, DateTime stamp)
+    private class TimeFrame(KlineInterval discretization, DateTime stamp, int sticksPerChart)
     {
         /// <summary>
         /// Begin point.
         /// </summary>
-        public DateTime Begin => DateTime.UtcNow.Subtract(Discretization.ToTimeSpan().Multiply(100));
+        public DateTime Begin => DateTime.UtcNow.Subtract(Discretization.ToTimeSpan().Multiply(sticksPerChart));
 
         /// <summary>
         /// End point.
@@ -201,14 +169,29 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
+    /// Calculates indicators of the corresponding type.
+    /// </summary>
+    private static async Task<int[]> CalculateIndicators(AnalysisIndicatorType type, TimeSeriesAnalyzer.Input[] input, int windowSize)
+    {
+        switch (type)
+        {
+            case AnalysisIndicatorType.None: return [];
+            case AnalysisIndicatorType.Spike: return await TimeSeriesAnalyzer.DetectSpikesAsync(input, windowSize);
+            case AnalysisIndicatorType.Change:
+                return await TimeSeriesAnalyzer.DetectChangePointsAsync(input, windowSize);
+            default: throw new InvalidOperationException("Unknown analysis type");
+        }
+    }
+
+    /// <summary>
     /// Returns price and volume indicators calculated according to the current settings.
     /// </summary>
-    private async Task<(IList<int> PriceIndicators, IList<int> VolumeIndicators)> CalculateIndicatorPoints(
-        IList<IBinanceKline> sticks, List<double> tradeVolumeData, int windowSize)
+    private async Task<(IList<int> PriceIndicators, IList<int> VolumeIndicators, int WindowSize)> CalculateIndicatorPoints(
+        IList<IBinanceKline> sticks, List<double> tradeVolumeData)
     {
         return await Task.Run(async () =>
         {
-            var spikeIndicator = Dispatcher.Invoke(() => _spikeIndicator);
+            var (spikeIndicator, windowSize) = Dispatcher.Invoke(() => (Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow));
 
             var priceDataLow = sticks.Select(x => new TimeSeriesAnalyzer.Input
                 { InData = (float)x.LowPrice }).ToArray();
@@ -216,20 +199,14 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             var priceDataHigh = sticks.Select(x => new TimeSeriesAnalyzer.Input
                 { InData = (float)x.HighPrice }).ToArray();
 
-            var priceIndicatorsLow = spikeIndicator ? await TimeSeriesAnalyzer.DetectSpikesAsync(priceDataLow, windowSize) :
-                await TimeSeriesAnalyzer.DetectChangePointsAsync(priceDataLow, windowSize);
-
-            var priceIndicatorsHigh = spikeIndicator ? await TimeSeriesAnalyzer.DetectSpikesAsync(priceDataHigh, windowSize) :
-                await TimeSeriesAnalyzer.DetectChangePointsAsync(priceDataHigh, windowSize);
-
+            var priceIndicatorsLow = await CalculateIndicators(spikeIndicator, priceDataLow, windowSize);
+            var priceIndicatorsHigh = await CalculateIndicators(spikeIndicator, priceDataHigh, windowSize);
             var priceIndicators = priceIndicatorsLow.ToHashSet().Concat(priceIndicatorsHigh).ToArray();
 
             var volumeData = tradeVolumeData.Select(x => new TimeSeriesAnalyzer.Input { InData = (float)x }).ToArray();
+            var volumeIndicators = await CalculateIndicators(spikeIndicator, volumeData, windowSize);
 
-            var volumeIndicators = spikeIndicator ? await TimeSeriesAnalyzer.DetectSpikesAsync(volumeData, windowSize) :
-                await TimeSeriesAnalyzer.DetectChangePointsAsync(volumeData, windowSize);
-
-            return (priceIndicators, volumeIndicators);
+            return (priceIndicators, volumeIndicators, windowSize);
         });
     }
 
@@ -238,8 +215,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private async Task<ChartData> RetrieveSticksAndPrice()
     {
-        var (timeFrame, exchange, client) =
-            Dispatcher.Invoke(() => (_currentTimeFrame, _currentExchangeData, _client));
+        var (timeFrame, exchange, client) = Dispatcher.Invoke(() => (CurrentTimeFrame, CurrentExchangeData, _client));
 
         if (timeFrame == null || timeFrame.Discretization == default ||
             exchange == null || exchange.ExchangeDescriptor is null or "" || client == null)
@@ -249,10 +225,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             timeFrame.Discretization, exchange.ExchangeDescriptor);
         var price = await client.GetCurrentPrice(exchange.ExchangeDescriptor);
 
-        var windowSize = 10;
-
-        var (priceIndicators, volumeIndicators) =
-            await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks), windowSize);
+        var (priceIndicators, volumeIndicators, windowSize) =
+            await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks));
 
         return new ChartData(sticks, price, exchange.Stamp, timeFrame.Stamp,
             priceIndicators, volumeIndicators, windowSize);
@@ -263,7 +237,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private async Task<OrderBook> RetrieveOrderBook()
     {
-        var (exchange, client) = Dispatcher.Invoke(() => (_currentExchangeData, _client));
+        var (exchange, client) = Dispatcher.Invoke(() => (CurrentExchangeData, _client));
             
         if (exchange == null || exchange.ExchangeDescriptor is null or "" || client == null) return null;
             
@@ -275,16 +249,16 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private void VisualizeSticksAndPrice(ChartData chartData)
     {
-        if (chartData == null || !chartData.IsValid() || _currentTimeFrame == null ||
-            _currentExchangeData == null)
+        if (chartData == null || !chartData.IsValid() || CurrentTimeFrame == null ||
+            CurrentExchangeData == null)
         {
             Chart.UpdatePlots(null);
             Price = "N/A";
             return;
         }
 
-        if (chartData.ExchangeStamp != _currentExchangeData.Stamp ||
-            chartData.TimeFrameStamp != _currentTimeFrame.Stamp)
+        if (chartData.ExchangeStamp != CurrentExchangeData.Stamp ||
+            chartData.TimeFrameStamp != CurrentTimeFrame.Stamp)
             return;
 
         Chart.UpdatePlots(chartData);
@@ -308,7 +282,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (orderBook.Stamp != _currentExchangeData.Stamp)
+        if (orderBook.Stamp != CurrentExchangeData.Stamp)
             return;
         
         Orders.Update(orderBook.Book);
@@ -331,23 +305,61 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         });
     }
 
+    private ExchangeSettings _settings;
+
+    /// <summary>
+    /// Settings.
+    /// </summary>
+    public ExchangeSettings Settings
+    {
+        get => _settings;
+
+        private init 
+        {
+            if (_settings != value)
+            {
+                if (_settings !=  null)
+                    _settings.PropertyChanged -= Settings_PropertyChanged;
+
+                _settings = value;
+
+                if (_settings != null)
+                    _settings.PropertyChanged += Settings_PropertyChanged;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handles property changed events of the settings.
+    /// </summary>
+    private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not nameof(_settings.TimeDiscretization) &&
+            e.PropertyName is not nameof(_settings.ExchangeDescriptor))
+            return;
+
+        UpdateTimeStamp();
+        UpdateChartInBackground();
+    }
+
     /// <summary>
     /// Constructor.
     /// </summary>
-    public CryptoExchangeControl(BAnalyzerCore.Binance client, IList<string> exchangeSymbols)
+    public CryptoExchangeControl(BAnalyzerCore.Binance client, IList<string> exchangeSymbols, ExchangeSettings settings)
     {
+        Settings = settings;
+        _client = client;
         InitializeComponent();
 
         AvailableTimeIntervals =
             new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
                 Where(x => x != KlineInterval.OneSecond));
             
-        _client = client;
         Symbols = new ObservableCollection<string>(exchangeSymbols);
         _updateTimer = new Timer(x => UpdateChartInBackground(),
             new AutoResetEvent(false), 1000, 1000);
     }
-    
+
     public event PropertyChangedEventHandler PropertyChanged;
 
     /// <summary>

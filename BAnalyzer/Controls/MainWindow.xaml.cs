@@ -22,6 +22,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using BAnalyzer.Controllers;
+using BAnalyzer.DataStructures;
 using Binance.Net.Enums;
 
 namespace BAnalyzer.Controls;
@@ -41,23 +42,30 @@ public partial class MainWindow : INotifyPropertyChanged
         _exchangeControls = SetUpExchangeControls();
 
         foreach (var ec in _exchangeControls)
-            ec.PropertyChanged += Exchange_PropertyChanged;
+            ec.Settings.PropertyChanged += ExchangeSettings_PropertyChanged;
 
         ApplyTheme();
+
+        Closing += MainWindow_Closing;
     }
+
+    /// <summary>
+    /// Closing event.
+    /// </summary>
+    private void MainWindow_Closing(object sender, CancelEventArgs e) => ApplicationController.Instance.SaveSettings();
 
     /// <summary>
     /// Property changed handler of all exchange controls.
     /// </summary>
-    private void Exchange_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    private void ExchangeSettings_PropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        CryptoExchangeControl exchange;
-        if (e.PropertyName == nameof(exchange.CurrentTimeInterval) && SyncIntervals)
+        ExchangeSettings settings;
+        if (e.PropertyName == nameof(settings.TimeDiscretization) && SyncIntervals)
         {
-            var newInterval = (sender as CryptoExchangeControl)!.CurrentTimeInterval;
+            var newDiscretization = (sender as ExchangeSettings)!.TimeDiscretization;
 
             foreach (var ec in _exchangeControls)
-                ec.CurrentTimeInterval = newInterval;
+                ec.Settings.TimeDiscretization = newDiscretization;
         }
     }
 
@@ -86,7 +94,19 @@ public partial class MainWindow : INotifyPropertyChanged
         new[] { "BTCUSDT", "ETHUSDT", "SOLUSDT", "RVNUSDT" };
         
     private readonly IList<CryptoExchangeControl> _exchangeControls;
-        
+
+    /// <summary>
+    /// Creates (almost) default exchange settings.
+    /// </summary>
+    private static ExchangeSettings SetupExchangeSettings(string exchangeDescriptor) => new()
+        {
+            ExchangeDescriptor = exchangeDescriptor,
+            CurrentAnalysisIndicator = AnalysisIndicatorType.None,
+            MainAnalysisWindow = 10,
+            StickRange = 75,
+            TimeDiscretization = KlineInterval.FifteenMinutes,
+        };
+
     /// <summary>
     /// Sets up the exchange controls and returns them.
     /// </summary>
@@ -99,16 +119,21 @@ public partial class MainWindow : INotifyPropertyChanged
 
         var exchangeSymbols = BinanceClientController.ExchangeSymbols.Where(x => x.EndsWith("USDT")).ToArray();
 
+        var settings = ApplicationController.Instance.ApplicationSettings.ExchangeSettings;
+
         for (var rowId = 1; rowId < 3; rowId++)
         for (var colId = 0; colId < 2; colId++)
         {
-            var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client, exchangeSymbols)
+            if (settings.Count <= result.Count) 
+                settings.Add(SetupExchangeSettings(_defaultExchangeStockNames[result.Count]));
+
+            var exSettings = settings[result.Count];
+
+            var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client, exchangeSymbols, exSettings)
             {
                 AllowDrop = true,
-                SelectedSymbol = _defaultExchangeStockNames[result.Count],
                 BorderBrush = Brushes.Black,
                 BorderThickness = new Thickness(1, 1, colId == 1 ? 1 : 0, rowId == 2 ? 1 : 0),
-                CurrentTimeInterval = KlineInterval.FifteenMinutes,
             };
                 
             exchangeControl.MouseDown += Exchange_OnMouseDown;
@@ -129,7 +154,7 @@ public partial class MainWindow : INotifyPropertyChanged
     private void SynchronizeIntervals(KlineInterval interval)
     {
         foreach (var ec in _exchangeControls)
-            ec.CurrentTimeInterval = interval;
+            ec.TimeDiscretization = interval;
     }
 
     private bool _syncIntervals = true;
@@ -143,7 +168,7 @@ public partial class MainWindow : INotifyPropertyChanged
         set
         {
             if (SetField(ref _syncIntervals, value))
-                SynchronizeIntervals(_exchangeControls.First().CurrentTimeInterval);
+                SynchronizeIntervals(_exchangeControls.First().TimeDiscretization);
         }
     }
 
