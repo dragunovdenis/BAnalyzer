@@ -51,13 +51,44 @@ public interface IExchangeSettings : INotifyPropertyChanged
     /// Number of sticks to display on the chart.
     /// </summary>
     int StickRange { get; }
+
+    /// <summary>
+    /// Time point that is currently in focus.
+    /// </summary>
+    double InFocusTime { get; }
+
+    /// <summary>
+    /// Determines whether the focus time marker should be shown.
+    /// </summary>
+    bool ShowFocusTimeMarker { get; }
+
+    /// <summary>
+    /// Assigns current instance with the given one.
+    /// </summary>
+    void Assign(IExchangeSettings source, bool excludeExchangeDescriptor = false);
+}
+
+/// <summary>
+/// Interface allowing to work exclusively with the in-focus related data.
+/// </summary>
+public interface IInFocus : INotifyPropertyChanged
+{
+    /// <summary>
+    /// Time point that is currently in focus.
+    /// </summary>
+    double InFocusTime { get; set; }
+
+    /// <summary>
+    /// Determines whether the focus time marker should be shown.
+    /// </summary>
+    bool ShowFocusTimeMarker { get; }
 }
 
 /// <summary>
 /// Setting of the crypto exchange control.
 /// </summary>
 [DataContract]
-public class ExchangeSettings : IExchangeSettings
+public class ExchangeSettings : IExchangeSettings, IInFocus
 {
     [DataMember]
     private string _exchangeDescriptor;
@@ -107,6 +138,44 @@ public class ExchangeSettings : IExchangeSettings
     {
         get => _stickRange;
         set => SetField(ref _stickRange, value);
+    }
+
+    [DataMember]
+    private double _focusTime;
+
+    /// <summary>
+    /// Time point that is currently in focus.
+    /// </summary>
+    public double InFocusTime
+    {
+        get => _focusTime;
+        set => SetField(ref _focusTime, value);
+    }
+
+    [DataMember]
+    private bool _showFocusTimeMarker = true;
+
+    /// <summary>
+    /// Determines whether the focus time marker should be shown.
+    /// </summary>
+    public bool ShowFocusTimeMarker
+    {
+        get => _showFocusTimeMarker;
+        set => SetField(ref _showFocusTimeMarker, value);
+    }
+
+    /// <inheritdoc/>
+    public void Assign(IExchangeSettings source, bool excludeExchangeDescriptor = false)
+    {
+        if (!excludeExchangeDescriptor)
+            ExchangeDescriptor = source.ExchangeDescriptor;
+
+        TimeDiscretization = source.TimeDiscretization;
+        CurrentAnalysisIndicator = source.CurrentAnalysisIndicator;
+        MainAnalysisWindow = source.MainAnalysisWindow;
+        StickRange = source.StickRange;
+        InFocusTime = source.InFocusTime;
+        ShowFocusTimeMarker = source.ShowFocusTimeMarker;
     }
 
     /// <summary>

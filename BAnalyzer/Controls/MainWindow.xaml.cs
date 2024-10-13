@@ -32,11 +32,43 @@ namespace BAnalyzer.Controls;
 /// </summary>
 public partial class MainWindow : INotifyPropertyChanged
 {
+    private IApplicationSettings _settings;
+
+    /// <summary>
+    /// Application settings.
+    /// </summary>
+    public IApplicationSettings Settings
+    {
+        get => _settings;
+
+        init
+        {
+            _settings = value;
+            _settings.PropertyChanged += Settings_PropertyChanged;
+        }
+    }
+
+    /// <summary>
+    /// Property-changed even handler of the settings instance.
+    /// </summary>
+    private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(_settings.ControlSynchronization) && _settings.ControlSynchronization)
+        {
+            SynchronizeSettings(_exchangeControls.First().Settings);
+        } else if (e.PropertyName is nameof(_settings.DarkMode))
+        {
+            ApplyTheme();
+        }
+    }
+
     /// <summary>
     /// Constructor.
     /// </summary>
     public MainWindow()
     {
+        Settings = ApplicationController.Instance.ApplicationSettings;
+
         InitializeComponent();
 
         _exchangeControls = SetUpExchangeControls();
@@ -59,14 +91,19 @@ public partial class MainWindow : INotifyPropertyChanged
     /// </summary>
     private void ExchangeSettings_PropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        ExchangeSettings settings;
-        if (e.PropertyName == nameof(settings.TimeDiscretization) && SyncIntervals)
-        {
-            var newDiscretization = (sender as ExchangeSettings)!.TimeDiscretization;
+        if (sender is not ExchangeSettings source || !Settings.ControlSynchronization)
+            return;
 
-            foreach (var ec in _exchangeControls)
-                ec.Settings.TimeDiscretization = newDiscretization;
-        }
+        SynchronizeSettings(source);
+    }
+
+    /// <summary>
+    /// Synchronizes settings of all the exchange controls with the given <param name="source"/>
+    /// </summary>
+    private void SynchronizeSettings(ExchangeSettings source)
+    {
+        foreach (var ec in _exchangeControls)
+            ec.Settings.Assign(source, excludeExchangeDescriptor: true);
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
@@ -149,53 +186,15 @@ public partial class MainWindow : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Sets given interval descriptor to all the exchange controls.
-    /// </summary>
-    private void SynchronizeIntervals(KlineInterval interval)
-    {
-        foreach (var ec in _exchangeControls)
-            ec.TimeDiscretization = interval;
-    }
-
-    private bool _syncIntervals = true;
-
-    /// <summary>
-    /// Flag determining whether time intervals of all the exchange controls should be synchronized.
-    /// </summary>
-    public bool SyncIntervals
-    {
-        get => _syncIntervals;
-        set
-        {
-            if (SetField(ref _syncIntervals, value))
-                SynchronizeIntervals(_exchangeControls.First().TimeDiscretization);
-        }
-    }
-
-    /// <summary>
     /// Applies current theme to the whole application.
     /// </summary>
     private void ApplyTheme()
     {
-        AppThemeController.ApplyTheme(new Uri(_darkMode ? "../Themes/Dark.xaml" : "../Themes/Light.xaml",
+        AppThemeController.ApplyTheme(new Uri(Settings.DarkMode ? "../Themes/Dark.xaml" : "../Themes/Light.xaml",
             UriKind.Relative));
 
         foreach (var ec in _exchangeControls)
-            ec.DarkMode = _darkMode;
-    }
-
-    private bool _darkMode = true;
-
-    /// <summary>
-    /// Switches between the "white" and "dark" themes.
-    /// </summary>
-    public bool DarkMode
-    {
-        get => _darkMode;
-        set
-        {
-            if (SetField(ref _darkMode, value)) ApplyTheme();
-        }
+            ec.DarkMode = Settings.DarkMode;
     }
        
     /// <summary>

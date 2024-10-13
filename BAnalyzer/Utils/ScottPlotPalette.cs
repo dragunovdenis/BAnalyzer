@@ -35,18 +35,33 @@ public static class ScottPlotPalette
         Color.FromSKColor(((SolidColorBrush)Application.Current.TryFindResource(resourceName)).Color.ToSKColor());
 
     /// <summary>
+    /// Foreground color.
+    /// </summary>
+    public static Color ForegroundColor { get; private set; }
+
+    /// <summary>
+    /// Line color.
+    /// </summary>
+    public static Color LineColor { get; private set; }
+
+    /// <summary>
+    /// Background color.
+    /// </summary>
+    public static Color BackgroundColor { get; private set; }
+
+    /// <summary>
     /// Applies palette to the plot
     /// </summary>
     public static void Apply(Plot plot)
     {
-        var backgroundColor = LoadResourceColor("BackgroundColor");
-        var lineColor = LoadResourceColor("PlotLineColor");
-        var foregroundColor = LoadResourceColor("ForegroundColor");
-            
-        plot.FigureBackground.Color = backgroundColor;
-        plot.DataBackground.Color = backgroundColor;
-        plot.Axes.Color(foregroundColor);
-        plot.Grid.MajorLineColor = lineColor;
-        plot.Legend.OutlineColor = foregroundColor;
+        BackgroundColor = LoadResourceColor("BackgroundColor");
+        LineColor = LoadResourceColor("PlotLineColor");
+        ForegroundColor = LoadResourceColor("ForegroundColor");
+
+        plot.FigureBackground.Color = BackgroundColor;
+        plot.DataBackground.Color = BackgroundColor;
+        plot.Axes.Color(ForegroundColor);
+        plot.Grid.MajorLineColor = LineColor;
+        plot.Legend.OutlineColor = ForegroundColor;
     }
 }

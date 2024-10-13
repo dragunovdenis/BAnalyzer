@@ -36,11 +36,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <Menu DockPanel.Dock="Top" Background = "{DynamicResource BackgroundColor}"
                   Foreground="{DynamicResource ForegroundColor}">
                 <MenuItem Header="_Edit">
-                    <MenuItem IsCheckable="true" IsChecked="{Binding SyncIntervals}" Header="_Synchronize intervals"
-                              Background = "{DynamicResource BackgroundColor}"/>
+                    <MenuItem IsCheckable="true" IsChecked="{Binding ElementName=Ui, Path=Settings.ControlSynchronization}"
+                              Header="_Synchronize intervals" Background = "{DynamicResource BackgroundColor}"/>
                 </MenuItem>
                 <MenuItem Header="_View">
-                    <MenuItem IsCheckable="true" IsChecked="{Binding DarkMode}" Header="_Dark mode"
+                    <MenuItem IsCheckable="true" IsChecked="{Binding ElementName=Ui, Path=Settings.DarkMode, Mode=TwoWay}" Header="_Dark mode"
                               Background = "{DynamicResource BackgroundColor}"/>
                 </MenuItem>
             </Menu>

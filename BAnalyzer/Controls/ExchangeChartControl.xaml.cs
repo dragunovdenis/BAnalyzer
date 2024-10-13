@@ -50,6 +50,96 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
         
     private ChartData _chartData;
 
+    public static readonly DependencyProperty InFocusStateProperty =
+        DependencyProperty.Register(nameof(InFocusState), typeof(IInFocus),
+            typeof(ExchangeChartControl), new PropertyMetadata(OnInFocusStateProperty));
+
+    /// <summary>
+    /// In-focus data struct.
+    /// </summary>
+    public IInFocus InFocusState
+    {
+        get => (IInFocus)GetValue(InFocusStateProperty);
+        set => SetValue(InFocusStateProperty, value);
+    }
+
+    /// <summary>
+    /// Property-changed event handler of the corresponding dependency property.
+    /// </summary>
+    static void OnInFocusStateProperty(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+    {
+        (obj as ExchangeChartControl)?.OnInFocusStateProperty(args);
+    }
+
+    /// <summary>
+    /// Property-changed event handler of the corresponding property.
+    /// </summary>
+    private void OnInFocusStateProperty(DependencyPropertyChangedEventArgs args)
+    {
+        if (InFocusState != null)
+            InFocusState.PropertyChanged += InFocusState_PropertyChanged;
+    }
+
+    /// <summary>
+    /// Property changed handler of the in-focus state object.
+    /// </summary>
+    private void InFocusState_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (InFocusState == sender && e.PropertyName is nameof(InFocusState.InFocusTime))
+        {
+            ProcessFocusMarkerOnMainChart();
+            ProcessFocusMarkerOnVolumeChart();
+        }
+    }
+
+    private VerticalLine _mainChartMarker;
+    private VerticalLine _volumeChartMarker;
+
+    /// <summary>
+    /// Builds focus marker on the main chart.
+    /// </summary>
+    private void ProcessFocusMarkerOnMainChart()
+    {
+        if (_mainChartMarker != null)
+            MainPlot.Plot.Remove(_mainChartMarker);
+
+        if (!InFocusState.ShowFocusTimeMarker)
+            return;
+
+        var dt = DateTime.FromOADate(InFocusState.InFocusTime);
+
+        _mainChartMarker = MainPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
+        _mainChartMarker.LabelOppositeAxis = true;
+        _mainChartMarker.LineWidth = 1;
+        _mainChartMarker.LabelOffsetY = 9;
+        _mainChartMarker.LabelText = $"{dt.ToShortDateString()}/{dt.ToShortTimeString()}";
+        _mainChartMarker.LabelFontColor = ScottPlotPalette.ForegroundColor;
+        _mainChartMarker.LabelBackgroundColor = new Color(0, 0, 0, 0);
+        MainPlot.Refresh();
+
+        if (_volumeChartMarker != null)
+            VolPlot.Plot.Remove(_volumeChartMarker);
+
+        _volumeChartMarker = VolPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
+        VolPlot.Refresh();
+    }
+
+    /// <summary>
+    /// Builds focus marker on the volume chart.
+    /// </summary>
+    private void ProcessFocusMarkerOnVolumeChart()
+    {
+        if (_volumeChartMarker != null)
+            VolPlot.Plot.Remove(_volumeChartMarker);
+
+        if (!InFocusState.ShowFocusTimeMarker)
+            return;
+
+        _volumeChartMarker = VolPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
+        _volumeChartMarker.LineWidth = 1;
+        VolPlot.Refresh();
+    }
+
     /// <summary>
     /// Builds candle-sticks chart based on the given data.
     /// </summary>
@@ -74,6 +164,9 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
                 timeline[Math.Min(changePt + 1, timeline.Length - 1)]);
 
         MainPlot.Plot.Axes.SetLimitsX(chartData.GetBeginTime().ToOADate(), chartData.GetEndTime().ToOADate());
+
+        ProcessFocusMarkerOnMainChart();
+
         MainPlot.Refresh();
 
         return result;
@@ -128,12 +221,13 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
 
         ScottPlot.TickGenerators.NumericAutomatic voidTicksGenerator = new()
         {
-            LabelFormatter = (c) => ""
+            LabelFormatter = _ => ""
         };
 
         VolPlot.Plot.Axes.Bottom.TickGenerator = voidTicksGenerator;
         VolPlot.Plot.Axes.AutoScale();
         VolPlot.Plot.Axes.SetLimitsX(startTimeOa, endTimeOa);
+        ProcessFocusMarkerOnVolumeChart();
         VolPlot.Refresh();
 
         return result;
@@ -233,7 +327,10 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
 
         var pixel = plot.GetPlotPixelPosition(e);
         var dataPt = plot.Plot.GetCoordinates(pixel, xAxis: chart.Axes.XAxis, yAxis: chart.Axes.YAxis);
-        var stickId = stickIdExtractor(dataPt.X, dataPt.Y);
+
+        InFocusState.InFocusTime = dataPt.X;
+
+       var stickId = stickIdExtractor(dataPt.X, dataPt.Y);
 
         if (stickId < 0)
         {
@@ -271,8 +368,10 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
         VolPlot.Plot.Axes.Left.SetTicks([], []);
         VolPlot.Plot.Axes.Bottom.SetTicks([], []);
 
-        var padding = new PixelPadding(40, 70, 40, 10);
+        var padding = new PixelPadding(40, 70, 40, 12);
         MainPlot.Plot.Layout.Fixed(padding);
+        padding.Top = 0;
+        padding.Bottom = 10;
         VolPlot.Plot.Layout.Fixed(padding);
     }
 

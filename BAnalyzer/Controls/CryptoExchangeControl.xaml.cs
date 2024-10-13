@@ -42,17 +42,6 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     private ExchangeData CurrentExchangeData => new(ExchangeDescriptor, _timeStamp);
     private DateTime _timeStamp;
 
-    private bool _spikeIndicator = true;
-
-    /// <summary>
-    /// Flag determining indicator type
-    /// </summary>
-    public bool SpikeIndicator
-    {
-        get => _spikeIndicator;
-        set => SetField(ref _spikeIndicator, value);
-    }
-
     private void UpdateTimeStamp() => _timeStamp = DateTime.Now;
 
     /// <summary>

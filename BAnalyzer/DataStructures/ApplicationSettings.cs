@@ -15,6 +15,8 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 
 namespace BAnalyzer.DataStructures;
@@ -22,12 +24,22 @@ namespace BAnalyzer.DataStructures;
 /// <summary>
 /// Readonly interface for the data structure below.
 /// </summary>
-public interface IApplicationSettings
+public interface IApplicationSettings : INotifyPropertyChanged
 {
     /// <summary>
     /// Collection of settings for each exchange control.
     /// </summary>
     List<ExchangeSettings> ExchangeSettings { get; }
+
+    /// <summary>
+    /// Dark mode toggle.
+    /// </summary>
+    bool DarkMode { get; }
+
+    /// <summary>
+    /// View synchronization toggle.
+    /// </summary>
+    bool ControlSynchronization { get; }
 }
 
 /// <summary>
@@ -41,4 +53,46 @@ public class ApplicationSettings : IApplicationSettings
     /// </summary>
     [DataMember]
     public List<ExchangeSettings> ExchangeSettings { get; private set; } = new();
+
+    [DataMember]
+    private bool _darkMode = true;
+
+    /// <summary>
+    /// <inheritdoc/>
+    /// </summary>
+    public bool DarkMode
+    {
+        get => _darkMode;
+        set => SetField(ref _darkMode, value);
+    }
+
+    [DataMember]
+    private bool _synchronization = true;
+
+    /// <summary>
+    /// <inheritdoc/>
+    /// </summary>
+    public bool ControlSynchronization
+    {
+        get => _synchronization;
+        set =>SetField(ref _synchronization, value);
+    }
+
+    public event PropertyChangedEventHandler PropertyChanged;
+
+    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    /// <summary>
+    /// Sets field with property-changed notification.
+    /// </summary>
+    protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+        field = value;
+        OnPropertyChanged(propertyName);
+        return true;
+    }
 }
