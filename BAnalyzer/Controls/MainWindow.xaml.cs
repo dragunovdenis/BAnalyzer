@@ -243,4 +243,32 @@ public partial class MainWindow : INotifyPropertyChanged
 
         _exchangeControls.Clear();
     }
+
+    /// <summary>
+    /// Minimize button click event handler.
+    /// </summary>
+    private void Minimize_OnClick(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState.Minimized;
+
+    /// <summary>
+    /// Maximize button click event handler.
+    /// </summary>
+    private void Maximize_OnClick(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Normal ? WindowState.Maximized : WindowState.Normal;
+
+    /// <summary>
+    /// Close button click event handler.
+    /// </summary>
+    private void Close_OnClick(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>
+    /// Header left mouse button click event handler.
+    /// </summary>
+    private void Header_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+            WindowState = WindowState == WindowState.Normal ? WindowState.Maximized : WindowState.Normal;
+        else
+            DragMove();
+    }
 }
