@@ -22,25 +22,28 @@ public static class DataFormatter
     /// <summary>
     /// Formats given number to an approximate compact from.
     /// </summary>
-    public static string FloatToCompact(double position)
+    public static string FloatToCompact(double value)
     {
-        if (Math.Abs(position) < 1)
-            return $"{position:0.####}";
+        if (Math.Abs(value) < 1)
+            return $"{value:0.#####}";
 
-        if (Math.Abs(position) < 1e3)
-            return $"{position:0.##}";
+        if (Math.Abs(value) < 1e3)
+            return $"{value:0.##}";
 
-        if (Math.Abs(position) < 1e6)
-            return $"{position / 1e3:0.#}K";
+        if (Math.Abs(value) < 1e6)
+            return $"{value / 1e3:0.#}K";
 
-        if (Math.Abs(position) < 1e9)
-            return $"{position / 1e6:0.#}M";
+        if (Math.Abs(value) < 1e9)
+            return $"{value / 1e6:0.#}M";
 
-        if (Math.Abs(position) < 1e12)
-            return $"{position / 1e9:0.#}B";
+        if (Math.Abs(value) < 1e12)
+            return $"{value / 1e9:0.#}B";
 
-        if (Math.Abs(position) < 1e15)
-            return $"{position / 1e12:0.#}T";
+        if (Math.Abs(value) < 1e15)
+            return $"{value / 1e12:0.#}T";
+
+        if (double.IsNaN(value))
+            return "NaN";
 
         throw new ArgumentException("Unexpected range of the input argument.");
     }

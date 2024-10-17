@@ -18,7 +18,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using BAnalyzer.DataStructures;
@@ -32,7 +31,7 @@ namespace BAnalyzer.Controls;
 /// <summary>
 /// Interaction logic for ExchangeChartControl.xaml
 /// </summary>
-public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
+public partial class ExchangeChartControl : INotifyPropertyChanged
 {
     private string _infoTipString;
 
@@ -66,10 +65,8 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
     /// <summary>
     /// Property-changed event handler of the corresponding dependency property.
     /// </summary>
-    static void OnInFocusStateProperty(DependencyObject obj, DependencyPropertyChangedEventArgs args)
-    {
+    static void OnInFocusStateProperty(DependencyObject obj, DependencyPropertyChangedEventArgs args) =>
         (obj as ExchangeChartControl)?.OnInFocusStateProperty(args);
-    }
 
     /// <summary>
     /// Property-changed event handler of the corresponding property.
@@ -87,57 +84,138 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
     {
         if (InFocusState == sender && e.PropertyName is nameof(InFocusState.InFocusTime))
         {
-            ProcessFocusMarkerOnMainChart();
-            ProcessFocusMarkerOnVolumeChart();
+            BuildMainChartTimeMarker();
+            MainPlot.Refresh();
+            BuildVolumeChartTimeMarker();
+            VolPlot.Refresh();
         }
     }
 
-    private VerticalLine _mainChartMarker;
-    private VerticalLine _volumeChartMarker;
+    private VerticalLine _mainChartTimeMarker;
+    private HorizontalLine _mainChartPriceMarker;
+    private VerticalLine _volumeChartTimeMarker;
+    
+    private double _focusPrice = double.NaN;
 
     /// <summary>
-    /// Builds focus marker on the main chart.
+    /// Current focus price.
     /// </summary>
-    private void ProcessFocusMarkerOnMainChart()
+    private double FocusPrice
     {
-        if (_mainChartMarker != null)
-            MainPlot.Plot.Remove(_mainChartMarker);
+        set
+        {
+            if (SetField(ref _focusPrice, value))
+            {
+                BuildMainChartPriceMarker();
+                MainPlot.Refresh();
+            }
+        }
+    }
 
+    /// <summary>
+    /// Sets color to the given axis line.
+    /// </summary>
+    private static void SetColor(AxisLine line)
+    {
+        if (line == null) return;
+        
+        line.LineStyle.Color = ScottPlotPalette.ForegroundColor;
+        line.LabelStyle.ForeColor = ScottPlotPalette.ForegroundColor;
+        line.LabelStyle.BackgroundColor = new Color(0, 0, 0, 0);
+    }
+
+    /// <summary>
+    /// Builds time marker on the main chart.
+    /// </summary>
+    private void BuildMainChartTimeMarker()
+    {
         if (!InFocusState.ShowFocusTimeMarker)
+        {
+            MainPlot.Plot.PlottableList.Remove(_mainChartTimeMarker);
+            _mainChartTimeMarker = null;
             return;
+        }
 
-        var dt = DateTime.FromOADate(InFocusState.InFocusTime);
+        if (_mainChartTimeMarker != null)
+        {
+            _mainChartTimeMarker.X = InFocusState.InFocusTime;
 
-        _mainChartMarker = MainPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
-        _mainChartMarker.LabelOppositeAxis = true;
-        _mainChartMarker.LineWidth = 1;
-        _mainChartMarker.LabelOffsetY = 9;
-        _mainChartMarker.LabelText = $"{dt.ToShortDateString()}/{dt.ToShortTimeString()}";
-        _mainChartMarker.LabelFontColor = ScottPlotPalette.ForegroundColor;
-        _mainChartMarker.LabelBackgroundColor = new Color(0, 0, 0, 0);
-        MainPlot.Refresh();
+            var dt = DateTime.FromOADate(InFocusState.InFocusTime);
+            _mainChartTimeMarker.LabelText = $"{dt.ToShortDateString()}/{dt.ToShortTimeString()}";
 
-        if (_volumeChartMarker != null)
-            VolPlot.Plot.Remove(_volumeChartMarker);
+            if (!MainPlot.Plot.PlottableList.Contains(_mainChartTimeMarker))
+                MainPlot.Plot.PlottableList.Add(_mainChartTimeMarker);
 
-        _volumeChartMarker = VolPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
-        VolPlot.Refresh();
+            return;
+        }
+
+        _mainChartTimeMarker = MainPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
+        _mainChartTimeMarker.Axes.XAxis = MainPlot.Plot.Axes.Bottom;
+        _mainChartTimeMarker.IsVisible = true;
+        _mainChartTimeMarker.Axes.XAxis = MainPlot.Plot.Axes.Bottom;
+        _mainChartTimeMarker.LabelOppositeAxis = true;
+        _mainChartTimeMarker.LineWidth = 1;
+        _mainChartTimeMarker.LabelOffsetY = 9;
+        SetColor(_mainChartTimeMarker);
+    }
+
+    /// <summary>
+    /// Builds price marker on the main chart.
+    /// </summary>
+    private void BuildMainChartPriceMarker()
+    {
+        if (double.IsNaN(_focusPrice))
+        {
+            MainPlot.Plot.PlottableList.Remove(_mainChartPriceMarker);
+            _mainChartPriceMarker = null;
+            return;
+        }
+
+        if (_mainChartPriceMarker != null)
+        {
+            _mainChartPriceMarker.Y = _focusPrice;
+            _mainChartPriceMarker.LabelText = $"{DataFormatter.FloatToCompact(_focusPrice)} USDT";
+            if (!MainPlot.Plot.PlottableList.Contains(_mainChartPriceMarker))
+                MainPlot.Plot.PlottableList.Add(_mainChartPriceMarker);
+
+            return;
+        }
+
+        _mainChartPriceMarker = MainPlot.Plot.Add.HorizontalLine(_focusPrice);
+        _mainChartPriceMarker.Axes.YAxis = MainPlot.Plot.Axes.Right;
+        _mainChartPriceMarker.LineWidth = 1;
+        SetColor(_mainChartPriceMarker);
+    }
+
+    /// <summary>
+    /// Builds focus markers on the main chart.
+    /// </summary>
+    private void ProcessMarkersOnMainChart()
+    {
+        BuildMainChartTimeMarker();
+        BuildMainChartPriceMarker();
     }
 
     /// <summary>
     /// Builds focus marker on the volume chart.
     /// </summary>
-    private void ProcessFocusMarkerOnVolumeChart()
+    private void BuildVolumeChartTimeMarker()
     {
-        if (_volumeChartMarker != null)
-            VolPlot.Plot.Remove(_volumeChartMarker);
+        if (_volumeChartTimeMarker != null)
+        {
+            _volumeChartTimeMarker.X = InFocusState.InFocusTime;
+            if (!VolPlot.Plot.PlottableList.Contains(_volumeChartTimeMarker))
+                VolPlot.Plot.PlottableList.Add(_volumeChartTimeMarker);
+            
+            return;
+        }
 
         if (!InFocusState.ShowFocusTimeMarker)
             return;
 
-        _volumeChartMarker = VolPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
-        _volumeChartMarker.LineWidth = 1;
-        VolPlot.Refresh();
+        _volumeChartTimeMarker = VolPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
+        _volumeChartTimeMarker.LineWidth = 1;
+        SetColor(_volumeChartTimeMarker);
     }
 
     /// <summary>
@@ -155,7 +233,7 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
 
         var result = MainPlot.Plot.Add.Candlestick(chartData.Sticks);
         result.Axes.YAxis = MainPlot.Plot.Axes.Right;
-        MainPlot.Plot.Axes.DateTimeTicksBottom();
+        MainPlot.Plot.Axes.AutoScale();
 
         var timeline = chartData.Sticks.Select(x => x.DateTime.ToOADate()).ToArray();
 
@@ -165,7 +243,7 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
 
         MainPlot.Plot.Axes.SetLimitsX(chartData.GetBeginTime().ToOADate(), chartData.GetEndTime().ToOADate());
 
-        ProcessFocusMarkerOnMainChart();
+        ProcessMarkersOnMainChart();
 
         MainPlot.Refresh();
 
@@ -227,7 +305,7 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
         VolPlot.Plot.Axes.Bottom.TickGenerator = voidTicksGenerator;
         VolPlot.Plot.Axes.AutoScale();
         VolPlot.Plot.Axes.SetLimitsX(startTimeOa, endTimeOa);
-        ProcessFocusMarkerOnVolumeChart();
+        BuildVolumeChartTimeMarker();
         VolPlot.Refresh();
 
         return result;
@@ -251,9 +329,6 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
     {
         InitializeComponent();
         InitializePlots();
-
-        MainPlot.MouseMove += MainPlot_MouseMove;
-        VolPlot.MouseMove += VolPlot_MouseMove;
     }
 
     /// <summary>
@@ -261,6 +336,9 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
     /// </summary>
     private void ApplyColorPalettes()
     {
+        SetColor(_mainChartPriceMarker);
+        SetColor(_mainChartTimeMarker);
+        SetColor(_volumeChartTimeMarker);
         ScottPlotPalette.Apply(MainPlot.Plot);
         MainPlot.Refresh();
         ScottPlotPalette.Apply(VolPlot.Plot);
@@ -328,6 +406,9 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
         var pixel = plot.GetPlotPixelPosition(e);
         var dataPt = plot.Plot.GetCoordinates(pixel, xAxis: chart.Axes.XAxis, yAxis: chart.Axes.YAxis);
 
+        if (plot == MainPlot)
+            FocusPrice = dataPt.Y;
+        
         InFocusState.InFocusTime = dataPt.X;
 
        var stickId = stickIdExtractor(dataPt.X, dataPt.Y);
@@ -363,6 +444,7 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
     {
         MainPlot.Interaction.Disable();
         MainPlot.Plot.Axes.Left.SetTicks([], []);
+        MainPlot.Plot.Axes.DateTimeTicksBottom();
 
         VolPlot.Interaction.Disable();
         VolPlot.Plot.Axes.Left.SetTicks([], []);
@@ -373,6 +455,23 @@ public partial class ExchangeChartControl : UserControl, INotifyPropertyChanged
         padding.Top = 0;
         padding.Bottom = 10;
         VolPlot.Plot.Layout.Fixed(padding);
+    }
+
+    /// <summary>
+    /// Mouse leave event handler of the main plot.
+    /// </summary>
+    private void MainPlot_OnMouseLeave(object sender, MouseEventArgs e)
+    {
+        FocusPrice = double.NaN;
+        InfoTip.IsOpen = false;
+    }
+
+    /// <summary>
+    /// Mouse leave event handler of the volume plot.
+    /// </summary>
+    private void VolumePlot_OnMouseLeave(object sender, MouseEventArgs e)
+    {
+        InfoTip.IsOpen = false;
     }
 
     public event PropertyChangedEventHandler PropertyChanged;

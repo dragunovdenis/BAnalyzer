@@ -50,13 +50,27 @@ public static class ScottPlotPalette
     public static Color BackgroundColor { get; private set; }
 
     /// <summary>
-    /// Applies palette to the plot
+    /// Constructor.
     /// </summary>
-    public static void Apply(Plot plot)
+    static ScottPlotPalette() => LoadColors();
+
+    /// <summary>
+    /// Loads colors from resources.
+    /// </summary>
+    public static void LoadColors()
     {
         BackgroundColor = LoadResourceColor("BackgroundColor");
         LineColor = LoadResourceColor("PlotLineColor");
         ForegroundColor = LoadResourceColor("ForegroundColor");
+    }
+
+    /// <summary>
+    /// Applies palette to the plot
+    /// </summary>
+    public static void Apply(Plot plot, bool reloadColors = true)
+    {
+        if (reloadColors)
+            LoadColors();
 
         plot.FigureBackground.Color = BackgroundColor;
         plot.DataBackground.Color = BackgroundColor;
