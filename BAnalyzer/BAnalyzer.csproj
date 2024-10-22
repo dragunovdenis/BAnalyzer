@@ -8,11 +8,15 @@
     <Copyright>Copyright © 2024 Denys Dragunov, dragunovdenis@gmail.com</Copyright>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
+    <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ScottPlot.WPF" Version="5.0.36" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BAnalyzerCore\BAnalyzerCore.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Icon.ico" />
   </ItemGroup>
 </Project>

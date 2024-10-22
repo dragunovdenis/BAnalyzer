@@ -21,7 +21,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
             mc:Ignorable="d" WindowStyle="None"
-            Title="BAnalyzer" Height="450" Width="800" Name="Ui" Closing="MainWindow_OnClosing">
+            Title="BAnalyzer" Height="450" Width="800" Name="Ui" Closing="MainWindow_OnClosing" Icon="\Icon.ico">
     <Window.Resources>
         <Style TargetType="{x:Type Grid}">
             <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
