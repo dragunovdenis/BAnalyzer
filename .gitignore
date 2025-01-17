@@ -54,3 +54,8 @@ BAnalyzer/obj/
 BAnalyzerCore/bin/
 BAnalyzerCore/obj/
 *.user
+BAnalyzerNativeDll/x64/
+packages/
+x64/
+BAnalyzer/Properties/launchSettings.json
+BAnalyzerCore/Properties/launchSettings.json
