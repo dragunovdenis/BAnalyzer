@@ -26,26 +26,32 @@ extern "C"
 	/// Returns a pointer to a recurrent neural net constructed according to the given set of parameters.
 	///	Returns "null" if fails.
 	/// </summary>
-	__declspec(dllexport) RNN* NetConstructRnn(const int time_depth,
+	__declspec(dllexport) RNN* RnnConstruct(const int time_depth,
 		const int layer_item_sizes_count, const int* layer_item_sizes);
 
 	/// <summary>
 	/// Returns size of a single input time-point item of the net represented with <paramref name="net_ptr"/>.
 	///	Returns "-1" size in case of failure.
 	/// </summary>
-	__declspec(dllexport) int GetInputItemSize(const RNN* net_ptr);
+	__declspec(dllexport) int RnnGetInputItemSize(const RNN* net_ptr);
 
 	/// <summary>
 	/// Returns size of a single output time-point item of the net represented with <paramref name="net_ptr"/>.
 	///	Returns "-1" size in case of failure.
 	/// </summary>
-	__declspec(dllexport) int GetOutputItemSize(const RNN* net_ptr);
+	__declspec(dllexport) int RnnGetOutputItemSize(const RNN* net_ptr);
 
 	/// <summary>
 	/// Returns number of layers in the net represented with <paramref name="net_ptr"/>.
 	///	Returns "-1" in case of failure.
 	/// </summary>
-	__declspec(dllexport) int GetLayerCount(const RNN* net_ptr);
+	__declspec(dllexport) int RnnGetLayerCount(const RNN* net_ptr);
+
+	/// <summary>
+	/// Returns recurrence depth the net represented with <paramref name="net_ptr"/>.
+	/// Returns "-1" in case of failure.
+	/// </summary>
+	__declspec(dllexport) int RnnGetDepth(const RNN* net_ptr);
 
 	/// <summary>
 	/// Delegate to acquire an unmanaged array from the caller side.
@@ -56,14 +62,14 @@ extern "C"
 	/// Evaluated neural net at the given <paramref name="input"/>.
 	///	Returns "true" if succeeded.
 	/// </summary>
-	__declspec(dllexport) bool NetEvaluate(const RNN* net_ptr,
+	__declspec(dllexport) bool RnnEvaluate(const RNN* net_ptr,
 		const int size, const double* input, const GetArrayCallBack get_result_callback);
 
 	/// <summary>
 	/// Evaluated neural net at the given <paramref name="input_aggregate"/>.
 	///	Returns "true" if succeeded.
 	/// </summary>
-	__declspec(dllexport) bool NetBatchTrain(RNN* net_ptr,
+	__declspec(dllexport) bool RnnBatchTrain(RNN* net_ptr,
 		const int in_aggregate_size, const double* input_aggregate, const int ref_aggregate_size,
 		const double* reference_aggregate, const double learning_rate);
 
@@ -71,5 +77,5 @@ extern "C"
 	/// Frees the given pointer to a net.
 	///	Returns "true" if succeeded.
 	/// </summary>
-	__declspec(dllexport) bool NetFree(const RNN* net_ptr);
+	__declspec(dllexport) bool RnnFree(const RNN* net_ptr);
 }

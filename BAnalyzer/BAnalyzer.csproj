@@ -12,6 +12,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>$(SolutionDir)\$(Platform)\$(Configuration)\</OutputPath>
     <Platforms>x64</Platforms>
+    <Configurations>Debug;Release;DebugSingle;ReleaseSingle;IntelCompiler;IntelCompilerSingle</Configurations>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ScottPlot.WPF" Version="5.0.36" />

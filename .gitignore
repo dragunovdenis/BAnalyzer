@@ -59,3 +59,6 @@ packages/
 x64/
 BAnalyzer/Properties/launchSettings.json
 BAnalyzerCore/Properties/launchSettings.json
+BAnalyzerCoreTest/bin/
+BAnalyzerCoreTest/obj/
+BAnalyzerCoreTest/Properties/launchSettings.json

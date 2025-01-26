@@ -31,11 +31,11 @@ namespace BAnalyzerNative
 		if (layer_item_sizes_count < 2)
 			throw std::exception("Can't construct the net.");
 
-		Index4d in_size{ {1, 1, layer_item_sizes[layer_item_sizes_count]}, time_depth };
+		Index4d in_size{ {1, 1, layer_item_sizes[0]}, time_depth };
 
 		for (auto layer_id = 1; layer_id < layer_item_sizes_count; ++layer_id)
 		{
-			in_size = _net.append_layer<RMLayer>(in_size, Index4d{ {1, 1, layer_item_sizes[layer_item_sizes_count]}, time_depth },
+			in_size = _net.append_layer<RMLayer>(in_size, Index4d{ {1, 1, layer_item_sizes[layer_id]}, time_depth },
 				FillRandomNormal, ActivationFunctionId::SIGMOID);
 		}
 

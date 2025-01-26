@@ -18,7 +18,7 @@
 #include "NetInterface.h"
 #include <RNN.h>
 
-__declspec(dllexport) RNN* NetConstructRnn(const int time_depth,
+__declspec(dllexport) RNN* RnnConstruct(const int time_depth,
 	const int layer_item_sizes_count, const int* layer_item_sizes)
 {
 	RNN* result{};
@@ -37,7 +37,7 @@ __declspec(dllexport) RNN* NetConstructRnn(const int time_depth,
 	return result;
 }
 
-__declspec(dllexport) bool NetFree(const RNN* net_ptr)
+__declspec(dllexport) bool RnnFree(const RNN* net_ptr)
 {
 	if (!net_ptr)
 		return false;
@@ -53,7 +53,7 @@ __declspec(dllexport) bool NetFree(const RNN* net_ptr)
 	return true;
 }
 
-int GetInputItemSize(const RNN* net_ptr)
+int RnnGetInputItemSize(const RNN* net_ptr)
 {
 	if (net_ptr)
 		return static_cast<int>(net_ptr->in_size().xyz.coord_prod());
@@ -61,7 +61,7 @@ int GetInputItemSize(const RNN* net_ptr)
 	return -1;
 }
 
-int GetOutputItemSize(const RNN* net_ptr)
+int RnnGetOutputItemSize(const RNN* net_ptr)
 {
 	if (net_ptr)
 		return static_cast<int>(net_ptr->out_size().xyz.coord_prod());
@@ -69,7 +69,7 @@ int GetOutputItemSize(const RNN* net_ptr)
 	return -1;
 }
 
-int GetLayerCount(const RNN* net_ptr)
+int RnnGetLayerCount(const RNN* net_ptr)
 {
 	if (net_ptr)
 		return static_cast<int>(net_ptr->layer_count());
@@ -77,7 +77,15 @@ int GetLayerCount(const RNN* net_ptr)
 	return -1;
 }
 
-bool NetEvaluate(const RNN* net_ptr, const int size, const double* input,
+int RnnGetDepth(const RNN* net_ptr)
+{
+	if (net_ptr)
+		return static_cast<int>(net_ptr->in_size().w);
+
+	return -1;
+}
+
+bool RnnEvaluate(const RNN* net_ptr, const int size, const double* input,
 	const GetArrayCallBack get_result_callback)
 {
 	if (!net_ptr)
@@ -97,7 +105,7 @@ bool NetEvaluate(const RNN* net_ptr, const int size, const double* input,
 	return true;
 }
 
-bool NetBatchTrain(RNN* net_ptr, const int in_aggregate_size,
+bool RnnBatchTrain(RNN* net_ptr, const int in_aggregate_size,
 	const double* input_aggregate, const int ref_aggregate_size,
 	const double* reference_aggregate, const double learning_rate)
 {
@@ -112,16 +120,6 @@ bool NetBatchTrain(RNN* net_ptr, const int in_aggregate_size,
 	{
 		return false;
 	}
-
-	return true;
-}
-
-bool NetFreeContext(const RNN* ctx_ptr)
-{
-	if (!ctx_ptr)
-		return false;
-
-	delete ctx_ptr;
 
 	return true;
 }
