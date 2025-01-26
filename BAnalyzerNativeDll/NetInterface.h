@@ -78,4 +78,9 @@ extern "C"
 	///	Returns "true" if succeeded.
 	/// </summary>
 	__declspec(dllexport) bool RnnFree(const RNN* net_ptr);
+
+	/// <summary>
+	/// Returns "true" if the DLL is compiled against "single" precision arithmetics.
+	/// </summary>
+	__declspec(dllexport) bool IsSinglePrecision();
 }

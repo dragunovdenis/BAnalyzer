@@ -123,3 +123,8 @@ bool RnnBatchTrain(RNN* net_ptr, const int in_aggregate_size,
 
 	return true;
 }
+
+bool IsSinglePrecision()
+{
+	return std::is_same_v<DeepLearning::Real, float>;
+}

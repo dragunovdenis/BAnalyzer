@@ -23,8 +23,8 @@ namespace BAnalyzerCoreTest;
 [TestClass]
 public class RnnTest
 {
-    const int Depth = 10;
-    static readonly ImmutableArray<int> _itemSizes = [..new int[] { 4, 5, 7, 11 }];
+    const int Depth = 15;
+    private static readonly ImmutableArray<int> _itemSizes = [..new int[] { 4, 5, 7, 11 }];
 
     private static Rnn ConstructStandardRnn() => new Rnn(Depth, _itemSizes.ToArray());
 
@@ -44,13 +44,19 @@ public class RnnTest
             "Unexpected size of the output item of the instantiated RNN");
     }
 
-    private static Random _rnd = new Random();
+    private static Random _rnd = new();
 
     /// <summary>
     /// Returns a randomly generated colelction that can serve as an input or output of the "standard" RNN.
     /// </summary>
     private static double[] GenerateRandomCollection(int itemSize) => Enumerable.Range(0, Depth)
         .SelectMany(_ => Enumerable.Range(0, itemSize).Select(_ => _rnd.NextDouble())).ToArray();
+
+    /// <summary>
+    /// Generates <param name="collectionCount"/> random collections.
+    /// </summary>
+    private static double[] GenerateRandomMultiCollection(int itemSize, int collectionCount) =>
+        Enumerable.Range(0, collectionCount).SelectMany(_ => GenerateRandomCollection(itemSize)).ToArray();
 
     [TestMethod]
     public void EvaluationTest()
@@ -67,20 +73,73 @@ public class RnnTest
         Assert.IsFalse(result.All(x => x.Equals(0)), "Suspicious evaluation result");
     }
 
+    /// <summary>
+    /// Sigmoid function.
+    /// </summary>
+    private static double Sigmoid(double x) => 1 / (1 + Math.Exp(-x));
+
+    /// <summary>
+    /// Evaluates average and maximal absolute deviations between <param name="expectedOutput"/>
+    /// and the result of <param name="net"/> evaluated on the given <param name="input"/>
+    /// </summary>
+    private static (double Average, double Max) CalcAverageAndMaxAbsDeviation(Rnn net, double[] input, double[] expectedOutput)
+    {
+        var singleItemSize = net.InputItemSize * net.Depth;
+        var idx = 0;
+
+        var outputsSplit = new List<double[]>();
+
+        while (idx < input.Length)
+        {
+            var singleItem = input.Skip(idx).Take(singleItemSize).ToArray();
+
+            var singleOutputItem = net.Evaluate(singleItem);
+
+            Assert.IsNotNull(singleOutputItem, "Failed to evaluate net.");
+
+            outputsSplit.Add(net.Evaluate(singleItem));
+            idx += singleItemSize;
+        }
+
+        Assert.AreEqual(idx, input.Length, "Unexpected number of items in the input collection");
+
+        var actualOutput = outputsSplit.SelectMany(x => x).ToArray();
+
+        Assert.AreEqual(actualOutput.Length, expectedOutput.Length,
+            "The collections 1must have the same length");
+
+        var absDiffs = actualOutput.Zip(expectedOutput, (x, y) => Math.Abs(x - y)).ToArray();
+
+        return (absDiffs.Average(), absDiffs.Max());
+    }
+
     [TestMethod]
-    public void TrainingTest()
+    public void IdentityTrainingTest()
     {
         // Arrange
-        var trainingItemCount = 10;
-        var input = Enumerable.Range(0, trainingItemCount).
-            SelectMany(_ => GenerateRandomCollection(_itemSizes.First())).ToArray();
-        var reference = Enumerable.Range(0, trainingItemCount).
-            SelectMany(_ => GenerateRandomCollection(_itemSizes.Last())).ToArray();
+        var itemSize = 5;
+        var net = new Rnn(Depth, [5, 5]);
+        var trainingIterations = 15000;
+        var batchItemCount = 10;
 
-        // Act
-        var result = ConstructStandardRnn().Train(input, reference, learningRate: 0.1);
+        var inputControl = GenerateRandomMultiCollection(itemSize, batchItemCount);
+        var outputControl = inputControl.Select(Sigmoid).ToArray();
 
-        // Assert
-        Assert.IsTrue(result, "Failed to train RNN");
+        var (initialDeviationAverage, _) = CalcAverageAndMaxAbsDeviation(net, inputControl, outputControl);
+        Assert.IsTrue(initialDeviationAverage > 0.2, "Too low initial deviation from reference.");
+
+        for (var iterId = 0; iterId < trainingIterations; iterId++)
+        {
+            var input = GenerateRandomMultiCollection(itemSize, batchItemCount);
+            var reference = input.Select(Sigmoid).ToArray();
+
+            Assert.IsTrue(net.Train(input, reference, learningRate: 0.1),
+                "Training iteration has failed.");
+        }
+
+        var (_, finalDeviationMax) = CalcAverageAndMaxAbsDeviation(net, inputControl, outputControl);
+
+        Assert.IsTrue(finalDeviationMax < (net.SinglePrecision ? 1e-7 : 1e-10),
+            "Too high final deviation from reference.");
     }
 }

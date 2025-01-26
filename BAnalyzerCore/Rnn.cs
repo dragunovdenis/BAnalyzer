@@ -84,6 +84,11 @@ public class Rnn : IDisposable
     }
 
     /// <summary>
+    /// Returns "true" if the native DLL is compiled against "single" precision arithmetics.
+    /// </summary>
+    public bool SinglePrecision => NativeDllWrapper.IsSinglePrecision();
+
+    /// <summary>
     /// Disposes the current instance.
     /// </summary>
     public void Dispose()

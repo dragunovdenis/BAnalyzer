@@ -82,6 +82,7 @@ internal static class NativeDllWrapper
     /// <param name="input">Array of input elements.</param>
     /// <param name="getResultCallback">instance of a callback function to retrieve the result.</param>
     [DllImport("BAnalyzerNativeDll.dll")]
+    [return: MarshalAs(UnmanagedType.U1)]
     public static extern bool RnnEvaluate(IntPtr rnnPtr,
         int size,
         [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)]
@@ -98,6 +99,7 @@ internal static class NativeDllWrapper
     /// <param name="referenceAggregate">Collection representing "labels" to train the neural net on.</param>
     /// <param name="learningRate">Learning rate.</param>
     [DllImport("BAnalyzerNativeDll.dll")]
+    [return: MarshalAs(UnmanagedType.U1)]
     public static extern bool RnnBatchTrain(IntPtr rnnPtr,
         int inAggregateSize,
         [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)]
@@ -115,4 +117,11 @@ internal static class NativeDllWrapper
     [DllImport("BAnalyzerNativeDll.dll")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static extern bool RnnFree(IntPtr rnnPtr);
+
+    /// <summary>
+    /// Returns "true" if the DLL is compiled against "single" precision arithmetics.
+    /// </summary>
+    [DllImport("BAnalyzerNativeDll.dll")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static extern bool IsSinglePrecision();
 }
