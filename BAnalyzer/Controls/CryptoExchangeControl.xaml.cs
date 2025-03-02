@@ -81,18 +81,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         get => _price;
         private set => SetField(ref _price, value);
     }
-        
-    private string _priceColor = "Black";
-
-    /// <summary>
-    /// Color of the price tag in use
-    /// </summary>
-    public string PriceColor
-    {
-        get => _priceColor;
-        private set => SetField(ref _priceColor, value);
-    }
-
+    
     private readonly ObservableCollection<KlineInterval> _availableTimeIntervals = null!;
 
     /// <summary>
@@ -254,10 +243,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 
         var priceData = chartData.Price;
         if (priceData != null)
-        {
-            Price = $"{priceData.Price:0.#####}";
-            PriceColor = chartData.IsPriceUp() ? "Green" : "Red";
-        }
+            Price = $"Price: {priceData.Price,7:F5} USDT";
     }
 
     /// <summary>
@@ -371,23 +357,34 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
-    /// Event handler.
-    /// </summary>
-    private void UIElement_OnPreviewTextInput(object sender, TextCompositionEventArgs e)
-    {
-        var comboBox = (ComboBox)sender;
-        var text = comboBox.Text;
-        // Filter the items in the ComboBox based on the text
-        var view = CollectionViewSource.GetDefaultView(comboBox.ItemsSource);
-        view.Filter = item => item.ToString()!.StartsWith(text, StringComparison.InvariantCultureIgnoreCase);
-    }
-
-    /// <summary>
     /// Disposes resources.
     /// </summary>
     public void Dispose()
     {
         _updateTimer?.Dispose();
         _updateTimer = null;
+    }
+
+    /// <summary>
+    /// Handles filtering with respect to the first letter of the exchange symbol.
+    /// </summary>
+    private void SymbolBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var kc = new KeyConverter();
+        var key = kc.ConvertToString(e.Key);
+        var comboBox = (ComboBox)sender;
+        var view = CollectionViewSource.GetDefaultView(comboBox.ItemsSource);
+        view.Filter = item => item.ToString()!.StartsWith(key!, StringComparison.InvariantCultureIgnoreCase) ||
+                              item.ToString()!.Equals(comboBox.Text);
+    }
+
+    /// <summary>
+    /// Sets default filtering on combobox closed event
+    /// </summary>
+    private void SymbolBox_OnDropDownClosed(object sender, EventArgs e)
+    {
+        var comboBox = (ComboBox)sender;
+        var view = CollectionViewSource.GetDefaultView(comboBox.ItemsSource);
+        view.Filter = _ => true;
     }
 }

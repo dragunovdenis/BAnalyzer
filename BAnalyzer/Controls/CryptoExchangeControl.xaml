@@ -36,28 +36,18 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal">
-            <ComboBox ItemsSource= "{Binding Symbols, UpdateSourceTrigger=PropertyChanged}"
-                      SelectedItem="{Binding Settings.ExchangeDescriptor}" IsEditable="True"
-                      Margin="30, 5, 5, 5" Width="100" PreviewTextInput="UIElement_OnPreviewTextInput"
-                      ItemContainerStyle="{StaticResource ComboBoxItemStyle}">
-                <ComboBox.Resources>
-                    <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ScrollBarStyle}"/>
-                </ComboBox.Resources>
+            <ComboBox Name="SymbolBox" ItemsSource= "{Binding Symbols, UpdateSourceTrigger=PropertyChanged}"
+                      SelectedItem="{Binding Settings.ExchangeDescriptor}"
+                      Margin="30, 5, 5, 5" Width="100" Style="{StaticResource ComboBoxStyle}"
+                      Foreground="{DynamicResource ForegroundColor}" PreviewKeyDown="SymbolBox_OnPreviewKeyDown"
+                      DropDownClosed="SymbolBox_OnDropDownClosed">
             </ComboBox>
             <ComboBox ItemsSource= "{Binding AvailableTimeIntervals, UpdateSourceTrigger=PropertyChanged}"
                       SelectedItem="{Binding Settings.TimeDiscretization}" Margin="5" Width="110"
-                      ItemContainerStyle="{StaticResource ComboBoxItemStyle}">
-                <ComboBox.Resources>
-                    <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ScrollBarStyle}"/>
-                </ComboBox.Resources>
+                      Style="{StaticResource ComboBoxStyle}" Foreground="{DynamicResource ForegroundColor}">
             </ComboBox>
-            <TextBlock Margin="5" Width="250" Foreground = "{DynamicResource ForegroundColor}">
-                <TextBlock.Inlines>
-                    <Run FontWeight="Bold" FontSize="16" Text="Spot Price (USDT): "/>
-                    <Run FontWeight="Bold" FontSize="16"
-                         Foreground="{Binding PriceColor, Mode=OneWay}"
-                         Text="{Binding Price, Mode=OneWay}"/>
-                </TextBlock.Inlines>
+            <TextBlock Margin="5" Width="250" FontWeight="Bold" Text ="{Binding Price, Mode=OneWay}" 
+                       Foreground = "{DynamicResource ForegroundColor}" Background="{DynamicResource BackgroundColor}">
             </TextBlock>
         </StackPanel>
         <TabControl Grid.Column="1" Grid.Row="1" BorderThickness="0"

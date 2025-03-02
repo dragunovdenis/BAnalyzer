@@ -47,7 +47,7 @@ public class RnnTest
     private static Random _rnd = new();
 
     /// <summary>
-    /// Returns a randomly generated colelction that can serve as an input or output of the "standard" RNN.
+    /// Returns a randomly generated collection that can serve as an input or output of the "standard" RNN.
     /// </summary>
     private static double[] GenerateRandomCollection(int itemSize) => Enumerable.Range(0, Depth)
         .SelectMany(_ => Enumerable.Range(0, itemSize).Select(_ => _rnd.NextDouble())).ToArray();
