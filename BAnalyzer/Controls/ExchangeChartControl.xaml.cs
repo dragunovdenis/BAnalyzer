@@ -350,7 +350,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// </summary>
     public static readonly DependencyProperty DarkModeProperty =
         DependencyProperty.Register(
-            name: "DarkMode",
+            name: nameof(DarkMode),
             propertyType: typeof(bool),
             ownerType: typeof(ExchangeChartControl),
             typeMetadata: new FrameworkPropertyMetadata(defaultValue: true, DarkModeValueChanged));
