@@ -18,9 +18,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Input;
 using BAnalyzer.DataStructures;
 using BAnalyzerCore;
 using Binance.Net.Enums;
@@ -363,28 +360,5 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     {
         _updateTimer?.Dispose();
         _updateTimer = null;
-    }
-
-    /// <summary>
-    /// Handles filtering with respect to the first letter of the exchange symbol.
-    /// </summary>
-    private void SymbolBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        var kc = new KeyConverter();
-        var key = kc.ConvertToString(e.Key);
-        var comboBox = (ComboBox)sender;
-        var view = CollectionViewSource.GetDefaultView(comboBox.ItemsSource);
-        view.Filter = item => item.ToString()!.StartsWith(key!, StringComparison.InvariantCultureIgnoreCase) ||
-                              item.ToString()!.Equals(comboBox.Text);
-    }
-
-    /// <summary>
-    /// Sets default filtering on combobox closed event
-    /// </summary>
-    private void SymbolBox_OnDropDownClosed(object sender, EventArgs e)
-    {
-        var comboBox = (ComboBox)sender;
-        var view = CollectionViewSource.GetDefaultView(comboBox.ItemsSource);
-        view.Filter = _ => true;
     }
 }

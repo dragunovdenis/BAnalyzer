@@ -39,8 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <ComboBox Name="SymbolBox" ItemsSource= "{Binding Symbols, UpdateSourceTrigger=PropertyChanged}"
                       SelectedItem="{Binding Settings.ExchangeDescriptor}"
                       Margin="30, 5, 5, 5" Width="100" Style="{StaticResource ComboBoxStyle}"
-                      Foreground="{DynamicResource ForegroundColor}" PreviewKeyDown="SymbolBox_OnPreviewKeyDown"
-                      DropDownClosed="SymbolBox_OnDropDownClosed">
+                      Foreground="{DynamicResource ForegroundColor}" IsEditable="True" IsTextSearchEnabled="True">
             </ComboBox>
             <ComboBox ItemsSource= "{Binding AvailableTimeIntervals, UpdateSourceTrigger=PropertyChanged}"
                       SelectedItem="{Binding Settings.TimeDiscretization}" Margin="5" Width="110"
