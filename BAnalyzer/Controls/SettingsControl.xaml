@@ -51,6 +51,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <local:AdjustmentControl Grid.Column="2" Grid.Row="2" Value="{Binding ElementName=Ui, Path=Settings.MainAnalysisWindow,
             UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" MinValue="1" MaxValue="100"/>
         <TextBlock Grid.Column="0" Grid.Row="3" Text="Show focus"/>
-        <CheckBox Grid.Column="2" Grid.Row="3" IsChecked="{Binding ElementName=Ui, Path=Settings.ShowFocusTimeMarker}"/>
+        <CheckBox Grid.Column="2" Grid.Row="3" IsChecked="{Binding ElementName=Ui, Path=Settings.ShowFocusTimeMarker}"
+                  Style="{StaticResource CheckBoxStyle}"/>
     </Grid>
 </UserControl>
