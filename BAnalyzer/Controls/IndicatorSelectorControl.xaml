@@ -27,7 +27,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <StackPanel>
             <ComboBox ItemsSource="{Binding ElementName=UI, Path=AvailableIndicators}"
                       SelectedItem="{Binding ElementName=UI, Path=CurrentIndicatorType}"
-                      ItemContainerStyle="{StaticResource ComboBoxItemStyle}"/>
+                      Style="{StaticResource ComboBoxStyle}"/>
         </StackPanel>
     </Grid>
 </UserControl>

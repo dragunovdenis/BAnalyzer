@@ -32,6 +32,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <Slider Grid.Column="1" Name="Slider" Minimum="{Binding ElementName=Ui, Path=MinValue }"
                 Maximum="{Binding ElementName=Ui, Path=MaxValue }"
                 Value="{Binding ElementName=Ui, Path=Value }" IsSnapToTickEnabled="True"
-                TickFrequency="{Binding ElementName=Ui, Path=Discretization}"/>
+                TickFrequency="{Binding ElementName=Ui, Path=Discretization}"
+                Style="{StaticResource HorizontalSlider}">
+        </Slider>
     </Grid>
 </UserControl>
