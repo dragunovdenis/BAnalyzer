@@ -58,7 +58,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                     </Grid.ColumnDefinitions>
                     <controls:ExchangeChartControl  x:Name ="Chart" DarkMode = "{Binding DarkMode,
                         UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" InFocusState="{Binding ElementName=Ui, Path=Settings}"/>
-                    <Expander Grid.Column="1" ExpandDirection="Left">
+                    <Expander Grid.Column="1" ExpandDirection="Left" Style="{StaticResource ExpanderStyle}">
                         <controls:SettingsControl x:Name="SettingsPanel" Settings="{Binding ElementName=Ui, Path=Settings,
                             UpdateSourceTrigger=PropertyChanged, Mode=OneWay}"/>
                     </Expander>

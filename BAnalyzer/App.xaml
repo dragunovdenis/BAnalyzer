@@ -358,5 +358,64 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!--Expander-->
+        <ControlTemplate x:Key="ExpanderButtonTempLate" TargetType="{x:Type ToggleButton}">
+            <Border x:Name="ExpanderButtonBorder"
+                    Background="{DynamicResource BackgroundColor}"
+                    BorderBrush="{DynamicResource BackgroundAltColor}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    Padding="{TemplateBinding Padding}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Rectangle Fill="Transparent" Grid.ColumnSpan="2"/>
+                    <Ellipse Name="Circle" Grid.Column="0" Stroke="{DynamicResource ForegroundColor}"
+                             Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Path x:Name="Sign" Grid.Column="0" Data="M 0,5 H 10 M 5,0 V 10 Z"
+                          Stroke="{DynamicResource ForegroundColor}" 
+                          Width="10" Height="10" StrokeThickness="2" HorizontalAlignment="Center"
+                          VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                    </Path>
+                    <ContentPresenter x:Name="HeaderContent" Grid.Column="1" Margin="4,0,0,0" ContentSource="Content"/>
+                </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Data" TargetName="Sign" Value="M 0,5 H 10 Z"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="true">
+                    <Setter Property="StrokeThickness" Value="2" TargetName="Circle"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="ExpanderTemplate" TargetType="{x:Type Expander}">
+            <DockPanel>
+                <ToggleButton x:Name="ExpanderButton"
+                              DockPanel.Dock="Top"
+                              Template="{StaticResource ExpanderButtonTempLate}"
+                              Content="{TemplateBinding Header}"
+                              IsChecked="{Binding Path=IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                              OverridesDefaultStyle="True"
+                              Padding="1.5,0">
+                </ToggleButton>
+                <ContentPresenter x:Name="ExpanderContent" Visibility="Collapsed" DockPanel.Dock="Bottom"/>
+            </DockPanel>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsExpanded" Value="True">
+                    <Setter TargetName="ExpanderContent" Property="Visibility" Value="Visible"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <Style x:Key="ExpanderStyle" TargetType="{x:Type Expander}">
+            <Setter Property="Background" Value="{DynamicResource BackgroundAltColor}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BackgroundAltColor}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+            <Setter Property="Template" Value="{StaticResource ExpanderTemplate}"/>
+        </Style>
     </Application.Resources>
 </Application>
