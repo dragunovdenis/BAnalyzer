@@ -169,8 +169,7 @@ public partial class MainWindow : INotifyPropertyChanged
             var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client, exchangeSymbols, exSettings)
             {
                 AllowDrop = true,
-                BorderBrush = Brushes.Black,
-                BorderThickness = new Thickness(1, 1, colId == 1 ? 1 : 0, rowId == 2 ? 1 : 0),
+                BorderThickness = new Thickness(2, 2, colId == 1 ? 2 : 0, rowId == 2 ? 2 : 0),
             };
                 
             exchangeControl.MouseDown += Exchange_OnMouseDown;

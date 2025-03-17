@@ -22,7 +22,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
                  xmlns:controls="clr-namespace:BAnalyzer.Controls"
                  mc:Ignorable="d" 
-                 d:DesignHeight="450" d:DesignWidth="800" Name="Ui">
+                 d:DesignHeight="450" d:DesignWidth="800" Name="Ui" BorderBrush="{DynamicResource ForegroundColor}">
     <Grid DataContext= "{Binding ElementName = Ui}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
@@ -60,7 +60,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                         UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" InFocusState="{Binding ElementName=Ui, Path=Settings}"/>
                     <Expander Grid.Column="1" ExpandDirection="Left" Style="{StaticResource ExpanderStyle}">
                         <controls:SettingsControl x:Name="SettingsPanel" Settings="{Binding ElementName=Ui, Path=Settings,
-                            UpdateSourceTrigger=PropertyChanged, Mode=OneWay}"/>
+                            UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" Margin="0, 0, 5, 0"/>
                     </Expander>
                 </Grid>
             </TabItem>

@@ -104,25 +104,26 @@ public partial class OrderSheetControl : INotifyPropertyChanged
         OnPropertyChanged(propertyName);
         return true;
     }
+
     /// <summary>
-    /// Row mouse-enter event handler.
+    /// Mouse-down event handler.
     /// </summary>
-    private void DataGridRow_OnMouseEnter(object sender, MouseEventArgs e)
+    private void DataGridRow_OnMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is DataGridRow row)
+        if (sender is not DataGridRow row) return;
+
+        var currentRowId = e.ChangedButton == MouseButton.Left ?
+            Sheet.ItemContainerGenerator.IndexFromContainer(row) : -1;
+
+        if (Sheet.Items[0] is OrderItem firstOrderItem)
+            firstOrderItem.Selected = currentRowId > 0;
+
+        for (int rowId = 1; rowId < Sheet.Items.Count; rowId++)
         {
-            int currentRowId = Sheet.ItemContainerGenerator.IndexFromContainer(row);
-
-            if (Sheet.Items[0] is OrderItem firstOrderItem)
-                firstOrderItem.Selected = currentRowId > 0;
-
-            for (int rowId = 1; rowId < Sheet.Items.Count; rowId++)
-            {
-                if (Sheet.Items[rowId] is OrderItem orderItem)
-                    orderItem.Selected = rowId <= currentRowId;
-            }
-
-            OnOrderSelectionChanged?.Invoke();
+            if (Sheet.Items[rowId] is OrderItem orderItem)
+                orderItem.Selected = rowId <= currentRowId;
         }
+
+        OnOrderSelectionChanged?.Invoke();
     }
 }

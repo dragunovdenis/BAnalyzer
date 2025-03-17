@@ -1,9 +1,9 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <SolidColorBrush Color="#000033" x:Key="BackgroundColor"/>
-    <SolidColorBrush Color="#04047c" x:Key="BackgroundAltColor"/>
-    <SolidColorBrush Color="#25258b" x:Key="BackgroundSelectedColor"/>
-    <SolidColorBrush Color="#ae6205" x:Key="ForegroundColor"/>
-    <SolidColorBrush Color="#4D4B49" x:Key="PlotLineColor"/>
+    <SolidColorBrush Color="#0C0C0C" x:Key="BackgroundColor"/>
+    <SolidColorBrush Color="#481E14" x:Key="BackgroundAltColor"/>
+    <SolidColorBrush Color="#9B3922" x:Key="BackgroundSelectedColor"/>
+    <SolidColorBrush Color="#F2613F" x:Key="ForegroundColor"/>
+    <SolidColorBrush Color="#481E14" x:Key="PlotLineColor"/>
 </ResourceDictionary>
