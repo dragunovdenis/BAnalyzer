@@ -26,16 +26,16 @@ namespace BAnalyzer.DataStructures;
 /// </summary>
 public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
     BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp,
-    IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize)
+    IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad)
 {
 
     /// <summary>
     /// Constructor.
     /// </summary>
     public ChartData(IList<IBinanceKline> candleStickData, BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp,
-        IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize) :
+        IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad) :
         this(ToOhlc(candleStickData), ToTradeVolumes(candleStickData), price, exchangeStamp, timeFrameStamp,
-            priceIndicatorPoints, volumeIndicatorPoints, indicatorWindowSize)
+            priceIndicatorPoints, volumeIndicatorPoints, indicatorWindowSize, timeFrameDurationOad)
     {}
 
     /// <summary>
@@ -76,6 +76,21 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
     private readonly double[] _times = sticks.Select(x => x.DateTime.ToOADate()).ToArray();
 
     /// <summary>
+    /// Minimal time of the series of candlesticks.
+    /// </summary>
+    public double MinStickTime => _times[0] - Sticks.First().TimeSpan.TotalDays / 2;
+
+    /// <summary>
+    /// Maximal time of the series of candlesticks.
+    /// </summary>
+    public double MaxStickTime => _times.Last() + Sticks.First().TimeSpan.TotalDays / 2;
+
+    /// <summary>
+    /// Collection of OAD time values for each candle-stick.
+    /// </summary>
+    public IReadOnlyList<double> Times => _times;
+
+    /// <summary>
     /// Price.
     /// </summary>
     public BinancePrice Price { get; } = price;
@@ -104,6 +119,11 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
     /// Window size used to calculate indicator points
     /// </summary>
     public int IndicatorWindowSize { get; } = indicatorWindowSize;
+
+    /// <summary>
+    /// Duration of the displayed time frame in OLE automation Date format.
+    /// </summary>
+    public double TimeFrameDurationOad { get; } = timeFrameDurationOad;
 
     /// <summary>
     /// Returns the time of the opening of the first candle-stick.

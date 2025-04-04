@@ -20,7 +20,6 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
 using Binance.Net.Enums;
@@ -53,9 +52,12 @@ public partial class MainWindow : INotifyPropertyChanged
     /// </summary>
     private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(_settings.ControlSynchronization) && _settings.ControlSynchronization)
+        if (e.PropertyName is nameof(_settings.ControlSynchronization))
         {
-            SynchronizeSettings(_exchangeControls.First().Settings);
+            if (_settings.ControlSynchronization)
+                SynchronizeSettings(_exchangeControls.First().Settings);
+
+            _chartSyncController.SynchronizationEnabled = _settings.ControlSynchronization;
         } else if (e.PropertyName is nameof(_settings.DarkMode))
         {
             ApplyTheme();
@@ -68,6 +70,7 @@ public partial class MainWindow : INotifyPropertyChanged
     public MainWindow()
     {
         Settings = ApplicationController.Instance.ApplicationSettings;
+        _chartSyncController.SynchronizationEnabled = Settings.ControlSynchronization;
 
         InitializeComponent();
 
@@ -116,17 +119,6 @@ public partial class MainWindow : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    /// <summary>
-    /// Field setter.
-    /// </summary>
-    protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-        field = value;
-        OnPropertyChanged(propertyName);
-        return true;
-    }
-
     private readonly IReadOnlyList<string> _defaultExchangeStockNames =
         new[] { "BTCUSDT", "ETHUSDT", "SOLUSDT", "RVNUSDT" };
         
@@ -143,6 +135,8 @@ public partial class MainWindow : INotifyPropertyChanged
             StickRange = 75,
             TimeDiscretization = KlineInterval.FifteenMinutes,
         };
+
+    private readonly ChartSynchronizationController _chartSyncController = new();
 
     /// <summary>
     /// Sets up the exchange controls and returns them.
@@ -166,14 +160,15 @@ public partial class MainWindow : INotifyPropertyChanged
 
             var exSettings = settings[result.Count];
 
-            var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client, exchangeSymbols, exSettings)
+            var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client,
+                exchangeSymbols, exSettings, _chartSyncController)
             {
-                AllowDrop = true,
+                //AllowDrop = true,
                 BorderThickness = new Thickness(2, 2, colId == 1 ? 2 : 0, rowId == 2 ? 2 : 0),
             };
                 
-            exchangeControl.MouseDown += Exchange_OnMouseDown;
-            exchangeControl.DragEnter += Exchange_OnDragEnter;
+            //exchangeControl.MouseDown += Exchange_OnMouseDown;
+            //exchangeControl.DragEnter += Exchange_OnDragEnter;
 
             Grid.SetColumn(exchangeControl, colId);
             Grid.SetRow(exchangeControl, rowId);

@@ -20,6 +20,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
 using BAnalyzer.Utils;
 using ScottPlot;
@@ -110,6 +111,63 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
                 MainPlot.Refresh();
             }
         }
+    }
+
+    /// <summary>
+    /// Dependency property.
+    /// </summary>
+    public static readonly DependencyProperty TimeFrameEndProperty =
+        DependencyProperty.Register(nameof(TimeFrameEnd), typeof(double), typeof(ExchangeChartControl),
+            new PropertyMetadata(defaultValue: double.NaN, OnDependencyPropertyChanged));
+
+    /// <summary>
+    /// Notifies change of dependency property.
+    /// </summary>
+    private static void OnDependencyPropertyChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+    {
+        if (obj is ExchangeChartControl chartControl)
+            chartControl.OnPropertyChanged(args.Property.Name);
+    }
+
+    /// <summary>
+    /// The end of displayed time frame in OLE Automation Date format.
+    /// </summary>
+    public double TimeFrameEnd
+    {
+        get => (double)GetValue(TimeFrameEndProperty);
+        set
+        {
+            if (UpdateTimeFrameEndNoBroadcast(value))
+                _syncController.BroadcastFrameEnd(this, GetRegularizedTimeFrame());
+        }
+    }
+
+    /// <summary>
+    /// Updates value of the "end of time frame" parameter but does not "broadcast" the change.
+    /// </summary>
+    public bool UpdateTimeFrameEndNoBroadcast(double newValue)
+    {
+        if (!TimeFrameEnd.Equals(newValue))
+        {
+            SetValue(TimeFrameEndProperty, newValue);
+            SetAxesLimits(regularizeTimeFrame: false);
+            return true;
+        }
+
+        return false;
+    }
+
+    private IChartSynchronizationController _syncController;
+
+    /// <summary>
+    /// Registers to the given instance the given instance of synchronization controller.
+    /// </summary>
+    public void RegisterToSynchronizationController(IChartSynchronizationController syncController)
+    {
+        _syncController = syncController;
+
+        if (syncController != null)
+            _syncController.Register(this);
     }
 
     /// <summary>
@@ -218,6 +276,8 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         SetColor(_volumeChartTimeMarker);
     }
 
+    private readonly Color _indicatorColor = Color.FromColor(System.Drawing.Color.Blue).WithAlpha(0.25);
+
     /// <summary>
     /// Builds candle-sticks chart based on the given data.
     /// </summary>
@@ -235,18 +295,14 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         result.Axes.YAxis = MainPlot.Plot.Axes.Right;
         MainPlot.Plot.Axes.AutoScale();
 
-        var timeline = chartData.Sticks.Select(x => x.DateTime.ToOADate()).ToArray();
+        var timeline = chartData.Times;
 
         foreach (var changePt in chartData.PriceIndicatorPoints)
             MainPlot.Plot.Add.HorizontalSpan(timeline[Math.Max(changePt - 1, 0)],
-                timeline[Math.Min(changePt + 1, timeline.Length - 1)]);
-
-        MainPlot.Plot.Axes.SetLimitsX(chartData.GetBeginTime().ToOADate(), chartData.GetEndTime().ToOADate());
+                timeline[Math.Min(changePt + 1, timeline.Count - 1)], color: _indicatorColor);
 
         ProcessMarkersOnMainChart();
-
-        MainPlot.Refresh();
-
+        
         return result;
     }
 
@@ -281,14 +337,14 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
                 ? Color.FromColor(System.Drawing.Color.DarkCyan)
                 : Color.FromColor(System.Drawing.Color.Red);
 
-            bar.BorderLineWidth = 0;
+            bar.LineWidth = 0;
         }
 
-        var timeline = chartData.Sticks.Select(x => x.DateTime.ToOADate()).ToArray();
+        var timeline = chartData.Times;
 
         foreach (var changePt in chartData.VolumeIndicatorPoints)
             VolPlot.Plot.Add.HorizontalSpan(timeline[Math.Max(changePt - 1, 0)],
-                timeline[Math.Min(changePt + 1, timeline.Length - 1)]);
+                timeline[Math.Min(changePt + 1, timeline.Count - 1)], color: _indicatorColor);
 
         ScottPlot.TickGenerators.NumericAutomatic volumeTicksGenerator = new()
         {
@@ -304,11 +360,42 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
 
         VolPlot.Plot.Axes.Bottom.TickGenerator = voidTicksGenerator;
         VolPlot.Plot.Axes.AutoScale();
-        VolPlot.Plot.Axes.SetLimitsX(startTimeOa, endTimeOa);
+
         BuildVolumeChartTimeMarker();
-        VolPlot.Refresh();
 
         return result;
+    }
+
+    /// <summary>
+    /// Returns value of the end of time frame clamped to its "conservative" limits.
+    /// </summary>
+    private double GetRegularizedTimeFrame()
+    {
+        var result = TimeFrameEnd;
+        if (result < _chartData.MinStickTime + _chartData.TimeFrameDurationOad)
+            result = _chartData.MinStickTime + _chartData.TimeFrameDurationOad;
+
+        if (result > _chartData.MaxStickTime)
+            result = double.NaN;
+
+        return result;
+    }
+
+    /// <summary>
+    /// Set axes limits for both plots.
+    /// </summary>
+    private void SetAxesLimits(bool regularizeTimeFrame)
+    {
+        if (regularizeTimeFrame) // do not do adjustment of time-frame boundaries if we are "dragging"
+            TimeFrameEnd = GetRegularizedTimeFrame();
+
+        var localFrameEnd = double.IsNaN(TimeFrameEnd) ? _chartData.GetEndTime().ToOADate() : TimeFrameEnd;
+
+        VolPlot.Plot.Axes.SetLimitsX(localFrameEnd - _chartData.TimeFrameDurationOad, localFrameEnd);
+        VolPlot.Refresh();
+
+        MainPlot.Plot.Axes.SetLimitsX(localFrameEnd - _chartData.TimeFrameDurationOad, localFrameEnd);
+        MainPlot.Refresh();
     }
 
     /// <summary>
@@ -319,6 +406,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         _chartData = chartData;
         _candlestickPlot = BuildCandleSticks(_chartData);
         _volumePlot = BuildVolumeChart(_chartData);
+        SetAxesLimits(regularizeTimeFrame: !PlotDragInProgress);
         ApplyColorPalettes();
     }
         
@@ -406,9 +494,19 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         var pixel = plot.GetPlotPixelPosition(e);
         var dataPt = plot.Plot.GetCoordinates(pixel, xAxis: chart.Axes.XAxis, yAxis: chart.Axes.YAxis);
 
+        if (_startDragPixel.HasValue)
+        {
+            var start = _startDragPixel.Value;
+            var offset = new PixelOffset(start.X - pixel.X, 0);
+            MainPlot.Plot.Axes.Pan(offset);
+            VolPlot.Plot.Axes.Pan(offset);
+            _startDragPixel = pixel;
+            TimeFrameEnd = plot.Plot.Axes.GetLimits().Right;
+        }
+
         if (plot == MainPlot)
             FocusPrice = dataPt.Y;
-        
+
         InFocusState.InFocusTime = dataPt.X;
 
        var stickId = stickIdExtractor(dataPt.X, dataPt.Y);
@@ -442,11 +540,11 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// </summary>
     private void InitializePlots()
     {
-        MainPlot.Interaction.Disable();
+        MainPlot.UserInputProcessor.Disable();
         MainPlot.Plot.Axes.Left.SetTicks([], []);
         MainPlot.Plot.Axes.DateTimeTicksBottom();
 
-        VolPlot.Interaction.Disable();
+        VolPlot.UserInputProcessor.Disable();
         VolPlot.Plot.Axes.Left.SetTicks([], []);
         VolPlot.Plot.Axes.Bottom.SetTicks([], []);
 
@@ -457,6 +555,13 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         VolPlot.Plot.Layout.Fixed(padding);
     }
 
+    private Pixel? _startDragPixel = null;
+
+    /// <summary>
+    /// "True" if the plot dragging is in progress.
+    /// </summary>
+    private bool PlotDragInProgress => _startDragPixel.HasValue;
+
     /// <summary>
     /// Mouse leave event handler of the main plot.
     /// </summary>
@@ -464,6 +569,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     {
         FocusPrice = double.NaN;
         InfoTip.IsOpen = false;
+        _startDragPixel = null;
     }
 
     /// <summary>
@@ -472,6 +578,25 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     private void VolumePlot_OnMouseLeave(object sender, MouseEventArgs e)
     {
         InfoTip.IsOpen = false;
+        _startDragPixel = null;
+    }
+
+    /// <summary>
+    /// Shared "mouse down" event handler for the two plots.
+    /// </summary>
+    private void Plots_OnMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left)
+            _startDragPixel = MainPlot.GetPlotPixelPosition(e);
+    }
+
+    /// <summary>
+    /// Shared "mouse up" event handler for the two plots.
+    /// </summary>
+    private void Plots_OnMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        _startDragPixel = null;
+        SetAxesLimits(regularizeTimeFrame: true);
     }
 
     public event PropertyChangedEventHandler PropertyChanged;

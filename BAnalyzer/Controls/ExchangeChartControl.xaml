@@ -32,8 +32,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <wpf:WpfPlot Grid.Column="0" Grid.Row="0" x:Name="MainPlot" MouseMove="MainPlot_MouseMove" MouseLeave="MainPlot_OnMouseLeave"/>
-        <wpf:WpfPlot Grid.Column="0" Grid.Row="1" x:Name="VolPlot" MouseMove="VolPlot_MouseMove" MouseLeave="VolumePlot_OnMouseLeave"/>
+        <wpf:WpfPlot Grid.Column="0" Grid.Row="0" x:Name="MainPlot" MouseMove="MainPlot_MouseMove"
+                     MouseLeave="MainPlot_OnMouseLeave" MouseDown="Plots_OnMouseDown" MouseUp="Plots_OnMouseUp"/>
+        <wpf:WpfPlot Grid.Column="0" Grid.Row="1" x:Name="VolPlot" MouseMove="VolPlot_MouseMove"
+                     MouseLeave="VolumePlot_OnMouseLeave" MouseDown="Plots_OnMouseDown" MouseUp="Plots_OnMouseUp"/>
         <Popup Grid.Column="0" Grid.Row="2" Name="InfoTip" AllowsTransparency="True" Placement="Relative">
             <TextBlock Background="{DynamicResource BackgroundColor}"
                        Text="{Binding InfoTipString, Mode=OneWay}"/>

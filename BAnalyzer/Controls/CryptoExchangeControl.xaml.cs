@@ -18,6 +18,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
 using BAnalyzerCore;
 using Binance.Net.Enums;
@@ -35,7 +36,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     private ObservableCollection<string> _symbols = null!;
 
     private Timer _updateTimer;
-    private TimeFrame CurrentTimeFrame => new(TimeDiscretization, _timeStamp, Settings.StickRange);
+    private TimeFrame CurrentTimeFrame => new(TimeDiscretization, _timeStamp, Settings.StickRange, Chart.TimeFrameEnd);
     private ExchangeData CurrentExchangeData => new(ExchangeDescriptor, _timeStamp);
     private DateTime _timeStamp;
 
@@ -104,27 +105,46 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Representation of a time frame.
     /// </summary>
-    private class TimeFrame(KlineInterval discretization, DateTime stamp, int sticksPerChart)
+    private class TimeFrame
     {
+        /// <summary>
+        /// Duration of the timeframe.
+        /// </summary>
+        public TimeSpan Duration { get; init; }
+
         /// <summary>
         /// Begin point.
         /// </summary>
-        public DateTime Begin => DateTime.UtcNow.Subtract(Discretization.ToTimeSpan().Multiply(sticksPerChart));
+        public DateTime Begin { get; init; }
 
         /// <summary>
         /// End point.
         /// </summary>
-        public DateTime End => DateTime.UtcNow;
+        public DateTime End { get; init; }
 
         /// <summary>
         /// Discretization of measurements (in time).
         /// </summary>
-        public KlineInterval Discretization { get; } = discretization;
+        public KlineInterval Discretization { get; init; } 
 
         /// <summary>
         /// Time stamp.
         /// </summary>
-        public DateTime Stamp { get; } = stamp;
+        public DateTime Stamp { get; init; }
+
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        public TimeFrame(KlineInterval discretization, DateTime stamp,
+            int sticksPerChart, double timeFrameEndOad)
+        {
+            Discretization = discretization;
+            Duration = Discretization.ToTimeSpan().Multiply(sticksPerChart);
+            End = double.IsNaN(timeFrameEndOad) || timeFrameEndOad > DateTime.UtcNow.ToOADate() ?
+                DateTime.UtcNow : DateTime.FromOADate(timeFrameEndOad);
+            Begin = End.Subtract(Duration);
+            Stamp = stamp;
+        }
     }
 
     /// <summary>
@@ -196,15 +216,16 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             exchange == null || exchange.ExchangeDescriptor is null or "" || client == null)
             return null;
 
-        var sticks = await client.GetCandleSticksAsync(timeFrame.Begin, timeFrame.End,
-            timeFrame.Discretization, exchange.ExchangeDescriptor);
+        var frameDuration = timeFrame.Duration;
+        var sticks = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameDuration),
+            timeFrame.End.Add(frameDuration), timeFrame.Discretization, exchange.ExchangeDescriptor);
         var price = await client.GetCurrentPrice(exchange.ExchangeDescriptor);
 
         var (priceIndicators, volumeIndicators, windowSize) =
             await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks));
 
         return new ChartData(sticks, price, exchange.Stamp, timeFrame.Stamp,
-            priceIndicators, volumeIndicators, windowSize);
+            priceIndicators, volumeIndicators, windowSize, frameDuration.TotalDays);
     }
 
     /// <summary>
@@ -317,12 +338,14 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Constructor.
     /// </summary>
-    public CryptoExchangeControl(BAnalyzerCore.Binance client, IList<string> exchangeSymbols, ExchangeSettings settings)
+    public CryptoExchangeControl(BAnalyzerCore.Binance client, IList<string> exchangeSymbols,
+        ExchangeSettings settings, IChartSynchronizationController syncController)
     {
         Settings = settings;
         _client = client;
         InitializeComponent();
 
+        Chart.RegisterToSynchronizationController(syncController);
         AvailableTimeIntervals =
             new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
                 Where(x => x != KlineInterval.OneSecond));
