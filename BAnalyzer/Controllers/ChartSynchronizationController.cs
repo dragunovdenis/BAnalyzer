@@ -33,6 +33,12 @@ public interface IChartSynchronizationController
     /// Broadcasts given time-frame end between all the registered controls.
     /// </summary>
     void BroadcastFrameEnd(object sender, double frameEnd);
+
+    /// <summary>
+    /// Broadcasts the given <param name="inFocusTime"/>
+    /// to all the registered chart controls.
+    /// </summary>
+    public void BroadcastInFocusTime(object sender, double inFocusTime);
 }
 
 /// <summary>
@@ -57,26 +63,36 @@ internal class ChartSynchronizationController : IChartSynchronizationController
                 _synchronizationEnabled = value;
 
                 if (_synchronizationEnabled && _controls.Count > 0)
-                    BroadcastFrameEnd(_controls.First(), _controls.First().TimeFrameEnd);
+                {
+                    var sender = _controls.First();
+                    BroadcastFrameEnd(sender, sender.TimeFrameEnd);
+                    BroadcastInFocusTime(sender, sender.InFocusTime);
+                }
             }
         }
     }
 
-    /// <summary>
-    /// Registers the given control.
-    /// </summary>
+    /// <inheritdoc/>
     public void Register(ExchangeChartControl control) => _controls.Add(control);
 
     /// <summary>
-    /// Broadcasts given time-frame end between all the registered controls.
+    /// General method to broadcast property values.
     /// </summary>
-    public void BroadcastFrameEnd(object sender, double frameEnd)
+    private void BroadcastProperty(object sender, Action<ExchangeChartControl> propertyUpdater)
     {
         if (!SynchronizationEnabled)
             return;
 
         foreach (var c in _controls)
             if (!sender.Equals(c))
-                c.UpdateTimeFrameEndNoBroadcast(frameEnd);
+                propertyUpdater(c);
     }
+
+    /// <inheritdoc/>
+    public void BroadcastFrameEnd(object sender, double frameEnd) =>
+        BroadcastProperty(sender, chart => chart.UpdateTimeFrameEndNoBroadcast(frameEnd));
+
+    /// <inheritdoc/>
+    public void BroadcastInFocusTime(object sender, double inFocusTime) =>
+        BroadcastProperty(sender, chart => chart.UpdateInFocusTimeNoBroadcast(inFocusTime));
 }

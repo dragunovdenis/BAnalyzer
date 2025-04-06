@@ -50,45 +50,62 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         
     private ChartData _chartData;
 
-    public static readonly DependencyProperty InFocusStateProperty =
-        DependencyProperty.Register(nameof(InFocusState), typeof(IInFocus),
-            typeof(ExchangeChartControl), new PropertyMetadata(OnInFocusStateProperty));
-
     /// <summary>
-    /// In-focus data struct.
+    /// Notifies change of dependency property.
     /// </summary>
-    public IInFocus InFocusState
+    private static void OnDependencyPropertyChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
     {
-        get => (IInFocus)GetValue(InFocusStateProperty);
-        set => SetValue(InFocusStateProperty, value);
+        if (obj is ExchangeChartControl chartControl)
+            chartControl.OnPropertyChanged(args.Property.Name);
     }
 
     /// <summary>
-    /// Property-changed event handler of the corresponding dependency property.
+    /// Dependency property.
     /// </summary>
-    static void OnInFocusStateProperty(DependencyObject obj, DependencyPropertyChangedEventArgs args) =>
-        (obj as ExchangeChartControl)?.OnInFocusStateProperty(args);
+    public static readonly DependencyProperty ShowFocusTimeMarkerProperty =
+        DependencyProperty.Register(nameof(ShowFocusTimeMarker), typeof(bool),
+            typeof(ExchangeChartControl), new PropertyMetadata(OnDependencyPropertyChanged));
 
     /// <summary>
-    /// Property-changed event handler of the corresponding property.
+    /// Determines whether the focus time marker should be visible.
     /// </summary>
-    private void OnInFocusStateProperty(DependencyPropertyChangedEventArgs args)
+    public bool ShowFocusTimeMarker
     {
-        if (InFocusState != null)
-            InFocusState.PropertyChanged += InFocusState_PropertyChanged;
+        get => (bool)GetValue(ShowFocusTimeMarkerProperty);
+        set => SetValue(ShowFocusTimeMarkerProperty, value);
     }
 
     /// <summary>
-    /// Property changed handler of the in-focus state object.
+    /// Updates "in focus time" property with the given
+    /// <param name="newValue"/> without broadcasting.
     /// </summary>
-    private void InFocusState_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    public bool UpdateInFocusTimeNoBroadcast(double newValue)
     {
-        if (InFocusState == sender && e.PropertyName is nameof(InFocusState.InFocusTime))
+        if (SetField(ref _inFocusTime, newValue))
         {
             BuildMainChartTimeMarker();
             MainPlot.Refresh();
             BuildVolumeChartTimeMarker();
             VolPlot.Refresh();
+            return true;
+        }
+
+        return false;
+    }
+
+    private double _inFocusTime;
+
+    /// <summary>
+    /// Point in time that is under the mouse pointer.
+    /// </summary>
+    public double InFocusTime
+    {
+        get => _inFocusTime;
+
+        set
+        {
+            if (UpdateInFocusTimeNoBroadcast(value))
+                _syncController.BroadcastInFocusTime(this, InFocusTime);
         }
     }
 
@@ -119,15 +136,6 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     public static readonly DependencyProperty TimeFrameEndProperty =
         DependencyProperty.Register(nameof(TimeFrameEnd), typeof(double), typeof(ExchangeChartControl),
             new PropertyMetadata(defaultValue: double.NaN, OnDependencyPropertyChanged));
-
-    /// <summary>
-    /// Notifies change of dependency property.
-    /// </summary>
-    private static void OnDependencyPropertyChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
-    {
-        if (obj is ExchangeChartControl chartControl)
-            chartControl.OnPropertyChanged(args.Property.Name);
-    }
 
     /// <summary>
     /// The end of displayed time frame in OLE Automation Date format.
@@ -187,7 +195,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// </summary>
     private void BuildMainChartTimeMarker()
     {
-        if (!InFocusState.ShowFocusTimeMarker)
+        if (!ShowFocusTimeMarker)
         {
             MainPlot.Plot.PlottableList.Remove(_mainChartTimeMarker);
             _mainChartTimeMarker = null;
@@ -196,9 +204,9 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
 
         if (_mainChartTimeMarker != null)
         {
-            _mainChartTimeMarker.X = InFocusState.InFocusTime;
+            _mainChartTimeMarker.X = InFocusTime;
 
-            var dt = DateTime.FromOADate(InFocusState.InFocusTime);
+            var dt = DateTime.FromOADate(InFocusTime);
             _mainChartTimeMarker.LabelText = $"{dt.ToShortDateString()}/{dt.ToShortTimeString()}";
 
             if (!MainPlot.Plot.PlottableList.Contains(_mainChartTimeMarker))
@@ -207,7 +215,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
             return;
         }
 
-        _mainChartTimeMarker = MainPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
+        _mainChartTimeMarker = MainPlot.Plot.Add.VerticalLine(InFocusTime);
         _mainChartTimeMarker.Axes.XAxis = MainPlot.Plot.Axes.Bottom;
         _mainChartTimeMarker.IsVisible = true;
         _mainChartTimeMarker.Axes.XAxis = MainPlot.Plot.Axes.Bottom;
@@ -261,17 +269,17 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     {
         if (_volumeChartTimeMarker != null)
         {
-            _volumeChartTimeMarker.X = InFocusState.InFocusTime;
+            _volumeChartTimeMarker.X = InFocusTime;
             if (!VolPlot.Plot.PlottableList.Contains(_volumeChartTimeMarker))
                 VolPlot.Plot.PlottableList.Add(_volumeChartTimeMarker);
             
             return;
         }
 
-        if (!InFocusState.ShowFocusTimeMarker)
+        if (!ShowFocusTimeMarker)
             return;
 
-        _volumeChartTimeMarker = VolPlot.Plot.Add.VerticalLine(InFocusState.InFocusTime);
+        _volumeChartTimeMarker = VolPlot.Plot.Add.VerticalLine(InFocusTime);
         _volumeChartTimeMarker.LineWidth = 1;
         SetColor(_volumeChartTimeMarker);
     }
@@ -507,7 +515,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         if (plot == MainPlot)
             FocusPrice = dataPt.Y;
 
-        InFocusState.InFocusTime = dataPt.X;
+        InFocusTime = dataPt.X;
 
        var stickId = stickIdExtractor(dataPt.X, dataPt.Y);
 

@@ -53,11 +53,6 @@ public interface IExchangeSettings : INotifyPropertyChanged
     int StickRange { get; }
 
     /// <summary>
-    /// Time point that is currently in focus.
-    /// </summary>
-    double InFocusTime { get; }
-
-    /// <summary>
     /// Determines whether the focus time marker should be shown.
     /// </summary>
     bool ShowFocusTimeMarker { get; }
@@ -69,26 +64,10 @@ public interface IExchangeSettings : INotifyPropertyChanged
 }
 
 /// <summary>
-/// Interface allowing to work exclusively with the in-focus related data.
-/// </summary>
-public interface IInFocus : INotifyPropertyChanged
-{
-    /// <summary>
-    /// Time point that is currently in focus.
-    /// </summary>
-    double InFocusTime { get; set; }
-
-    /// <summary>
-    /// Determines whether the focus time marker should be shown.
-    /// </summary>
-    bool ShowFocusTimeMarker { get; }
-}
-
-/// <summary>
 /// Setting of the crypto exchange control.
 /// </summary>
 [DataContract]
-public class ExchangeSettings : IExchangeSettings, IInFocus
+public class ExchangeSettings : IExchangeSettings
 {
     [DataMember]
     private string _exchangeDescriptor;
@@ -141,18 +120,6 @@ public class ExchangeSettings : IExchangeSettings, IInFocus
     }
 
     [DataMember]
-    private double _focusTime;
-
-    /// <summary>
-    /// Time point that is currently in focus.
-    /// </summary>
-    public double InFocusTime
-    {
-        get => _focusTime;
-        set => SetField(ref _focusTime, value);
-    }
-
-    [DataMember]
     private bool _showFocusTimeMarker = true;
 
     /// <summary>
@@ -174,7 +141,6 @@ public class ExchangeSettings : IExchangeSettings, IInFocus
         CurrentAnalysisIndicator = source.CurrentAnalysisIndicator;
         MainAnalysisWindow = source.MainAnalysisWindow;
         StickRange = source.StickRange;
-        InFocusTime = source.InFocusTime;
         ShowFocusTimeMarker = source.ShowFocusTimeMarker;
     }
 
