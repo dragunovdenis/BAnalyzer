@@ -23,7 +23,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                  xmlns:controls="clr-namespace:BAnalyzer.Controls"
                  mc:Ignorable="d" 
                  d:DesignHeight="450" d:DesignWidth="800" Name="Ui" BorderBrush="{DynamicResource ForegroundColor}">
-    <Grid DataContext= "{Binding ElementName = Ui}">
+    <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
@@ -35,16 +35,16 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal">
-            <ComboBox Name="SymbolBox" ItemsSource= "{Binding Symbols, UpdateSourceTrigger=PropertyChanged}"
-                      SelectedItem="{Binding Settings.ExchangeDescriptor}"
+            <ComboBox Name="SymbolBox" ItemsSource= "{Binding ElementName= Ui, Path=Symbols, UpdateSourceTrigger=PropertyChanged}"
+                      SelectedItem="{Binding ElementName= Ui, Path = Settings.ExchangeDescriptor}"
                       Margin="30, 5, 5, 5" Width="100" Style="{StaticResource ComboBoxStyle}"
                       IsEditable="True" IsTextSearchEnabled="True">
             </ComboBox>
-            <ComboBox ItemsSource= "{Binding AvailableTimeIntervals, UpdateSourceTrigger=PropertyChanged}"
-                      SelectedItem="{Binding Settings.TimeDiscretization}" Margin="5" Width="110"
+            <ComboBox ItemsSource= "{Binding ElementName= Ui, Path = AvailableTimeIntervals, UpdateSourceTrigger=PropertyChanged}"
+                      SelectedItem="{Binding ElementName= Ui, Path = Settings.TimeDiscretization}" Margin="5" Width="110"
                       Style="{StaticResource ComboBoxStyle}">
             </ComboBox>
-            <TextBlock Margin="5" Width="250" FontWeight="Bold" Text ="{Binding Price, Mode=OneWay}" 
+            <TextBlock Margin="5" Width="250" FontWeight="Bold" Text ="{Binding ElementName = Ui, Path = Price, Mode=OneWay}" 
                        Foreground = "{DynamicResource ForegroundColor}" Background="{DynamicResource BackgroundColor}">
             </TextBlock>
         </StackPanel>
@@ -56,7 +56,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <controls:ExchangeChartControl  x:Name ="Chart" DarkMode = "{Binding DarkMode,
+                    <controls:ExchangeChartControl  x:Name ="Chart" DarkMode = "{Binding ElementName= Ui, Path = DarkMode,
                         UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" ShowFocusTimeMarker="{Binding ElementName=Ui,
                         Path=Settings.ShowFocusTimeMarker}"/>
                     <Expander Grid.Column="1" ExpandDirection="Left" Style="{StaticResource ExpanderStyle}">

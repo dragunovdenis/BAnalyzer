@@ -62,10 +62,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="CellTextStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{Binding PriceColor, ElementName = Ui}" />
-            <Setter Property="FontWeight" Value="Bold"/>
-        </Style>
 
         <!--Thumb-->
         <Style x:Key="ScrollThumbs" TargetType="{x:Type Thumb}">

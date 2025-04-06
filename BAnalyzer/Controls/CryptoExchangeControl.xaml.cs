@@ -31,9 +31,7 @@ namespace BAnalyzer.Controls;
 /// </summary>
 public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 {
-    private readonly BAnalyzerCore.Binance _client = null!;
-
-    private ObservableCollection<string> _symbols = null!;
+    private readonly BAnalyzerCore.Binance _client = null;
 
     private Timer _updateTimer;
     private TimeFrame CurrentTimeFrame => new(TimeDiscretization, _timeStamp, Settings.StickRange, Chart.TimeFrameEnd);
@@ -41,6 +39,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     private DateTime _timeStamp;
 
     private void UpdateTimeStamp() => _timeStamp = DateTime.Now;
+
+    private ObservableCollection<string> _symbols = null!;
 
     /// <summary>
     /// Collection of available symbols
@@ -100,51 +100,6 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     {
         get => _darkMode;
         set => SetField(ref _darkMode, value);
-    }
-    
-    /// <summary>
-    /// Representation of a time frame.
-    /// </summary>
-    private class TimeFrame
-    {
-        /// <summary>
-        /// Duration of the timeframe.
-        /// </summary>
-        public TimeSpan Duration { get; init; }
-
-        /// <summary>
-        /// Begin point.
-        /// </summary>
-        public DateTime Begin { get; init; }
-
-        /// <summary>
-        /// End point.
-        /// </summary>
-        public DateTime End { get; init; }
-
-        /// <summary>
-        /// Discretization of measurements (in time).
-        /// </summary>
-        public KlineInterval Discretization { get; init; } 
-
-        /// <summary>
-        /// Time stamp.
-        /// </summary>
-        public DateTime Stamp { get; init; }
-
-        /// <summary>
-        /// Constructor.
-        /// </summary>
-        public TimeFrame(KlineInterval discretization, DateTime stamp,
-            int sticksPerChart, double timeFrameEndOad)
-        {
-            Discretization = discretization;
-            Duration = Discretization.ToTimeSpan().Multiply(sticksPerChart);
-            End = double.IsNaN(timeFrameEndOad) || timeFrameEndOad > DateTime.UtcNow.ToOADate() ?
-                DateTime.UtcNow : DateTime.FromOADate(timeFrameEndOad);
-            Begin = End.Subtract(Duration);
-            Stamp = stamp;
-        }
     }
 
     /// <summary>

@@ -24,12 +24,17 @@ namespace BAnalyzer;
 /// </summary>
 class AppThemeController
 {
+    private static ResourceDictionary _themeDictionary;
+
     /// <summary>
     /// Applies theme defined by its relative uri path.
     /// </summary>
-    public static void ApplyTheme(Uri themeUri)
+    public static void ApplyTheme(Uri newUri)
     {
-        Application.Current.Resources.Clear();
-        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = themeUri });
+        if (_themeDictionary != null)
+            Application.Current.Resources.MergedDictionaries.Remove(_themeDictionary);
+
+        _themeDictionary = new ResourceDictionary { Source = newUri };
+        Application.Current.Resources.MergedDictionaries.Add(_themeDictionary);
     }
 }

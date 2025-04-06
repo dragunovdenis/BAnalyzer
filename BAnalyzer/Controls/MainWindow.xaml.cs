@@ -136,6 +136,12 @@ public partial class MainWindow : INotifyPropertyChanged
             TimeDiscretization = KlineInterval.FifteenMinutes,
         };
 
+    /// <summary>
+    /// Returns collection of exchange symbols.
+    /// </summary>
+    private static string[] GetExchangeSymbols() => BinanceClientController.
+        ExchangeSymbols.Where(x => x.EndsWith("USDT")).ToArray();
+
     private readonly ChartSynchronizationController _chartSyncController = new();
 
     /// <summary>
@@ -148,17 +154,19 @@ public partial class MainWindow : INotifyPropertyChanged
             
         var result = new List<CryptoExchangeControl>();
 
-        var exchangeSymbols = BinanceClientController.ExchangeSymbols.Where(x => x.EndsWith("USDT")).ToArray();
+        var exchangeSymbols = GetExchangeSymbols();
 
         var settings = ApplicationController.Instance.ApplicationSettings.ExchangeSettings;
 
         for (var rowId = 1; rowId < 3; rowId++)
         for (var colId = 0; colId < 2; colId++)
         {
-            if (settings.Count <= result.Count) 
-                settings.Add(SetupExchangeSettings(_defaultExchangeStockNames[result.Count]));
+            var settingsId = $"ExchangeControl_{rowId}:{colId}";
 
-            var exSettings = settings[result.Count];
+            if (!settings.ContainsKey(settingsId)) 
+                settings.Add(settingsId, SetupExchangeSettings(_defaultExchangeStockNames[result.Count]));
+
+            var exSettings = settings[settingsId];
 
             var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client,
                 exchangeSymbols, exSettings, _chartSyncController)

@@ -29,7 +29,7 @@ public interface IApplicationSettings : INotifyPropertyChanged
     /// <summary>
     /// Collection of settings for each exchange control.
     /// </summary>
-    List<ExchangeSettings> ExchangeSettings { get; }
+    Dictionary<string, ExchangeSettings> ExchangeSettings { get; }
 
     /// <summary>
     /// Dark mode toggle.
@@ -52,7 +52,7 @@ public class ApplicationSettings : IApplicationSettings
     /// <inheritdoc/>
     /// </summary>
     [DataMember]
-    public List<ExchangeSettings> ExchangeSettings { get; private set; } = new();
+    public Dictionary<string, ExchangeSettings> ExchangeSettings { get; private set; } = new();
 
     [DataMember]
     private bool _darkMode = true;

@@ -105,7 +105,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         set
         {
             if (UpdateInFocusTimeNoBroadcast(value))
-                _syncController.BroadcastInFocusTime(this, InFocusTime);
+                _syncController?.BroadcastInFocusTime(this, InFocusTime);
         }
     }
 
@@ -146,7 +146,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         set
         {
             if (UpdateTimeFrameEndNoBroadcast(value))
-                _syncController.BroadcastFrameEnd(this, GetRegularizedTimeFrame());
+                _syncController?.BroadcastFrameEnd(this, GetRegularizedTimeFrame());
         }
     }
 
@@ -173,9 +173,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     public void RegisterToSynchronizationController(IChartSynchronizationController syncController)
     {
         _syncController = syncController;
-
-        if (syncController != null)
-            _syncController.Register(this);
+        _syncController?.Register(this);
     }
 
     /// <summary>
@@ -379,6 +377,9 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// </summary>
     private double GetRegularizedTimeFrame()
     {
+        if (_chartData == null)
+            return TimeFrameEnd;
+
         var result = TimeFrameEnd;
         if (result < _chartData.MinStickTime + _chartData.TimeFrameDurationOad)
             result = _chartData.MinStickTime + _chartData.TimeFrameDurationOad;
@@ -394,6 +395,9 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// </summary>
     private void SetAxesLimits(bool regularizeTimeFrame)
     {
+        if (_chartData == null)
+            return;
+
         if (regularizeTimeFrame) // do not do adjustment of time-frame boundaries if we are "dragging"
             TimeFrameEnd = GetRegularizedTimeFrame();
 

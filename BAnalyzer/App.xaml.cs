@@ -17,11 +17,11 @@
 
 using System.Windows;
 
-namespace BAnalyzer
+namespace BAnalyzer;
+
+/// <summary>
+/// Interaction logic for App.xaml
+/// </summary>
+public partial class App : Application
 {
-    /// <summary>
-    /// Interaction logic for App.xaml
-    /// </summary>
-    public partial class App : Application
-    { }
 }
