@@ -24,17 +24,16 @@ namespace BAnalyzer.DataStructures;
 /// <summary>
 /// Sticks and price data struct.
 /// </summary>
-public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
-    BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp,
+public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData, BinancePrice price, int updateRequestId,
     IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad)
 {
 
     /// <summary>
     /// Constructor.
     /// </summary>
-    public ChartData(IList<IBinanceKline> candleStickData, BinancePrice price, DateTime exchangeStamp, DateTime timeFrameStamp,
+    public ChartData(IList<IBinanceKline> candleStickData, BinancePrice price, int updateRequestId,
         IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad) :
-        this(ToOhlc(candleStickData), ToTradeVolumes(candleStickData), price, exchangeStamp, timeFrameStamp,
+        this(ToOhlc(candleStickData), ToTradeVolumes(candleStickData), price, updateRequestId,
             priceIndicatorPoints, volumeIndicatorPoints, indicatorWindowSize, timeFrameDurationOad)
     {}
 
@@ -96,14 +95,9 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData,
     public BinancePrice Price { get; } = price;
 
     /// <summary>
-    /// Time stamp of the exchange data the current instance was built from.
+    /// ID of the update request due to which this data was issued.
     /// </summary>
-    public DateTime ExchangeStamp { get; } = exchangeStamp;
-
-    /// <summary>
-    /// Time stamp of the time frame data the current instance was built from.
-    /// </summary>
-    public DateTime TimeFrameStamp { get; } = timeFrameStamp;
+    public int UpdateRequestId { get; } = updateRequestId;
 
     /// <summary>
     /// Indicator points calculate with respect to price.

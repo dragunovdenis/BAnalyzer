@@ -34,11 +34,6 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     private readonly BAnalyzerCore.Binance _client = null;
 
     private Timer _updateTimer;
-    private TimeFrame CurrentTimeFrame => new(TimeDiscretization, _timeStamp, Settings.StickRange, Chart.TimeFrameEnd);
-    private ExchangeData CurrentExchangeData => new(ExchangeDescriptor, _timeStamp);
-    private DateTime _timeStamp;
-
-    private void UpdateTimeStamp() => _timeStamp = DateTime.Now;
 
     private ObservableCollection<string> _symbols = null!;
 
@@ -103,22 +98,6 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
-    /// Representation of an exchange data.
-    /// </summary>
-    private class ExchangeData(string exchangeDescriptor, DateTime stamp)
-    {
-        /// <summary>
-        /// Descriptor of the exchange (also known as "symbol").
-        /// </summary>
-        public string ExchangeDescriptor { get; } = exchangeDescriptor;
-
-        /// <summary>
-        /// Time stamp.
-        /// </summary>
-        public DateTime Stamp { get; } = stamp;
-    }
-
-    /// <summary>
     /// Calculates indicators of the corresponding type.
     /// </summary>
     private static async Task<int[]> CalculateIndicators(AnalysisIndicatorType type, TimeSeriesAnalyzer.Input[] input, int windowSize)
@@ -134,65 +113,75 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
+    /// Analysis settings.
+    /// </summary>
+    private readonly record struct AnalysisSettings(AnalysisIndicatorType AnalysisIndicator, int AnalysisWindowSize);
+
+    /// <summary>
     /// Returns price and volume indicators calculated according to the current settings.
     /// </summary>
-    private async Task<(IList<int> PriceIndicators, IList<int> VolumeIndicators, int WindowSize)> CalculateIndicatorPoints(
-        IList<IBinanceKline> sticks, List<double> tradeVolumeData)
+    private static async Task<(IList<int> PriceIndicators, IList<int> VolumeIndicators, int WindowSize)>
+        CalculateIndicatorPoints(IList<IBinanceKline> sticks, List<double> tradeVolumeData, AnalysisSettings settings)
     {
-        return await Task.Run(async () =>
-        {
-            var (spikeIndicator, windowSize) = Dispatcher.Invoke(() => (Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow));
+        var analysisIndicator = settings.AnalysisIndicator;
+        var analysisWindowSize = settings.AnalysisWindowSize;
 
-            var priceDataLow = sticks.Select(x => new TimeSeriesAnalyzer.Input
-                { InData = (float)x.LowPrice }).ToArray();
+        var priceDataLow = sticks.Select(x => new TimeSeriesAnalyzer.Input
+            { InData = (float)x.LowPrice }).ToArray();
 
-            var priceDataHigh = sticks.Select(x => new TimeSeriesAnalyzer.Input
-                { InData = (float)x.HighPrice }).ToArray();
+        var priceDataHigh = sticks.Select(x => new TimeSeriesAnalyzer.Input
+            { InData = (float)x.HighPrice }).ToArray();
 
-            var priceIndicatorsLow = await CalculateIndicators(spikeIndicator, priceDataLow, windowSize);
-            var priceIndicatorsHigh = await CalculateIndicators(spikeIndicator, priceDataHigh, windowSize);
-            var priceIndicators = priceIndicatorsLow.ToHashSet().Concat(priceIndicatorsHigh).ToArray();
+        var priceIndicatorsLow = await CalculateIndicators(analysisIndicator, priceDataLow, analysisWindowSize);
+        var priceIndicatorsHigh = await CalculateIndicators(analysisIndicator, priceDataHigh, analysisWindowSize);
+        var priceIndicators = priceIndicatorsLow.ToHashSet().Concat(priceIndicatorsHigh).ToArray();
 
-            var volumeData = tradeVolumeData.Select(x => new TimeSeriesAnalyzer.Input { InData = (float)x }).ToArray();
-            var volumeIndicators = await CalculateIndicators(spikeIndicator, volumeData, windowSize);
+        var volumeData = tradeVolumeData.Select(x => new TimeSeriesAnalyzer.Input { InData = (float)x }).ToArray();
+        var volumeIndicators = await CalculateIndicators(analysisIndicator, volumeData, analysisWindowSize);
 
-            return (priceIndicators, volumeIndicators, windowSize);
-        });
+        return (priceIndicators, volumeIndicators, analysisWindowSize);
     }
 
     /// <summary>
     /// Retrieves the sticks-and-price data for the given time interval.
     /// </summary>
-    private async Task<ChartData> RetrieveSticksAndPrice()
+    private static async Task<ChartData> RetrieveSticksAndPrice(UpdateRequest request,
+        BAnalyzerCore.Binance client, AnalysisSettings settings)
     {
-        var (timeFrame, exchange, client) = Dispatcher.Invoke(() => (CurrentTimeFrame, CurrentExchangeData, _client));
+        var timeFrame = request.TimeFrame;
+        var exchangeDescriptor = request.ExchangeDescriptor;
 
         if (timeFrame == null || timeFrame.Discretization == default ||
-            exchange == null || exchange.ExchangeDescriptor is null or "" || client == null)
+            exchangeDescriptor is null or "" || client == null || !request.IsRequestStillRelevant())
             return null;
 
         var frameDuration = timeFrame.Duration;
         var sticks = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameDuration),
-            timeFrame.End.Add(frameDuration), timeFrame.Discretization, exchange.ExchangeDescriptor);
-        var price = await client.GetCurrentPrice(exchange.ExchangeDescriptor);
+            timeFrame.End.Add(frameDuration), timeFrame.Discretization, exchangeDescriptor);
+
+        if (!request.IsRequestStillRelevant())
+            return null;
+
+        var price = await client.GetCurrentPrice(exchangeDescriptor);
+
+        if (!request.IsRequestStillRelevant())
+            return null;
 
         var (priceIndicators, volumeIndicators, windowSize) =
-            await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks));
+            await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks), settings);
 
-        return new ChartData(sticks, price, exchange.Stamp, timeFrame.Stamp,
+        return new ChartData(sticks, price, request.UpdateRequestId,
             priceIndicators, volumeIndicators, windowSize, frameDuration.TotalDays);
     }
 
     /// <summary>
     /// Retrieves order data for the current symbol.
     /// </summary>
-    private async Task<OrderBook> RetrieveOrderBook()
+    private static async Task<OrderBook> RetrieveOrderBook(UpdateRequest request, BAnalyzerCore.Binance client)
     {
-        var (exchange, client) = Dispatcher.Invoke(() => (CurrentExchangeData, _client));
+        if (request.ExchangeDescriptor is null or "" || client == null || !request.IsRequestStillRelevant()) return null;
             
-        if (exchange == null || exchange.ExchangeDescriptor is null or "" || client == null) return null;
-            
-        return new OrderBook(await _client.GetOrders(exchange.ExchangeDescriptor), exchange.Stamp);
+        return new OrderBook(await client.GetOrders(request.ExchangeDescriptor), request.UpdateRequestId);
     }
 
     /// <summary>
@@ -200,17 +189,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private void VisualizeSticksAndPrice(ChartData chartData)
     {
-        if (chartData == null || !chartData.IsValid() || CurrentTimeFrame == null ||
-            CurrentExchangeData == null)
+        if (chartData == null || !chartData.IsValid())
         {
             Chart.UpdatePlots(null);
             Price = "N/A";
             return;
         }
-
-        if (chartData.ExchangeStamp != CurrentExchangeData.Stamp ||
-            chartData.TimeFrameStamp != CurrentTimeFrame.Stamp)
-            return;
 
         Chart.UpdatePlots(chartData);
 
@@ -229,31 +213,75 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             Orders.Update(null);
             return;
         }
-
-        if (orderBook.Stamp != CurrentExchangeData.Stamp)
-            return;
         
         Orders.Update(orderBook.Book);
     }
-        
+
+    private readonly UpdateController _updateController = new();
+
     /// <summary>
-    /// Method to update chart asynchronously
+    /// All the data needed to ensure update of chart data.
     /// </summary>
-    private void UpdateChartInBackground()
+    private class UpdateRequest(TimeFrame timeFrame, string exchangeDescriptor,
+        int updateRequestId, bool force, IUpdateControllerReadOnly updateController)
     {
-        Task.Run(async () =>
+        /// <summary>
+        /// Returns "true" if the request should be processed further on.
+        /// </summary>
+        public bool IsRequestStillRelevant() => Force || updateController.IsRequestStillRelevant(UpdateRequestId);
+
+        /// <summary>
+        /// Time frame of the update.
+        /// </summary>
+        public TimeFrame TimeFrame { get; } = timeFrame;
+
+        /// <summary>
+        /// Descriptor of the exchange (also known as "symbol").
+        /// </summary>
+        public string ExchangeDescriptor { get; } = exchangeDescriptor;
+
+        /// <summary>
+        /// Request ID of the update to ensure that updates are applied in a chronological order.
+        /// </summary>
+        public int UpdateRequestId { get; } = updateRequestId;
+
+        /// <summary>
+        /// Determines whether the request should be applied despite,
+        /// for example, the system being overloaded by other requests.
+        /// </summary>
+        private bool Force { get; } = force;
+    }
+
+    /// <summary>
+    /// Builds update request according to the current "situation".
+    /// </summary>
+    private UpdateRequest BuildRequest(bool force) => new(new TimeFrame(TimeDiscretization, Settings.StickRange, Chart.TimeFrameEnd),
+        ExchangeDescriptor, _updateController.IssueNewRequest(), force, _updateController);
+
+    /// <summary>
+    /// Method to update chart
+    /// </summary>
+    private async Task UpdateChartAsync(bool skipOrders, bool force)
+    {
+        var (updateRequest, settings, client) = Dispatcher.Invoke(() => (BuildRequest(force),
+            new AnalysisSettings(Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow), _client));
+
+        var sticksAndPrice = await RetrieveSticksAndPrice(updateRequest, client, settings);
+        var orderBook = !skipOrders ? await RetrieveOrderBook(updateRequest, client) : null;
+
+        Dispatcher.Invoke(() =>
         {
-            var sticksAndPrice = await RetrieveSticksAndPrice();
-            var orderBook = await RetrieveOrderBook();
-            Dispatcher.Invoke(() =>
-            {
-                VisualizeSticksAndPrice(sticksAndPrice);
+            if (sticksAndPrice == null || !_updateController.TryApplyRequest(sticksAndPrice.UpdateRequestId))
+                return;
+
+            VisualizeSticksAndPrice(sticksAndPrice);
+
+            if (!skipOrders && orderBook != null)
                 VisualizeOrders(orderBook);
-            });
         });
     }
 
-    private ExchangeSettings _settings;
+    private readonly ExchangeSettings _settings;
 
     /// <summary>
     /// Settings.
@@ -282,12 +310,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is not nameof(_settings.TimeDiscretization) &&
-            e.PropertyName is not nameof(_settings.ExchangeDescriptor))
-            return;
-
-        UpdateTimeStamp();
-        UpdateChartInBackground();
+        Task.Run(async () => await UpdateChartAsync(skipOrders: true, force: false));
     }
 
     /// <summary>
@@ -306,7 +329,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
                 Where(x => x != KlineInterval.OneSecond));
             
         Symbols = new ObservableCollection<string>(exchangeSymbols);
-        _updateTimer = new Timer(x => UpdateChartInBackground(),
+        _updateTimer = new Timer(async _ => await UpdateChartAsync(skipOrders: false, force: true),
             new AutoResetEvent(false), 1000, 1000);
     }
 

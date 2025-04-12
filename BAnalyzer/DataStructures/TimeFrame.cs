@@ -46,21 +46,14 @@ internal class TimeFrame
     public KlineInterval Discretization { get; init; }
 
     /// <summary>
-    /// Time stamp.
-    /// </summary>
-    public DateTime Stamp { get; init; }
-
-    /// <summary>
     /// Constructor.
     /// </summary>
-    public TimeFrame(KlineInterval discretization, DateTime stamp,
-        int sticksPerChart, double timeFrameEndOad)
+    public TimeFrame(KlineInterval discretization, int sticksPerChart, double timeFrameEndOad)
     {
         Discretization = discretization;
         Duration = Discretization.ToTimeSpan().Multiply(sticksPerChart);
         End = double.IsNaN(timeFrameEndOad) || timeFrameEndOad > DateTime.UtcNow.ToOADate() ?
             DateTime.UtcNow : DateTime.FromOADate(timeFrameEndOad);
         Begin = End.Subtract(Duration);
-        Stamp = stamp;
     }
 }
