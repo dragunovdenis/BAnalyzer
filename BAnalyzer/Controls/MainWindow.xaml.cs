@@ -64,6 +64,35 @@ public partial class MainWindow : INotifyPropertyChanged
         }
     }
 
+    private AssetAnalysisWindow _assetAnalysisWindow;
+
+    private AssetAnalysisWindow AssetAnalysisWindowInstance => _assetAnalysisWindow ?? ActivateAnalysisWindow();
+
+    /// <summary>
+    /// Activates the "asset analysis" window.
+    /// </summary>
+    private AssetAnalysisWindow ActivateAnalysisWindow()
+    {
+        if (_assetAnalysisWindow != null)
+            return _assetAnalysisWindow;
+
+        var exchangeSymbols = GetExchangeSymbols();
+        var settings = Settings.ExchangeSettings;
+
+        var settingsId = "AssetAnalysisWindow";
+        if (!settings.ContainsKey(settingsId))
+        {
+            settings.Add(settingsId, SetupExchangeSettings(""));
+            settings[settingsId].PropertyChanged += ExchangeSettings_PropertyChanged;
+        }
+
+        return _assetAnalysisWindow = new AssetAnalysisWindow(BinanceClientController.Client,
+            exchangeSymbols, Settings.Assets, settings[settingsId], _chartSyncController)
+        {
+            Owner = Application.Current.MainWindow
+        };
+    }
+
     /// <summary>
     /// Constructor.
     /// </summary>
@@ -76,12 +105,14 @@ public partial class MainWindow : INotifyPropertyChanged
 
         _exchangeControls = SetUpExchangeControls();
 
-        foreach (var ec in _exchangeControls)
-            ec.Settings.PropertyChanged += ExchangeSettings_PropertyChanged;
+        foreach (var s in Settings.ExchangeSettings)
+            s.Value.PropertyChanged += ExchangeSettings_PropertyChanged;
 
         ApplyTheme();
 
         Closing += MainWindow_Closing;
+
+        Activated += (_,_) => ShowAssetAnalysisMenuItem_OnClick(this, null);
     }
 
     /// <summary>
@@ -105,8 +136,8 @@ public partial class MainWindow : INotifyPropertyChanged
     /// </summary>
     private void SynchronizeSettings(ExchangeSettings source)
     {
-        foreach (var ec in _exchangeControls)
-            ec.Settings.Assign(source, excludeExchangeDescriptor: true);
+        foreach (var ec in Settings.ExchangeSettings)
+            ec.Value.Assign(source, excludeExchangeDescriptor: true);
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
@@ -244,6 +275,7 @@ public partial class MainWindow : INotifyPropertyChanged
             ec.Dispose();
 
         _exchangeControls.Clear();
+        _assetAnalysisWindow?.Dispose();
     }
 
     /// <summary>
@@ -273,4 +305,9 @@ public partial class MainWindow : INotifyPropertyChanged
         else
             DragMove();
     }
+
+    /// <summary>
+    /// On click event handler of the corresponding menu item.
+    /// </summary>
+    private void ShowAssetAnalysisMenuItem_OnClick(object sender, RoutedEventArgs e) => AssetAnalysisWindowInstance.Show();
 }

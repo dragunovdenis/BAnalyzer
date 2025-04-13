@@ -1,0 +1,81 @@
+﻿<!-- Copyright (c) 2025 Denys Dragunov, dragunovdenis@gmail.com
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files(the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+copies of the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions :
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
+
+<UserControl x:Class="BAnalyzer.Controls.AssetAnalysisControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:controls="clr-namespace:BAnalyzer.Controls"
+             xmlns:converters="clr-namespace:BAnalyzer.Controls.Converters"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800" Name="Ui"
+             Background="{DynamicResource BackgroundColor}"
+             Foreground="{DynamicResource ForegroundColor}">
+    <UserControl.Resources>
+        <converters:SymbolToAssetConverter x:Key="SymbolToAssetConverter"/>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <ComboBox Grid.Column="1" ItemsSource= "{Binding ElementName= Ui, Path = AvailableTimeIntervals, UpdateSourceTrigger=PropertyChanged}"
+                          SelectedItem="{Binding ElementName= Ui, Path = Settings.TimeDiscretization}" Margin="5" Width="110"
+                          Style="{StaticResource ComboBoxStyle}" HorizontalAlignment="Center">
+                </ComboBox>
+                <TextBlock Grid.Column="2" Margin="5" Width="250" FontWeight="Bold" HorizontalAlignment="Right"
+                           Text ="{Binding ElementName = Ui, Path = Price, Mode=OneWay}" 
+                           Foreground = "{DynamicResource ForegroundColor}" Background="{DynamicResource BackgroundColor}">
+                </TextBlock>
+            </Grid>
+        </StackPanel>
+        <Grid Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Expander Grid.Column="0" ExpandDirection="Right" Style="{StaticResource ExpanderStyle}" IsExpanded="True">
+                <controls:AssetManagerControl x:Name="AssetManager" Margin="0, 0, 5, 0"
+                                              Symbols="{Binding ElementName= Ui, Path=Symbols,
+                    Converter={StaticResource SymbolToAssetConverter}}"
+                                              Assets="{Binding ElementName=Ui, Path= Assets}"/>
+            </Expander>
+            <controls:ExchangeChartControl Grid.Column="1" x:Name ="Chart" DarkMode = "{Binding ElementName= Ui, Path = DarkMode,
+                        UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" ShowFocusTimeMarker="{Binding ElementName=Ui,
+                        Path=Settings.ShowFocusTimeMarker}" ShowVolumePlot="False"/>
+            <Expander Grid.Column="2" ExpandDirection="Left" Style="{StaticResource ExpanderStyle}">
+                <controls:SettingsControl x:Name="SettingsPanel" Settings="{Binding ElementName=Ui, Path=Settings,
+                            UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" Margin="0, 0, 5, 0"/>
+            </Expander>
+        </Grid>
+    </Grid>
+</UserControl>

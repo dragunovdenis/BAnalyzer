@@ -1,0 +1,100 @@
+﻿<!-- Copyright (c) 2025 Denys Dragunov, dragunovdenis@gmail.com
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files(the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+copies of the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions :
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
+
+<UserControl x:Class="BAnalyzer.Controls.AssetManagerControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d" d:DesignHeight="450" d:DesignWidth="800" Name="Ui"
+             Background="{DynamicResource BackgroundColor}"
+             Foreground="{DynamicResource ForegroundColor}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Margin="1">
+            <Grid Background="{DynamicResource BackgroundAltColor}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <ComboBox HorizontalAlignment="Stretch" Grid.Column="0" Grid.Row="0" Name="AssetBox"
+                              ItemsSource="{Binding ElementName=Ui, Path= Symbols,
+                    UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ComboBoxStyle}"
+                              IsTextSearchEnabled="True" IsEditable="True" SelectedIndex="0" Margin="2"
+                              SelectionChanged="AssetBox_OnSelectionChanged">
+                </ComboBox>
+                <TextBox HorizontalAlignment="Stretch" Text="0" Grid.Column="1" Grid.Row="0" Name="AssetAmountBox"
+                         Style="{StaticResource TextBoxStyle}" TextChanged="OnTextChanged" Margin="2"
+                         KeyDown="AssetAmountBox_OnKeyDown"/>
+                <Button HorizontalAlignment="Stretch" Grid.Column="2" Grid.Row="0" Name="UpdateButton"
+                        Style="{StaticResource ButtonStyle}" Margin="2" Content="OK" Click="UpdateButton_OnClick"/>
+            </Grid>
+        </StackPanel>
+        <DataGrid Name="AssetGrid" Grid.Row="1" Grid.Column="0" ItemsSource="{Binding ElementName= Ui, Path=Assets }"
+                  AutoGenerateColumns="False" SelectionMode="Single" SelectionUnit="FullRow" CanUserSortColumns = "False" HeadersVisibility="Column"
+                  CanUserResizeColumns="False" CanUserResizeRows="False" CanUserAddRows="False" Width="300"
+                  SelectionChanged="AssetGrid_OnSelectionChanged" Background="{DynamicResource BackgroundColor}"
+                  Foreground="{DynamicResource ForegroundColor}"
+                  BorderBrush="{DynamicResource BackgroundAltColor}" BorderThickness="2">
+            <DataGrid.Resources>
+                <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ScrollBarStyle}"/>
+            </DataGrid.Resources>
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="{DynamicResource BackgroundAltColor}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BackgroundColor}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource BackgroundSelectedColor}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="False">
+                            <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.CellStyle>
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Checked="OnAssetSelectionChanged" Unchecked="OnAssetSelectionChanged" Style="{DynamicResource CheckBoxStyle}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Asset ID" Binding="{Binding AssetId, Mode=OneWay}" Width="75" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, Mode=OneWay}" Width="*" IsReadOnly="True"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

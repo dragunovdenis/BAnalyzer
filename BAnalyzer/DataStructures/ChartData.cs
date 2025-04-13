@@ -15,8 +15,8 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzer.Utils;
 using Binance.Net.Interfaces;
-using Binance.Net.Objects.Models.Spot;
 using ScottPlot;
 
 namespace BAnalyzer.DataStructures;
@@ -24,50 +24,33 @@ namespace BAnalyzer.DataStructures;
 /// <summary>
 /// Sticks and price data struct.
 /// </summary>
-public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData, BinancePrice price, int updateRequestId,
+public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData, double price, int updateRequestId,
     IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad)
 {
-
     /// <summary>
     /// Constructor.
     /// </summary>
-    public ChartData(IList<IBinanceKline> candleStickData, BinancePrice price, int updateRequestId,
+    public ChartData(IList<IBinanceKline> candleStickData, double price, int updateRequestId,
         IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad) :
-        this(ToOhlc(candleStickData), ToTradeVolumes(candleStickData), price, updateRequestId,
+        this(candleStickData.ToScottPlotCandleSticks(), ToTradeVolumes(candleStickData), price, updateRequestId,
             priceIndicatorPoints, volumeIndicatorPoints, indicatorWindowSize, timeFrameDurationOad)
     {}
 
     /// <summary>
     /// Converter.
     /// </summary>
-    private static List<OHLC> ToOhlc(IList<IBinanceKline> candleStickData)
-    {
-        return candleStickData.Select(x => new OHLC()
-        {
-            Close = (double)x.ClosePrice,
-            Open = (double)x.OpenPrice,
-            High = (double)x.HighPrice,
-            Low = (double)x.LowPrice,
-            TimeSpan = x.CloseTime - x.OpenTime,
-            DateTime = x.OpenTime.Add(0.5 * (x.CloseTime - x.OpenTime)).ToLocalTime()
-        }).ToList();
-    }
-
-    /// <summary>
-    /// Converter.
-    /// </summary>
-    public static List<double> ToTradeVolumes(IList<IBinanceKline> candleStickData) =>
-        candleStickData.Select(x => (double)x.QuoteVolume).ToList();
+    public static IList<double> ToTradeVolumes(IList<IBinanceKline> candleStickData) =>
+        candleStickData.Select(x => (double)x.QuoteVolume).ToArray();
 
     /// <summary>
     /// Sticks.
     /// </summary>
-    public List<OHLC> Sticks { get; } = sticks;
+    public OHLC[] Sticks { get; } = sticks;
 
     /// <summary>
     /// Trade volume data for each stick.
     /// </summary>
-    public List<double> TradeVolumeData { get; } = tradeVolumeData;
+    public IList<double> TradeVolumeData { get; } = tradeVolumeData;
 
     /// <summary>
     /// Array of stick times in OLEA format.
@@ -92,7 +75,7 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData, BinanceP
     /// <summary>
     /// Price.
     /// </summary>
-    public BinancePrice Price { get; } = price;
+    public double Price { get; } = price;
 
     /// <summary>
     /// ID of the update request due to which this data was issued.
@@ -124,7 +107,7 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData, BinanceP
     /// </summary>
     public DateTime GetBeginTime()
     {
-        if (Sticks == null || Sticks.Count == 0)
+        if (Sticks == null || Sticks.Length == 0)
             throw new InvalidOperationException("Invalid collection of candle-sticks.");
 
         var stickSpan = Sticks.First().TimeSpan;
@@ -136,7 +119,7 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData, BinanceP
     /// </summary>
     public DateTime GetEndTime()
     {
-        if (Sticks == null || Sticks.Count == 0)
+        if (Sticks == null || Sticks.Length == 0)
             throw new InvalidOperationException("Invalid collection of candle-sticks.");
 
         var stickSpan = Sticks.First().TimeSpan;
@@ -146,14 +129,14 @@ public class ChartData(List<OHLC> sticks, List<double> tradeVolumeData, BinanceP
     /// <summary>
     /// Returns "true" if the current instance was qualified as "valid".
     /// </summary>
-    public bool IsValid() => Sticks is { Count: > 0 };
+    public bool IsValid() => Sticks is { Length: > 0 };
         
     /// <summary>
     /// Returns "true" if the last candle-stick in the corresponding collection is green.
     /// </summary>
     public bool IsPriceUp()
     {
-        if (Sticks == null || Sticks.Count == 0)
+        if (Sticks == null || Sticks.Length == 0)
             throw new InvalidOperationException("Invalid collection of candle-sticks.");
 
         return Sticks.Last().IsGreen();

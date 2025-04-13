@@ -15,90 +15,77 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
+using BAnalyzer.Utils;
 
 namespace BAnalyzer.DataStructures;
 
 /// <summary>
-/// Readonly interface for the data structure below.
-/// </summary>
-public interface IApplicationSettings : INotifyPropertyChanged
-{
-    /// <summary>
-    /// Collection of settings for each exchange control.
-    /// </summary>
-    Dictionary<string, ExchangeSettings> ExchangeSettings { get; }
-
-    /// <summary>
-    /// Collection of assets.
-    /// </summary>
-    public ObservableCollection<AssetRecord> Assets { get; }
-
-    /// <summary>
-    /// Dark mode toggle.
-    /// </summary>
-    bool DarkMode { get; }
-
-    /// <summary>
-    /// View synchronization toggle.
-    /// </summary>
-    bool ControlSynchronization { get; }
-}
-
-/// <summary>
-/// Application level settings.
+/// Asset-related information.
 /// </summary>
 [DataContract]
-public class ApplicationSettings : IApplicationSettings
+public class AssetRecord : INotifyPropertyChanged
 {
-    /// <summary>
-    /// <inheritdoc/>
-    /// </summary>
-    [DataMember]
-    public Dictionary<string, ExchangeSettings> ExchangeSettings { get; private set; } = new();
+    private string _assetId;
 
     /// <summary>
-    /// Collection of assets.
+    /// Identifier of the asset.
     /// </summary>
     [DataMember]
-    public ObservableCollection<AssetRecord> Assets { get; private set; } = new();
-
-    [DataMember]
-    private bool _darkMode = true;
-
-    /// <summary>
-    /// <inheritdoc/>
-    /// </summary>
-    public bool DarkMode
+    public string AssetId
     {
-        get => _darkMode;
-        set => SetField(ref _darkMode, value);
+        get => _assetId;
+        set => SetField(ref _assetId, value);
     }
 
-    [DataMember]
-    private bool _synchronization = true;
+    private double _amount;
 
     /// <summary>
-    /// <inheritdoc/>
+    /// Amount of the asset.
     /// </summary>
-    public bool ControlSynchronization
+    [DataMember]
+    public double Amount
     {
-        get => _synchronization;
-        set =>SetField(ref _synchronization, value);
+        get => _amount;
+        set => SetField(ref _amount, value);
     }
+
+    private bool _selected;
+
+    /// <summary>
+    /// Selection status of the asset.
+    /// </summary>
+    [DataMember]
+    public bool Selected
+    {
+        get => _selected;
+        set => SetField(ref _selected, value);
+    }
+
+    /// <summary>
+    /// Returns value of the asset
+    /// </summary>
+    public double Value(double price) => Amount * price;
+
+    /// <summary>
+    /// Returns exchange symbol associated with the asset.
+    /// </summary>
+    public string Symbol => SymbolUtils.AssetToSymbol(AssetId);
 
     public event PropertyChangedEventHandler PropertyChanged;
 
+    /// <summary>
+    /// Raises "property-changed" event.
+    /// </summary>
     protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
     /// <summary>
-    /// Sets field with property-changed notification.
+    /// Sets a field and raises "property-changed" event.
     /// </summary>
     protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
     {
@@ -106,11 +93,5 @@ public class ApplicationSettings : IApplicationSettings
         field = value;
         OnPropertyChanged(propertyName);
         return true;
-    }
-
-    [OnDeserialized]
-    private void OnDeserialized(StreamingContext context)
-    {
-        Assets ??= new ObservableCollection<AssetRecord>();
     }
 }

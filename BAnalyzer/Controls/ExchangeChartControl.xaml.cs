@@ -302,7 +302,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     {
         MainPlot.Plot.Clear();
 
-        if (chartData == null || chartData.Sticks.Count == 0)
+        if (chartData == null || chartData.Sticks.Length == 0)
         {
             MainPlot.Refresh();
             return null;
@@ -333,7 +333,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
 
         VolPlot.Plot.Clear();
 
-        if (chartData == null || chartData.Sticks.Count == 0)
+        if (chartData?.TradeVolumeData == null)
         {
             VolPlot.Refresh();
             return null;
@@ -544,14 +544,14 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         }
 
         var stick = data.Sticks[stickId];
-        var volume = data.TradeVolumeData[stickId];
+        var volume = data.TradeVolumeData != null ? DataFormatter.FloatToCompact(data.TradeVolumeData[stickId]) : "N/A";
 
         InfoTipString = $"{stick.DateTime.ToShortDateString()}/{stick.DateTime.ToShortTimeString()}\n" +
                         $"O: {stick.Open:0.#####} USDT\n" +
                         $"C: {stick.Close:0.#####} USDT\n" +
                         $"L: {stick.Low:0.#####} USDT\n" +
                         $"H: {stick.High:0.#####} USDT\n" +
-                        $"V: {DataFormatter.FloatToCompact(volume)} USDT";
+                        $"V: {volume} USDT";
 
         var position = e.GetPosition(plot);
         popup.PlacementTarget = plot;

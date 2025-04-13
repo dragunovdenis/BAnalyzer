@@ -12,7 +12,7 @@
     <Configurations>Debug;Release;DebugSingle;ReleaseSingle;IntelCompiler;IntelCompilerSingle</Configurations>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Binance.Net" Version="10.16.1" />
+    <PackageReference Include="Binance.Net" Version="10.19.0" />
     <PackageReference Include="Microsoft.ML.TimeSeries" Version="3.0.1" />
   </ItemGroup>
 </Project>

@@ -413,5 +413,20 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
             <Setter Property="Template" Value="{StaticResource ExpanderTemplate}"/>
         </Style>
+
+        <Style x:Key="TextBoxStyle" TargetType="{x:Type TextBox}">
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+            <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+        </Style>
+
+        <Style x:Key="TextBlockStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+            <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+        </Style>
+
+        <Style x:Key="ButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+            <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+        </Style>
     </Application.Resources>
 </Application>

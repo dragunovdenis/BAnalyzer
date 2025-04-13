@@ -121,7 +121,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// Returns price and volume indicators calculated according to the current settings.
     /// </summary>
     private static async Task<(IList<int> PriceIndicators, IList<int> VolumeIndicators, int WindowSize)>
-        CalculateIndicatorPoints(IList<IBinanceKline> sticks, List<double> tradeVolumeData, AnalysisSettings settings)
+        CalculateIndicatorPoints(IList<IBinanceKline> sticks, IList<double> tradeVolumeData, AnalysisSettings settings)
     {
         var analysisIndicator = settings.AnalysisIndicator;
         var analysisWindowSize = settings.AnalysisWindowSize;
@@ -170,7 +170,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         var (priceIndicators, volumeIndicators, windowSize) =
             await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks), settings);
 
-        return new ChartData(sticks, price, request.UpdateRequestId,
+        return new ChartData(sticks, price != null ? (double)price.Price : double.NaN, request.UpdateRequestId,
             priceIndicators, volumeIndicators, windowSize, frameDuration.TotalDays);
     }
 
@@ -198,9 +198,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 
         Chart.UpdatePlots(chartData);
 
-        var priceData = chartData.Price;
-        if (priceData != null)
-            Price = $"Price: {priceData.Price,7:F5} USDT";
+        Price = $"Price: {chartData.Price,7:F5} USDT";
     }
 
     /// <summary>
@@ -263,22 +261,26 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private async Task UpdateChartAsync(bool skipOrders, bool force)
     {
-        var (updateRequest, settings, client) = Dispatcher.Invoke(() => (BuildRequest(force),
-            new AnalysisSettings(Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow), _client));
-
-        var sticksAndPrice = await RetrieveSticksAndPrice(updateRequest, client, settings);
-        var orderBook = !skipOrders ? await RetrieveOrderBook(updateRequest, client) : null;
-
-        Dispatcher.Invoke(() =>
+        try
         {
-            if (sticksAndPrice == null || !_updateController.TryApplyRequest(sticksAndPrice.UpdateRequestId))
-                return;
+            var (updateRequest, settings, client) = Dispatcher.Invoke(() => (BuildRequest(force),
+                new AnalysisSettings(Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow), _client));
 
-            VisualizeSticksAndPrice(sticksAndPrice);
+            var sticksAndPrice = await RetrieveSticksAndPrice(updateRequest, client, settings);
+            var orderBook = !skipOrders ? await RetrieveOrderBook(updateRequest, client) : null;
 
-            if (!skipOrders && orderBook != null)
-                VisualizeOrders(orderBook);
-        });
+            Dispatcher.Invoke(() =>
+            {
+                if (sticksAndPrice == null || !_updateController.TryApplyRequest(sticksAndPrice.UpdateRequestId))
+                    return;
+
+                VisualizeSticksAndPrice(sticksAndPrice);
+
+                if (!skipOrders && orderBook != null)
+                    VisualizeOrders(orderBook);
+            });
+        }
+        catch (TaskCanceledException) { /*Just ignore*/ }
     }
 
     private readonly ExchangeSettings _settings;
@@ -308,10 +310,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Handles property changed events of the settings.
     /// </summary>
-    private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
-    {
+    private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e) =>
         Task.Run(async () => await UpdateChartAsync(skipOrders: true, force: false));
-    }
 
     /// <summary>
     /// Constructor.
@@ -327,10 +327,20 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         AvailableTimeIntervals =
             new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
                 Where(x => x != KlineInterval.OneSecond));
-            
+
+        Chart.PropertyChanged += Chart_PropertyChanged;
         Symbols = new ObservableCollection<string>(exchangeSymbols);
         _updateTimer = new Timer(async _ => await UpdateChartAsync(skipOrders: false, force: true),
             new AutoResetEvent(false), 1000, 1000);
+    }
+
+    /// <summary>
+    /// Handles changes of the chart properties.
+    /// </summary>
+    private void Chart_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (sender is ExchangeChartControl chart && e.PropertyName == nameof(chart.TimeFrameEnd))
+            Task.Run(async () => await UpdateChartAsync(skipOrders: true, force: false));
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
