@@ -21,21 +21,35 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                  xmlns:wpf="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+                 xmlns:system="clr-namespace:System;assembly=System.Runtime"
+                 xmlns:converters="clr-namespace:BAnalyzer.Controls.Converters"
                  mc:Ignorable="d" 
-                 d:DesignHeight="450" d:DesignWidth="800" Name="Ui">
+                 d:DesignHeight="450" d:DesignWidth="800" Name="Ui"
+                 Background="{DynamicResource BackgroundColor}"
+                 Foreground="{DynamicResource ForegroundColor}">
+    <UserControl.Resources>
+        <converters:ScalingConverter x:Key="ScalingConverter"/>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <system:Double x:Key="VolumePlotHeightScale">0.2</system:Double>
+    </UserControl.Resources>
     <Grid DataContext= "{Binding ElementName = Ui}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="4*"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <wpf:WpfPlot Grid.Column="0" Grid.Row="0" x:Name="MainPlot" MouseMove="MainPlot_MouseMove"
                      MouseLeave="MainPlot_OnMouseLeave" MouseDown="Plots_OnMouseDown" MouseUp="Plots_OnMouseUp"/>
         <wpf:WpfPlot Grid.Column="0" Grid.Row="1" x:Name="VolPlot" MouseMove="VolPlot_MouseMove"
-                     MouseLeave="VolumePlot_OnMouseLeave" MouseDown="Plots_OnMouseDown" MouseUp="Plots_OnMouseUp"/>
+                     MouseLeave="VolumePlot_OnMouseLeave" MouseDown="Plots_OnMouseDown" MouseUp="Plots_OnMouseUp"
+                     Height="{Binding ElementName= Ui, Path= ActualHeight,
+            Converter={StaticResource ScalingConverter},
+            ConverterParameter= {StaticResource VolumePlotHeightScale}}"
+                     Visibility="{Binding ElementName= Ui, Path= ShowVolumePlot,
+            Converter= {StaticResource BooleanToVisibilityConverter} }"/>
         <Popup Grid.Column="0" Grid.Row="2" Name="InfoTip" AllowsTransparency="True" Placement="Relative">
             <TextBlock Background="{DynamicResource BackgroundColor}"
                        Text="{Binding InfoTipString, Mode=OneWay}"/>

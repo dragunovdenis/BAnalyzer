@@ -34,6 +34,17 @@ namespace BAnalyzer.Controls;
 /// </summary>
 public partial class ExchangeChartControl : INotifyPropertyChanged
 {
+    private bool _showVolumePlot = true;
+
+    /// <summary>
+    /// If "true" volume plot is visible.
+    /// </summary>
+    public bool ShowVolumePlot
+    {
+        get => _showVolumePlot;
+        set => SetField(ref _showVolumePlot, value);
+    }
+
     private string _infoTipString;
 
     /// <summary>
@@ -317,6 +328,9 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// </summary>
     private BarPlot BuildVolumeChart(ChartData chartData)
     {
+        if (!ShowVolumePlot)
+            return null;
+
         VolPlot.Plot.Clear();
 
         if (chartData == null || chartData.Sticks.Count == 0)
