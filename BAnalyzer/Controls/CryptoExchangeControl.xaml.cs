@@ -20,6 +20,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
+using BAnalyzer.Utils;
 using BAnalyzerCore;
 using Binance.Net.Enums;
 using Binance.Net.Interfaces;
@@ -253,7 +254,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Builds update request according to the current "situation".
     /// </summary>
-    private UpdateRequest BuildRequest(bool force) => new(new TimeFrame(TimeDiscretization, Settings.StickRange, Chart.TimeFrameEnd),
+    private UpdateRequest BuildRequest(bool force) =>
+        new(new TimeFrame(TimeDiscretization, Settings.StickRange, DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
         ExchangeDescriptor, _updateController.IssueNewRequest(), force, _updateController);
 
     /// <summary>
@@ -339,7 +341,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private void Chart_PropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        if (sender is ExchangeChartControl chart && e.PropertyName == nameof(chart.TimeFrameEnd))
+        if (sender is ExchangeChartControl chart && e.PropertyName == nameof(chart.TimeFrameEndLocalTime))
             Task.Run(async () => await UpdateChartAsync(skipOrders: true, force: false));
     }
 

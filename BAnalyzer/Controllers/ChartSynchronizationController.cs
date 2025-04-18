@@ -65,7 +65,7 @@ internal class ChartSynchronizationController : IChartSynchronizationController
                 if (_synchronizationEnabled && _controls.Count > 0)
                 {
                     var sender = _controls.First();
-                    BroadcastFrameEnd(sender, sender.TimeFrameEnd);
+                    BroadcastFrameEnd(sender, sender.TimeFrameEndLocalTime);
                     BroadcastInFocusTime(sender, sender.InFocusTime);
                 }
             }

@@ -144,16 +144,16 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// <summary>
     /// Dependency property.
     /// </summary>
-    public static readonly DependencyProperty TimeFrameEndProperty =
-        DependencyProperty.Register(nameof(TimeFrameEnd), typeof(double), typeof(ExchangeChartControl),
+    public static readonly DependencyProperty TimeFrameEndLocalTimeProperty =
+        DependencyProperty.Register(nameof(TimeFrameEndLocalTime), typeof(double), typeof(ExchangeChartControl),
             new PropertyMetadata(defaultValue: double.NaN, OnDependencyPropertyChanged));
 
     /// <summary>
-    /// The end of displayed time frame in OLE Automation Date format.
+    /// The end of displayed time frame in OLE Automation Date format, local time.
     /// </summary>
-    public double TimeFrameEnd
+    public double TimeFrameEndLocalTime
     {
-        get => (double)GetValue(TimeFrameEndProperty);
+        get => (double)GetValue(TimeFrameEndLocalTimeProperty);
         set
         {
             if (UpdateTimeFrameEndNoBroadcast(value))
@@ -166,9 +166,9 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// </summary>
     public bool UpdateTimeFrameEndNoBroadcast(double newValue)
     {
-        if (!TimeFrameEnd.Equals(newValue))
+        if (!TimeFrameEndLocalTime.Equals(newValue))
         {
-            SetValue(TimeFrameEndProperty, newValue);
+            SetValue(TimeFrameEndLocalTimeProperty, newValue);
             SetAxesLimits(regularizeTimeFrame: false);
             return true;
         }
@@ -392,9 +392,9 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     private double GetRegularizedTimeFrame()
     {
         if (_chartData == null)
-            return TimeFrameEnd;
+            return TimeFrameEndLocalTime;
 
-        var result = TimeFrameEnd;
+        var result = TimeFrameEndLocalTime;
         if (result < _chartData.MinStickTime + _chartData.TimeFrameDurationOad)
             result = _chartData.MinStickTime + _chartData.TimeFrameDurationOad;
 
@@ -413,9 +413,9 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
             return;
 
         if (regularizeTimeFrame) // do not do adjustment of time-frame boundaries if we are "dragging"
-            TimeFrameEnd = GetRegularizedTimeFrame();
+            TimeFrameEndLocalTime = GetRegularizedTimeFrame();
 
-        var localFrameEnd = double.IsNaN(TimeFrameEnd) ? _chartData.GetEndTime().ToOADate() : TimeFrameEnd;
+        var localFrameEnd = double.IsNaN(TimeFrameEndLocalTime) ? _chartData.GetEndTime().ToOADate() : TimeFrameEndLocalTime;
 
         VolPlot.Plot.Axes.SetLimitsX(localFrameEnd - _chartData.TimeFrameDurationOad, localFrameEnd);
         VolPlot.Refresh();
@@ -527,7 +527,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
             MainPlot.Plot.Axes.Pan(offset);
             VolPlot.Plot.Axes.Pan(offset);
             _startDragPixel = pixel;
-            TimeFrameEnd = plot.Plot.Axes.GetLimits().Right;
+            TimeFrameEndLocalTime = plot.Plot.Axes.GetLimits().Right;
         }
 
         if (plot == MainPlot)

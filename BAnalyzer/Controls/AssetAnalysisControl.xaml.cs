@@ -185,7 +185,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private void ChartOnPropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        if (sender is ExchangeChartControl chart && e.PropertyName == nameof(chart.TimeFrameEnd))
+        if (sender is ExchangeChartControl chart && e.PropertyName == nameof(chart.TimeFrameEndLocalTime))
             Task.Run(async () => await UpdateChartAsync(force: false));
     }
 
@@ -370,7 +370,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Builds update request according to the current "situation".
     /// </summary>
-    private UpdateRequest BuildRequest(bool force) => new(new TimeFrame(TimeDiscretization, Settings.StickRange, Chart.TimeFrameEnd),
+    private UpdateRequest BuildRequest(bool force) =>
+        new(new TimeFrame(TimeDiscretization, Settings.StickRange, DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
         Assets.ToArray(), _updateController.IssueNewRequest(), force, _updateController);
 
     /// <summary>
