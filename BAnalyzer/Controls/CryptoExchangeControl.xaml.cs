@@ -147,7 +147,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// Retrieves the sticks-and-price data for the given time interval.
     /// </summary>
     private static async Task<ChartData> RetrieveSticksAndPrice(UpdateRequest request,
-        BAnalyzerCore.Binance client, AnalysisSettings settings)
+        BAnalyzerCore.Binance client, AnalysisSettings settings, bool kLinesOnly)
     {
         var timeFrame = request.TimeFrame;
         var exchangeDescriptor = request.ExchangeDescriptor;
@@ -163,7 +163,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         if (!request.IsRequestStillRelevant())
             return null;
 
-        var price = await client.GetCurrentPrice(exchangeDescriptor);
+        var price = !kLinesOnly ? await client.GetCurrentPrice(exchangeDescriptor) : null;
 
         if (!request.IsRequestStillRelevant())
             return null;
@@ -199,7 +199,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 
         Chart.UpdatePlots(chartData);
 
-        Price = $"Price: {chartData.Price,7:F5} USDT";
+        if (!double.IsNaN(chartData.Price))
+            Price = $"Price: {chartData.Price,7:F5} USDT";
     }
 
     /// <summary>
@@ -261,15 +262,15 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Method to update chart
     /// </summary>
-    private async Task UpdateChartAsync(bool skipOrders, bool force)
+    private async Task UpdateChartAsync(bool kLinesOnly, bool force)
     {
         try
         {
             var (updateRequest, settings, client) = Dispatcher.Invoke(() => (BuildRequest(force),
                 new AnalysisSettings(Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow), _client));
 
-            var sticksAndPrice = await RetrieveSticksAndPrice(updateRequest, client, settings);
-            var orderBook = !skipOrders ? await RetrieveOrderBook(updateRequest, client) : null;
+            var sticksAndPrice = await RetrieveSticksAndPrice(updateRequest, client, settings, kLinesOnly);
+            var orderBook = !kLinesOnly ? await RetrieveOrderBook(updateRequest, client) : null;
 
             Dispatcher.Invoke(() =>
             {
@@ -278,7 +279,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 
                 VisualizeSticksAndPrice(sticksAndPrice);
 
-                if (!skipOrders && orderBook != null)
+                if (!kLinesOnly && orderBook != null)
                     VisualizeOrders(orderBook);
             });
         }
@@ -313,7 +314,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// Handles property changed events of the settings.
     /// </summary>
     private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e) =>
-        Task.Run(async () => await UpdateChartAsync(skipOrders: true, force: false));
+        Task.Run(async () => await UpdateChartAsync(kLinesOnly: true, force: false));
 
     /// <summary>
     /// Constructor.
@@ -332,7 +333,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 
         Chart.PropertyChanged += Chart_PropertyChanged;
         Symbols = new ObservableCollection<string>(exchangeSymbols);
-        _updateTimer = new Timer(async _ => await UpdateChartAsync(skipOrders: false, force: true),
+        _updateTimer = new Timer(async _ => await UpdateChartAsync(kLinesOnly: false, force: true),
             new AutoResetEvent(false), 1000, 1000);
     }
 
@@ -342,7 +343,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     private void Chart_PropertyChanged(object sender, PropertyChangedEventArgs e)
     {
         if (sender is ExchangeChartControl chart && e.PropertyName == nameof(chart.TimeFrameEndLocalTime))
-            Task.Run(async () => await UpdateChartAsync(skipOrders: true, force: false));
+            Task.Run(async () => await UpdateChartAsync(kLinesOnly: true, force: false));
     }
 
     public event PropertyChangedEventHandler PropertyChanged;

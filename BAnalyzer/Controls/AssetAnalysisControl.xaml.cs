@@ -209,7 +209,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
 
         Chart.UpdatePlots(chartData);
 
-        Price = $"Value: {chartData.Price,7:F5} USDT";
+        if (!double.IsNaN(chartData.Price))
+            Price = $"Value: {chartData.Price,7:F5} USDT";
     }
 
     /// <summary>
@@ -296,7 +297,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         var frameEnd = timeFrame.End.Add(frameDuration);
 
         var valueSticks = Array.Empty<OHLC>();
-        var currentTotalValue = 0.0;
+        var forceUpdate = request.Force;
+        var currentTotalValue = forceUpdate ? 0.0 : double.NaN;
 
         foreach (var asset in assets)
         {
@@ -314,12 +316,15 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
             valueSticks = valueSticks == null ? priceSticks.Select(x => ToValue(x, asset)).ToArray() :
                 Append(valueSticks, priceSticks, asset);
 
-            if (!request.IsRequestStillRelevant())
-                return null;
+            if (forceUpdate)
+            {
+                if (!request.IsRequestStillRelevant())
+                    return null;
 
-            var price = await client.GetCurrentPrice(symbol);
+                var price = await client.GetCurrentPrice(symbol);
 
-            currentTotalValue += price != null ? asset.Value((double)price.Price) : double.NaN;
+                currentTotalValue += price != null ? asset.Value((double)price.Price) : double.NaN;
+            }
 
             if (!request.IsRequestStillRelevant())
                 return null;
@@ -364,7 +369,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         /// Determines whether the request should be applied despite,
         /// for example, the system being overloaded by other requests.
         /// </summary>
-        private bool Force { get; } = force;
+        public bool Force { get; } = force;
     }
 
     /// <summary>
