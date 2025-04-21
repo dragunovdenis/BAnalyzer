@@ -19,6 +19,7 @@ using Binance.Net.Clients;
 using Binance.Net.Interfaces;
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Spot;
+using BAnalyzerCore.Cache;
 
 namespace BAnalyzerCore;
 
@@ -51,17 +52,36 @@ public class Binance : IDisposable
     /// </summary>
     public IList<string> GetSymbols() => Task.Run(async () => await GetSymbolsAsync()).Result;
 
+    private readonly BinanceCache _cache = new();
+
     /// <summary>
     /// Gets candle-stick data
     /// </summary>
-    public async Task<IList<IBinanceKline>> GetCandleSticksAsync(DateTime startTime, DateTime endTime, KlineInterval granularity, string symbol)
+    public async Task<IList<IBinanceKline>> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
+        KlineInterval granularity, string symbol)
     {
-        var klines = await _client.SpotApi.ExchangeData.
-            GetUiKlinesAsync(symbol, granularity, startTime: startTime, endTime: endTime);
-        if (!klines.Success)
+        lock (_cache)
+        {
+            var cachedResult = _cache.Retrieve(symbol, granularity, timeBegin,
+                timeEnd > DateTime.UtcNow ? DateTime.UtcNow : timeEnd);
+
+            if (cachedResult != null)
+                return cachedResult;
+        }
+
+        var granularitySpan = granularity.ToTimeSpan();
+        var kLines = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
+            startTime: timeBegin.Subtract(granularitySpan), endTime: timeEnd.Add(granularitySpan), limit: 1000);
+        if (!kLines.Success)
             throw new Exception("Failed to get exchange info");
 
-        return klines.Data.ToArray();
+        var result = kLines.Data.ToArray();
+
+        lock (_cache)
+            if (result.Length > 0)
+                _cache.Append(symbol, granularity, result);
+
+        return result;
     }
 
     /// <summary>

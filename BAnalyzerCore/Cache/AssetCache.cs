@@ -1,4 +1,4 @@
-﻿//Copyright (c) 2024 Denys Dragunov, dragunovdenis@gmail.com
+﻿//Copyright (c) 2025 Denys Dragunov, dragunovdenis@gmail.com
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files(the "Software"), to deal
 //in the Software without restriction, including without limitation the rights
@@ -16,19 +16,46 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using Binance.Net.Enums;
+using Binance.Net.Interfaces;
 
-namespace BAnalyzerCore;
+namespace BAnalyzerCore.Cache;
 
 /// <summary>
-/// Extension methods for the KlineIntervalType
+/// Binance data cached for a certain asset
 /// </summary>
-public static class KLineIntervalExtensions
+internal class AssetCache
 {
     /// <summary>
-    /// Converts interval token into the corresponding time span.
+    /// Cached data.
     /// </summary>
-    public static TimeSpan ToTimeSpan(this KlineInterval interval)
+    private readonly Dictionary<KlineInterval, BlockGrid> _data = new();
+
+    /// <summary>
+    /// Returns cached data in the given interval or "null"
+    /// if the data can't be retrieved.
+    /// </summary>
+    public IList<IBinanceKline> Retrieve(KlineInterval granularity, DateTime timeBegin, DateTime timeEnd)
     {
-        return TimeSpan.FromSeconds((int)interval);
+        if (!_data.TryGetValue(granularity, out var grid))
+            return null;
+
+        return grid.Retrieve(timeBegin, timeEnd);
+    }
+
+    /// <summary>
+    /// Appends new data to the cache.
+    /// </summary>
+    public void Append(KlineInterval granularity, IReadOnlyList<IBinanceKline> kLines)
+    {
+        if (_data.TryGetValue(granularity, out var grid))
+        {
+            grid.Append(kLines);
+        }
+        else
+        {
+            var newGrid = new BlockGrid();
+            newGrid.Append(kLines);
+            _data[granularity] = newGrid;
+        }
     }
 }

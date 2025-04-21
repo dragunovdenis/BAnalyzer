@@ -1,4 +1,4 @@
-﻿//Copyright (c) 2024 Denys Dragunov, dragunovdenis@gmail.com
+﻿//Copyright (c) 2025 Denys Dragunov, dragunovdenis@gmail.com
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files(the "Software"), to deal
 //in the Software without restriction, including without limitation the rights
@@ -15,20 +15,18 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using Binance.Net.Enums;
-
-namespace BAnalyzerCore;
-
-/// <summary>
-/// Extension methods for the KlineIntervalType
-/// </summary>
-public static class KLineIntervalExtensions
+namespace BAnalyzerCore
 {
     /// <summary>
-    /// Converts interval token into the corresponding time span.
+    /// Different constants which either Binance
+    /// server or its interface possess.
     /// </summary>
-    public static TimeSpan ToTimeSpan(this KlineInterval interval)
+    public static class BinanceConstants
     {
-        return TimeSpan.FromSeconds((int)interval);
+        /// <summary>
+        /// Difference in seconds between the open-time of the
+        /// next k-line and close-time of the previous one (in seconds).
+        /// </summary>
+        public const double KLineTimeGapSec = 1e-3;
     }
 }
