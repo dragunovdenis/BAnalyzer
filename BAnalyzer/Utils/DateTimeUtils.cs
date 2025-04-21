@@ -25,6 +25,18 @@ internal static class DateTimeUtils
     /// <summary>
     /// Converts OAD format local time to OAD format UTC time.
     /// </summary>
-    public static double LocalToUtcOad(double localOad) => double.IsNaN(localOad) ? double.NaN :
-        TimeZoneInfo.ConvertTimeToUtc(DateTime.FromOADate(localOad), TimeZoneInfo.Local).ToOADate();
+    public static double LocalToUtcOad(double localOad)
+    {
+        if (double.IsNaN(localOad))
+            return double.NaN;
+
+        var time = DateTime.FromOADate(localOad);
+
+        if (TimeZoneInfo.Local.IsInvalidTime(time))
+            // this is, probably, the daylight saving adjustment, so go straight to the next hour
+            time = new DateTime(year: time.Year, month: time.Month, day: time.Day,
+                hour: time.Hour + 1, minute: 0, second: 0);
+
+        return TimeZoneInfo.ConvertTimeToUtc(time, TimeZoneInfo.Local).ToOADate();
+    }
 }
