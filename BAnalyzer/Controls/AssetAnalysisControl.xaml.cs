@@ -23,6 +23,7 @@ using Binance.Net.Enums;
 using BAnalyzer.Controllers;
 using System.Windows;
 using BAnalyzer.Utils;
+using BAnalyzerCore;
 using ScottPlot;
 
 namespace BAnalyzer.Controls;
@@ -221,7 +222,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private static OHLC Add(OHLC valueStick, OHLC priceStick, AssetRecord asset)
     {
-        if (priceStick.DateTime != valueStick.DateTime)
+        if (!TimeIsPracticallyTheSame(priceStick.DateTime, valueStick.DateTime))
             throw new InvalidOperationException("Sticks must correspond to the same time-frame.");
 
         return AdjustHighLow(valueStick with
@@ -261,21 +262,66 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
+    /// Returns true if the two given time points are almost the same.
+    /// </summary>
+    private static bool TimeIsPracticallyTheSame(DateTime time0, DateTime time1) =>
+        Math.Abs((time0 - time1).TotalSeconds) < BinanceConstants.KLineTimeGapSec;
+
+    /// <summary>
+    /// Returns the least possible offsets from the beginning
+    /// of the two given data collections that correspond to
+    /// the items (one in each collection) covering the same
+    /// time interval.
+    /// </summary>
+    private static (int Offset0, int Offset1) FindCommonBeginOffset(OHLC[] data0, OHLC[] data1)
+    {
+        if (data0.Length == 0 || data1.Length == 0 ||
+            TimeIsPracticallyTheSame(data0[0].DateTime, data1[0].DateTime))
+            return (0, 0);
+
+        if (data0[0].DateTime > data1[0].DateTime)
+        {
+            var offset0 = 0;
+
+            while(offset0 < data0.Length &&
+                  !TimeIsPracticallyTheSame(data0[offset0].DateTime, data1[0].DateTime))
+                offset0++;
+
+            if (offset0 == data0.Length)
+                offset0 = -1;
+
+            return (offset0, 0);
+        }
+
+        var (off1, off0) = FindCommonBeginOffset(data1, data0);
+
+        return (off0, off1);
+    }
+
+    /// <summary>
     /// Appends value of the given asset to the given collection of value sticks.
     /// </summary>
     private static OHLC[] Append(OHLC[] value, OHLC[] price, AssetRecord asset)
     {
-        var resultLength = Math.Max(value.Length, price.Length);
+        var (offsetValue, offsetPrice) = FindCommonBeginOffset(value, price);
+
+        if (offsetPrice < 0)
+            return value;
+
+        var resultLength = Math.Max(value.Length - offsetValue, price.Length - offsetPrice);
 
         var result = new OHLC[resultLength];
 
-        var minLength = Math.Min(value.Length, price.Length);
+        var commonLength = Math.Min(value.Length - offsetValue, price.Length - offsetPrice);
 
-        for (var itemId = 0; itemId < minLength; itemId++)
-            result[itemId] = Add(value[itemId], price[itemId], asset);
+        for (var itemId = 0; itemId < commonLength; itemId++)
+            result[itemId] = Add(value[itemId + offsetValue], price[itemId + offsetPrice], asset);
 
-        for (var itemId = minLength; itemId < resultLength; itemId++)
-            result[itemId] = ToValue(price[itemId], asset);
+        for (var itemId = commonLength; itemId < value.Length - offsetValue; itemId++)
+            result[itemId] = value[itemId + offsetValue];
+
+        for (var itemId = commonLength; itemId < price.Length - offsetPrice; itemId++)
+            result[itemId] = ToValue(price[itemId + offsetPrice], asset);
 
         return result;
     }

@@ -112,7 +112,7 @@ public partial class MainWindow : INotifyPropertyChanged
 
         Closing += MainWindow_Closing;
 
-        Activated += (_,_) => ShowAssetAnalysisMenuItem_OnClick(this, null);
+        //Activated += (_,_) => ShowAssetAnalysisMenuItem_OnClick(this, null);
     }
 
     /// <summary>
