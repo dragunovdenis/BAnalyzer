@@ -123,20 +123,15 @@ public class BlockGrid
         var endBlockIndexToCheck = LowerBound(blockToAppend.End);
 
         for (var blockId = Math.Min(endBlockIndexToCheck, Blocks.Count - 1);
-             blockId >= beginBlockIndexToCheck;
-             blockId--)
+             blockId >= beginBlockIndexToCheck; blockId--)
         {
             var block = Blocks[blockId];
             if (blockToAppend.IsAdjacentTo(block) || blockToAppend.Intersects(block))
             {
-                blockToAppend.Merge(block);
+                blockToAppend.MergePreserve(block);
                 Blocks.RemoveAt(blockId);
             }
         }
-
-        // Merge the input data last so that
-        // it overrides all the corresponding data in the grid.
-        blockToAppend.Merge(new KLineBlock(collection));
 
         Blocks.Insert(beginBlockIndexToCheck, blockToAppend);
 

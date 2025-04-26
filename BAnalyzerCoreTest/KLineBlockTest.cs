@@ -18,12 +18,46 @@
 using BAnalyzerCore.Cache;
 using Binance.Net.Enums;
 using FluentAssertions;
+using BAnalyzerCore;
 
 namespace BAnalyzerCoreTest;
 
 [TestClass]
 public class KLineBlockTest
 {
+    /// <summary>
+    /// Different types of block data used in the tests.
+    /// </summary>
+    public enum MergeDataType : int
+    {
+        DistinctBlocks = 0,
+        AdjacentBlocks = 1,
+        IntersectingBlocks = 2,
+        ContainingBlocks = 3,
+        CoincidingBlocks = 4,
+        EmptyAndNonEmptyBlocks = 5,
+        TwoEmptyBlocks = 6,
+    }
+
+    /// <summary>
+    /// A data factory method;
+    /// </summary>
+    private static (KLineBlock Block0, KLineBlock Block1) CreateData(MergeDataType dataType)
+    {
+        switch (dataType)
+        {
+            case MergeDataType.DistinctBlocks : return CreateDistinctBlocks();
+            case MergeDataType.AdjacentBlocks : return CreateAdjacentBlocks();
+            case MergeDataType.IntersectingBlocks : return CreateIntersectingBlocks();
+            case MergeDataType.ContainingBlocks : return CreateContainingBlocks();
+            case MergeDataType.CoincidingBlocks: return CreateCoincidingBlocks();
+            case MergeDataType.EmptyAndNonEmptyBlocks : return CreateEmptyAndNonEmptyBlocks();
+            case MergeDataType.TwoEmptyBlocks : return CreateEmptyBlocks();
+        }
+
+        throw new ArgumentException("Unknown data type");
+    }
+
     /// <summary>
     /// Returns a pair of non-intersecting, non-adjacent blocks of the same granularity.
     /// The first block is chronologically preceding to the second one.
@@ -88,6 +122,32 @@ public class KLineBlockTest
         var granularity = KlineInterval.OneMinute;
         var block0 = KLineGenerator.GenerateBlock(beginTime, granularity, 100);
         var block1 = KLineGenerator.GenerateBlock(beginTime, granularity, 100);
+
+        return (block0, block1);
+    }
+
+    /// <summary>
+    /// Returns a pair of blocks one of which is empty and another one is non-empty.
+    /// </summary>
+    private static (KLineBlock Block0, KLineBlock Block1) CreateEmptyAndNonEmptyBlocks()
+    {
+        var beginTime = new DateTime(2000, 1, 1);
+        var granularity = KlineInterval.OneMinute;
+        var block0 = new KLineBlock(granularity.ToTimeSpan());
+        var block1 = KLineGenerator.GenerateBlock(beginTime, granularity, 100);
+
+        return (block0, block1);
+    }
+
+    /// <summary>
+    /// Returns a pair of empty blocks of the same granularity.
+    /// </summary>
+    private static (KLineBlock Block0, KLineBlock Block1) CreateEmptyBlocks()
+    {
+        var beginTime = new DateTime(2000, 1, 1);
+        var granularity = KlineInterval.OneMinute;
+        var block0 = new KLineBlock(granularity.ToTimeSpan());
+        var block1 = new KLineBlock(granularity.ToTimeSpan());
 
         return (block0, block1);
     }
@@ -233,10 +293,10 @@ public class KLineBlockTest
     /// <summary>
     /// Runs general merging tests for the given pair of non-distinct sets.
     /// </summary>
-    private static void RunStandardMergingTest(KLineBlock block0, KLineBlock block1)
+    private static void RunMergeOverwriteTest(KLineBlock block0, KLineBlock block1)
     {
         // Act
-        var mergedBlock = block0.Copy().Merge(block1);
+        var mergedBlock = block0.Copy().MergeOverwrite(block1);
 
         // Assert
         mergedBlock.IsValid().Should().BeTrue("because the merged block should be valid");
@@ -256,61 +316,91 @@ public class KLineBlockTest
                 .BeTrue("because this is the requirement of the merge contract");
     }
 
-    [TestMethod]
-    public void MergingOfCoincidingBlocksTest()
+    [DataRow(MergeDataType.AdjacentBlocks)]
+    [DataRow(MergeDataType.CoincidingBlocks)]
+    [DataRow(MergeDataType.IntersectingBlocks)]
+    [DataRow(MergeDataType.ContainingBlocks)]
+    [DataRow(MergeDataType.EmptyAndNonEmptyBlocks)]
+    [DataRow(MergeDataType.TwoEmptyBlocks)]
+    [DataTestMethod]
+    public void MergeOverwriteTest(MergeDataType dataType)
     {
         // Arrange
-        var (block0, block1) = CreateCoincidingBlocks();
+        var (block0, block1) = CreateData(dataType);
 
         // Act
-        RunStandardMergingTest(block0, block1);
-        RunStandardMergingTest(block1, block0);
+        RunMergeOverwriteTest(block0, block1);
+        RunMergeOverwriteTest(block1, block0);
     }
 
     [TestMethod]
-    public void MergingOfIntersectingBlocksTest()
-    {
-        // Arrange
-        var (block0, block1) = CreateIntersectingBlocks();
-
-        // Act
-        RunStandardMergingTest(block0, block1);
-        RunStandardMergingTest(block1, block0);
-    }
-
-    [TestMethod]
-    public void MergingOfContainingBlocksTest()
-    {
-        // Arrange
-        var (block0, block1) = CreateContainingBlocks();
-
-        // Act
-        RunStandardMergingTest(block0, block1);
-        RunStandardMergingTest(block1, block0);
-    }
-
-    [TestMethod]
-    public void MergingOfAdjacentBlocksTest()
-    {
-        // Arrange
-        var (block0, block1) = CreateAdjacentBlocks();
-
-        // Act
-        RunStandardMergingTest(block0, block1);
-        RunStandardMergingTest(block1, block0);
-    }
-
-    [TestMethod]
-    public void MergingOfDistinctBlocksTest()
+    public void MergeOverwriteOfDistinctBlocksTest()
     {
         // Arrange
         var (block0, block1) = CreateDistinctBlocks();
 
         // Act/assert
-        block0.Invoking(x => x.Merge(block1)).Should().
+        block0.Invoking(x => x.MergeOverwrite(block1)).Should().
             ThrowExactly<InvalidOperationException>("because distinct blocks can't be merged");
 
-        block1.Invoking(x => x.Merge(block0)).Should().
+        block1.Invoking(x => x.MergeOverwrite(block0)).Should().
+            ThrowExactly<InvalidOperationException>("because distinct blocks can't be merged");
+    }
+
+    /// <summary>
+    /// Runs general merging tests for the given pair of non-distinct sets.
+    /// </summary>
+    private static void RunMergePreserveTest(KLineBlock block0, KLineBlock block1)
+    {
+        // Act
+        var mergedBlock = block0.Copy().MergePreserve(block1);
+
+        // Assert
+        mergedBlock.IsValid().Should().BeTrue("because the merged block should be valid");
+
+        mergedBlock.Contains(block0).Should()
+            .BeTrue("because the result of merging operation is supposed to contain each of the operands");
+
+        mergedBlock.Contains(block1).Should()
+            .BeTrue("because the result of merging operation is supposed to contain each of the operands");
+
+        // Check that all the items from "block0" (i.e., the one which was merged)
+        // are present in the merging result. This is the contract obligation
+        // of the merging procedure.
+        var block0StartId = mergedBlock.FindBeginKLineId(block0.Begin);
+        for (var itemId = 0; itemId < block0.Data.Count; itemId++)
+            mergedBlock.Data[itemId + block0StartId].Equals(block0.Data[itemId]).Should()
+                .BeTrue("because this is the requirement of the merge contract");
+    }
+
+    [DataRow(MergeDataType.AdjacentBlocks)]
+    [DataRow(MergeDataType.CoincidingBlocks)]
+    [DataRow(MergeDataType.IntersectingBlocks)]
+    [DataRow(MergeDataType.ContainingBlocks)]
+    [DataRow(MergeDataType.EmptyAndNonEmptyBlocks)]
+    [DataRow(MergeDataType.TwoEmptyBlocks)]
+    [DataTestMethod]
+    public void MergePreserveTest(MergeDataType dataType)
+    {
+        // Arrange
+        var (block0, block1) = CreateData(dataType);
+
+        // Act
+        RunMergePreserveTest(block0, block1);
+        RunMergePreserveTest(block1, block0);
+    }
+
+    [TestMethod]
+    public void MergePreserveOfDistinctBlocksTest()
+    {
+        // Arrange
+        var (block0, block1) = CreateDistinctBlocks();
+
+        // Act/assert
+        block0.Invoking(x => x.MergePreserve(block1)).Should().
+            ThrowExactly<InvalidOperationException>("because distinct blocks can't be merged");
+
+        block1.Invoking(x => x.MergePreserve(block0)).Should().
             ThrowExactly<InvalidOperationException>("because distinct blocks can't be merged");
     }
 
@@ -408,22 +498,15 @@ public class KLineBlockTest
             .BeTrue("because the two blocks do not intersect");
     }
 
-    [TestMethod]
-    public void SubtractionOfAdjacentBlocks()
+    [DataRow(MergeDataType.AdjacentBlocks)]
+    [DataRow(MergeDataType.DistinctBlocks)]
+    [DataRow(MergeDataType.EmptyAndNonEmptyBlocks)]
+    [DataRow(MergeDataType.TwoEmptyBlocks)]
+    [DataTestMethod]
+    public void BlockSubtractionTest(MergeDataType dataType)
     {
         // Arrange
-        var (block0, block1) = CreateAdjacentBlocks();
-
-        // Act/assert
-        RunTrivialSubtractionTest(block0, block1);
-        RunTrivialSubtractionTest(block1, block0);
-    }
-
-    [TestMethod]
-    public void SubtractionOfDistinctBlocks()
-    {
-        // Arrange
-        var (block0, block1) = CreateDistinctBlocks();
+        var (block0, block1) = CreateData(dataType);
 
         // Act/assert
         RunTrivialSubtractionTest(block0, block1);

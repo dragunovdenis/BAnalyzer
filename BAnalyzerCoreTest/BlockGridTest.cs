@@ -132,7 +132,7 @@ public class BlockGridTest
         grid.Append(adjacentBlock0.Data);
         grid.Append(separateStandingBlockToTheRight.Data);
 
-        var mergedAdjacentBlocks = adjacentBlock0.Copy().Merge(adjacentBlock1).Merge(adjacentBlock2);
+        var mergedAdjacentBlocks = adjacentBlock0.Copy().MergeOverwrite(adjacentBlock1).MergeOverwrite(adjacentBlock2);
 
         mergedAdjacentBlocks.CanBeMergedWith(separateStandingBlockToTheLeft).Should()
             .BeFalse("because the block is distinct by design");
@@ -159,7 +159,7 @@ public class BlockGridTest
         grid.Append(block1.Data);
         grid.Append(block2.Data);
 
-        RunExtensiveDataRetrievalTest([block0.Copy().Merge(block1).Merge(block2)], grid);
+        RunExtensiveDataRetrievalTest([block0.Copy().MergeOverwrite(block1).MergeOverwrite(block2)], grid);
     }
 
     /// <summary>

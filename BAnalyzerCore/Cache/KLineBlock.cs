@@ -95,6 +95,12 @@ public interface IKLineBlockReadOnly
     /// with the given <param name="block"/>/
     /// </summary>
     bool CanBeMergedWith(IKLineBlockReadOnly block);
+
+    /// <summary>
+    /// Returns index of an item with the "open-time" equal to that of
+    /// the given <param name="item"/> or "-1" if there is no such item.
+    /// </summary>
+    int FindItem(IBinanceKline item);
 }
 
 /// <summary>
@@ -243,11 +249,8 @@ public class KLineBlock : IKLineBlockReadOnly
         }
     }
 
-    /// <summary>
-    /// Returns index of an item with the "open-time" equal to that of
-    /// the given <param name="item"/> or "-1" if there is no such item.
-    /// </summary>
-    private int FindItem(IBinanceKline item) => _data.BinarySearch(item, new OpenTimeComparer());
+    /// <inheritdoc/>
+    public int FindItem(IBinanceKline item) => _data.BinarySearch(item, new OpenTimeComparer());
 
     /// <summary>
     /// Subtracts the given <param name="blockToSubtract"/> from the current block.
@@ -264,7 +267,7 @@ public class KLineBlock : IKLineBlockReadOnly
         if (!SameGranularity(blockToSubtract))
             throw new ArgumentException("The operation is supported only for blocks with the same granularity");
 
-        if (blockToSubtract.Begin > Begin && blockToSubtract.End < End)
+        if (blockToSubtract.Begin > Begin && blockToSubtract.End < End && !blockToSubtract.IsEmpty())
             throw new InvalidOperationException("Subtraction would result in a discontinuous block");
 
         if (blockToSubtract.End <= Begin || blockToSubtract.Begin >= End)
@@ -273,28 +276,21 @@ public class KLineBlock : IKLineBlockReadOnly
         if (blockToSubtract.Begin <= Begin && blockToSubtract.End >= End)
         {
             _data.Clear();
-            return this;
-        }
-
-        if (blockToSubtract.Begin > Begin)
+        } else if (blockToSubtract.Begin > Begin)
         {
             var startId = FindItem(blockToSubtract.Data.First());
             if (startId < 0) throw new InvalidOperationException("Unexpected scenario");
 
             _data.RemoveRange(startId, _data.Count - startId);
-            return this;
-        }
-
-        if (blockToSubtract.End < End)
+        } else if (blockToSubtract.End < End)
         {
             var endId = FindItem(blockToSubtract.Data.Last());
             if (endId < 0) throw new InvalidOperationException("Unexpected scenario");
 
             _data.RemoveRange(0, endId + 1);
-            return this;
-        }
+        } else throw new InvalidOperationException("Unexpected scenario");
 
-        throw new InvalidOperationException("Unexpected scenario");
+        return this;
     }
 
     /// <summary>
@@ -325,13 +321,10 @@ public class KLineBlock : IKLineBlockReadOnly
     /// the corresponding "k-lines" from the current block.
     /// Returns pointer to the merged instance.
     /// </summary>
-    public KLineBlock Merge(IKLineBlockReadOnly blockToMerge)
+    public KLineBlock MergeOverwrite(IKLineBlockReadOnly blockToMerge)
     {
         if (!SameGranularity(blockToMerge))
             throw new ArgumentException("The operation is supported only for blocks with the same granularity");
-
-        if (!CanBeMergedWith(blockToMerge))
-            throw new InvalidOperationException("Cant merge two blocks with a gap in between");
 
         if (Contains(blockToMerge))
         {
@@ -344,16 +337,55 @@ public class KLineBlock : IKLineBlockReadOnly
         if (IsEmpty() || IsAdjacentAndPrecedingTo(blockToMerge))
         {
             _data.AddRange(blockToMerge.Data);
-            return this;
-        }
-
-        if (IsAdjacentAndFollowingTo(blockToMerge))
+        } else if (IsAdjacentAndFollowingTo(blockToMerge))
         {
             _data.InsertRange(0, blockToMerge.Data);
-            return this;
-        }
+        } else throw new InvalidOperationException("Unexpected scenario");
 
-        throw new InvalidOperationException("Unexpected scenario");
+        return this;
+    }
+
+    /// <summary>
+    /// Merges given <param name="blockToMerge"/> to the current one.
+    /// For the operation to succeed the two blocks should be either
+    /// intersecting each other of adjacent to each other;
+    /// IMPORTANT: the data from <param name="blockToMerge"/>
+    /// which is duplicated (chronologically) in the current block will
+    /// be ignored during the merge.
+    /// </summary>
+    public KLineBlock MergePreserve(IKLineBlockReadOnly blockToMerge)
+    {
+        if (!SameGranularity(blockToMerge))
+            throw new ArgumentException("The operation is supported only for blocks with the same granularity");
+
+        if (Contains(blockToMerge))
+            return this;
+
+        if (IsEmpty() || IsAdjacentAndPrecedingTo(blockToMerge))
+        {
+            _data.AddRange(blockToMerge.Data);
+        } else if (IsAdjacentAndFollowingTo(blockToMerge))
+        {
+            _data.InsertRange(0, blockToMerge.Data);
+        } else if (Intersects(blockToMerge))
+        {
+            var itemsToAddFromLeft = blockToMerge.FindItem(_data.First());
+
+            if (itemsToAddFromLeft > 0)
+                _data.InsertRange(0, blockToMerge.Data.Take(itemsToAddFromLeft));
+
+            var indexOfTheRightEndOfTheCurrentBlockInTheBlockToMerge = blockToMerge.FindItem(_data.Last());
+
+            if (indexOfTheRightEndOfTheCurrentBlockInTheBlockToMerge >= 0)
+            {
+                var itemsToAddFromRight =
+                    blockToMerge.Data.Count - 1 - indexOfTheRightEndOfTheCurrentBlockInTheBlockToMerge;
+                _data.AddRange(blockToMerge.Data.TakeLast(itemsToAddFromRight));
+            }
+
+        } else throw new InvalidOperationException("Blocks can't be merged");
+
+        return this;
     }
 
     /// <summary>
@@ -374,5 +406,5 @@ public class KLineBlock : IKLineBlockReadOnly
     /// <summary>
     /// Returns a copy of the current instance.
     /// </summary>
-    public KLineBlock Copy() => new(_data);
+    public KLineBlock Copy() => IsEmpty() ? new(_granularity) : new(_data);
 }
