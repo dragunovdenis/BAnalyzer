@@ -158,7 +158,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 
         var frameDuration = timeFrame.Duration;
         var sticks = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameDuration),
-            timeFrame.End.Add(frameDuration), timeFrame.Discretization, exchangeDescriptor);
+            timeFrame.End.Add(frameDuration), timeFrame.Discretization, exchangeDescriptor, request.Force);
 
         if (!request.IsRequestStillRelevant())
             return null;
@@ -249,7 +249,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         /// Determines whether the request should be applied despite,
         /// for example, the system being overloaded by other requests.
         /// </summary>
-        private bool Force { get; } = force;
+        public bool Force { get; } = force;
     }
 
     /// <summary>

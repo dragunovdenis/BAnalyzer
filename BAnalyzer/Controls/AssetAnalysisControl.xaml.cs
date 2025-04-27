@@ -354,7 +354,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
             var symbol = asset.Symbol;
 
             var priceSticks = (await client.GetCandleSticksAsync(frameBegin, frameEnd,
-                timeFrame.Discretization, symbol)).Select(x => x.ToScottPlotCandleStick()).Reverse().ToArray();
+                timeFrame.Discretization, symbol, request.Force)).Select(x => x.ToScottPlotCandleStick()).Reverse().ToArray();
 
             if (priceSticks.Length == 0)
                 continue;

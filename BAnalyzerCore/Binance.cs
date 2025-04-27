@@ -55,18 +55,37 @@ public class Binance : IDisposable
     private readonly BinanceCache _cache = new();
 
     /// <summary>
-    /// Gets candle-stick data
+    /// Returns "k-line" data.
     /// </summary>
     public async Task<IList<IBinanceKline>> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
-        KlineInterval granularity, string symbol)
+        KlineInterval granularity, string symbol, bool ensureLatestData)
     {
-        lock (_cache)
+        IList<IBinanceKline> RetrieveDataFromCache()
         {
-            var cachedResult = _cache.Retrieve(symbol, granularity, timeBegin,
-                timeEnd > DateTime.UtcNow ? DateTime.UtcNow : timeEnd);
+            lock (_cache)
+                return _cache.Retrieve(symbol, granularity, timeBegin,
+                    timeEnd > DateTime.UtcNow ? DateTime.UtcNow : timeEnd);
+        }
 
-            if (cachedResult != null)
-                return cachedResult;
+        var cachedResult = RetrieveDataFromCache();
+
+        if (cachedResult != null)
+        {
+            if (ensureLatestData && cachedResult.Last().CloseTime >= DateTime.UtcNow)
+            {
+                var lastKline = cachedResult.Last();
+                // We need to update the last "k-line"
+                var latestKline = (await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
+                    startTime: lastKline.OpenTime, endTime: lastKline.CloseTime, limit: 1000)).Data.ToArray();
+
+                var updatedKline = latestKline[^1];
+                cachedResult[^1] = updatedKline;
+
+                lock (_cache)
+                    _cache.Append(symbol, granularity, [updatedKline]);
+            }
+
+            return cachedResult;
         }
 
         var granularitySpan = granularity.ToTimeSpan();
