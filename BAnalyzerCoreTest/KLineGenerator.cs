@@ -50,6 +50,6 @@ internal class KLineGenerator
             result[itemId] = kLineMock.Object;
         }
 
-        return new KLineBlock(result);
+        return new KLineBlock(granularity, result);
     }
 }

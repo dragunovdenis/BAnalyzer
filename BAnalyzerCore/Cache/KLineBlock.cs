@@ -17,6 +17,7 @@
 
 using Binance.Net.Interfaces;
 using BAnalyzerCore.Utils;
+using Binance.Net.Enums;
 
 namespace BAnalyzerCore.Cache;
 
@@ -28,7 +29,7 @@ public interface IKLineBlockReadOnly
     /// <summary>
     /// Duration of a time-interval covered by a single data item in the block.
     /// </summary>
-    TimeSpan Granularity { get; }
+    KlineInterval Granularity { get; }
 
     /// <summary>
     /// Read-only access to the data.
@@ -108,10 +109,10 @@ public interface IKLineBlockReadOnly
 /// </summary>
 public class KLineBlock : IKLineBlockReadOnly
 {
-    private readonly TimeSpan _granularity;
+    private readonly KlineInterval _granularity;
 
     /// <inheritdoc/>
-    public TimeSpan Granularity => _granularity;
+    public KlineInterval Granularity => _granularity;
 
     private readonly List<IBinanceKline> _data = new();
 
@@ -148,8 +149,7 @@ public class KLineBlock : IKLineBlockReadOnly
     public bool Coincide(IKLineBlockReadOnly block) => Contains(block) && block.Contains(this);
 
     /// <inheritdoc/>
-    public bool SameGranularity(IKLineBlockReadOnly block) =>
-        Math.Abs(Granularity.Subtract(block.Granularity).TotalSeconds) < BinanceConstants.KLineTimeGapSec;
+    public bool SameGranularity(IKLineBlockReadOnly block) => Granularity.Equals(block.Granularity);
 
     /// <inheritdoc/>
     public bool CanBeMergedWith(IKLineBlockReadOnly block) => IsAdjacentTo(block) || Intersects(block);
@@ -183,49 +183,59 @@ public class KLineBlock : IKLineBlockReadOnly
     public bool IsValid() => CheckChronologicalIntegrity(_data, _granularity);
 
     /// <summary>
+    /// Returns maximal acceptable deviation of a "k-line" with the given <param name="granularity"/>
+    /// from a "canonical" time span assumed for <param name="granularity"/>.
+    /// </summary>
+    private static TimeSpan GetMaximalAcceptableKlineDeviationFromCanonicalTimeSpan(KlineInterval granularity)
+    {
+        switch (granularity)
+        {
+            case KlineInterval.OneMonth: return TimeSpan.FromDays(2);
+            default: return TimeSpan.Zero;
+        }
+    }
+
+    /// <summary>
     /// Returns "true" if the given collection of "k-lines"
     /// satisfies chronological integrity requirements
     /// (i.e., same granularity, no gaps).
     /// </summary>
-    public static bool CheckChronologicalIntegrity(IReadOnlyList<IBinanceKline> data, TimeSpan granularity)
+    public static bool CheckChronologicalIntegrity(IReadOnlyList<IBinanceKline> data, KlineInterval granularity)
     {
         if (data.Count == 0) return true;
 
         var prevItem = data[0];
+        var granularityTimeSpan = granularity.ToTimeSpan();
+        var acceptableSpanDeviation = GetMaximalAcceptableKlineDeviationFromCanonicalTimeSpan(granularity);
         for (var itemId = 1; itemId < data.Count; itemId++)
         {
             var nextItem = data[itemId];
 
-            if (prevItem.CloseTime >= nextItem.OpenTime || granularity != GetSpan(nextItem))
+            if (prevItem.CloseTime.AddSeconds(BinanceConstants.KLineTimeGapSec) != nextItem.OpenTime
+                || (granularityTimeSpan - GetSpan(nextItem)).Duration() > acceptableSpanDeviation)
                 return false;
 
             prevItem = nextItem;
         }
 
-        var totalSpanExpected = granularity * data.Count;
-        var totalSpanActual = data.Last().CloseTime.AddSeconds(BinanceConstants.KLineTimeGapSec) -
-                              data.First().OpenTime;
-        var diffSec = (totalSpanActual - totalSpanExpected).TotalSeconds;
-
-        // Take into account 1 ms gaps between k-lines
-        return Math.Abs(diffSec) < 1e-10;
+        return true;
     }
 
     /// <summary>
     /// Constructor.
     /// </summary>
-    public KLineBlock(TimeSpan granularity) => _granularity = granularity;
+    public KLineBlock(KlineInterval granularity) => _granularity = granularity;
 
     /// <summary>
     /// Constructor.
     /// </summary>
     /// <param name="data">Chronologically ordered data.</param>
-    public KLineBlock(IReadOnlyList<IBinanceKline> data)
+    public KLineBlock(KlineInterval granularity, IReadOnlyList<IBinanceKline> data)
     {
         if (data.Count == 0)
             throw new ArgumentException("An empty block is not supposed to be created");
 
-        _granularity = GetSpan(data[0]);
+        _granularity = granularity;
         _data = data.ToList();
 
         if (!IsValid())
@@ -399,12 +409,12 @@ public class KLineBlock : IKLineBlockReadOnly
     {
         var elementsInTheFirstBlock = _data.Count / 2;
 
-        return (PreviousBlock: new KLineBlock(_data.Take(elementsInTheFirstBlock).ToList()),
-            NextBlock: new KLineBlock(_data.Skip(elementsInTheFirstBlock).ToList()));
+        return (PreviousBlock: new KLineBlock(_granularity, _data.Take(elementsInTheFirstBlock).ToList()),
+            NextBlock: new KLineBlock(_granularity, _data.Skip(elementsInTheFirstBlock).ToList()));
     }
 
     /// <summary>
     /// Returns a copy of the current instance.
     /// </summary>
-    public KLineBlock Copy() => IsEmpty() ? new(_granularity) : new(_data);
+    public KLineBlock Copy() => IsEmpty() ? new(_granularity) : new(_granularity, _data);
 }

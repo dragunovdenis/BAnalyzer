@@ -49,12 +49,12 @@ internal class AssetCache
     {
         if (_data.TryGetValue(granularity, out var grid))
         {
-            grid.Append(kLines);
+            grid.Append(granularity, kLines);
         }
         else
         {
             var newGrid = new BlockGrid();
-            newGrid.Append(kLines);
+            newGrid.Append(granularity, kLines);
             _data[granularity] = newGrid;
         }
     }

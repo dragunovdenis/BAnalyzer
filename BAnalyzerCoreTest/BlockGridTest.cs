@@ -19,7 +19,6 @@ using BAnalyzerCore;
 using BAnalyzerCore.Cache;
 using Binance.Net.Enums;
 using FluentAssertions;
-using System.Linq;
 
 namespace BAnalyzerCoreTest;
 
@@ -51,16 +50,17 @@ public class BlockGridTest
     private static void RunExtensiveDataRetrievalTest(KLineBlock[] composingBlocks, BlockGrid grid)
     {
         var granularity = composingBlocks[0].Granularity;
+        var granularitySpan = granularity.ToTimeSpan();
 
-        var minTimePoint = composingBlocks.MinBy(x => x.Begin).Begin.Subtract(10 * granularity);
-        var maxTimePoint = composingBlocks.MaxBy(x => x.Begin).End.Add(10 * granularity);
-        var stepCount = 2 * (int)((maxTimePoint - minTimePoint) / granularity);
+        var minTimePoint = composingBlocks.MinBy(x => x.Begin).Begin.Subtract(10 * granularitySpan);
+        var maxTimePoint = composingBlocks.MaxBy(x => x.Begin).End.Add(10 * granularitySpan);
+        var stepCount = 2 * (int)((maxTimePoint - minTimePoint) / granularitySpan);
 
         for (var i = 0; i < stepCount; i++)
         for (var j = i + 1; j < stepCount; j++)
         {
-            var b = minTimePoint.Add(0.5 * i * granularity);
-            var e = minTimePoint.Add(0.5 * j * granularity);
+            var b = minTimePoint.Add(0.5 * i * granularitySpan);
+            var e = minTimePoint.Add(0.5 * j * granularitySpan);
 
             var cachedData = grid.Retrieve(b, e);
 
@@ -68,11 +68,11 @@ public class BlockGridTest
             {
                 KLineBlock.CheckChronologicalIntegrity(cachedData.ToList(), granularity);
 
-                cachedData.First().OpenTime.Should().Be(i % 2 == 0 ? b : b.Add(-0.5 * granularity),
+                cachedData.First().OpenTime.Should().Be(i % 2 == 0 ? b : b.Add(-0.5 * granularitySpan),
                     "because this is supposed to be the beginning of the requested interval");
 
                 cachedData.Last().CloseTime.AddSeconds(BinanceConstants.KLineTimeGapSec).Should()
-                    .Be(j % 2 == 0 ? e : e.Add(0.5 * granularity),
+                    .Be(j % 2 == 0 ? e : e.Add(0.5 * granularitySpan),
                         "because this is supposed to be the end of requested interval");
 
                 composingBlocks.Any(x => BlockContainsInterval(x, b, e)).Should()
@@ -100,8 +100,8 @@ public class BlockGridTest
         block0.CanBeMergedWith(block1).Should().BeFalse("because the blocks are supposed to be distinct");
 
         var grid = new BlockGrid();
-        grid.Append(block0.Data);
-        grid.Append(block1.Data);
+        grid.Append(granularity, block0.Data);
+        grid.Append(granularity, block1.Data);
 
         // Act/Assert
         RunExtensiveDataRetrievalTest([block0, block1], grid);
@@ -126,11 +126,11 @@ public class BlockGridTest
             GenerateBlock(adjacentBlock2.End.Add(10 * granularity.ToTimeSpan()), granularity, 10);
 
         var grid = new BlockGrid();
-        grid.Append(separateStandingBlockToTheLeft.Data);
-        grid.Append(adjacentBlock1.Data);
-        grid.Append(adjacentBlock2.Data);
-        grid.Append(adjacentBlock0.Data);
-        grid.Append(separateStandingBlockToTheRight.Data);
+        grid.Append(granularity, separateStandingBlockToTheLeft.Data);
+        grid.Append(granularity, adjacentBlock1.Data);
+        grid.Append(granularity, adjacentBlock2.Data);
+        grid.Append(granularity, adjacentBlock0.Data);
+        grid.Append(granularity, separateStandingBlockToTheRight.Data);
 
         var mergedAdjacentBlocks = adjacentBlock0.Copy().MergeOverwrite(adjacentBlock1).MergeOverwrite(adjacentBlock2);
 
@@ -155,9 +155,9 @@ public class BlockGridTest
         var block2 = KLineGenerator.GenerateBlock(block1.End.Add(-5 * granularity.ToTimeSpan()), granularity, 10);
 
         var grid = new BlockGrid();
-        grid.Append(block0.Data);
-        grid.Append(block1.Data);
-        grid.Append(block2.Data);
+        grid.Append(granularity, block0.Data);
+        grid.Append(granularity, block1.Data);
+        grid.Append(granularity, block2.Data);
 
         RunExtensiveDataRetrievalTest([block0.Copy().MergeOverwrite(block1).MergeOverwrite(block2)], grid);
     }
@@ -169,8 +169,8 @@ public class BlockGridTest
     private static BlockGrid CheckThatAppendedBlockOverridesExistingDataInTheGrid(KLineBlock block0, KLineBlock block1)
     {
         var grid = new BlockGrid();
-        grid.Append(block0.Data);
-        grid.Append(block1.Data);
+        grid.Append(block0.Granularity,block0.Data);
+        grid.Append(block1.Granularity, block1.Data);
 
         var data = grid.Retrieve(block1.Begin, block1.End);
         data.Should().NotBeNull("because this interval must be present in the grid by design");

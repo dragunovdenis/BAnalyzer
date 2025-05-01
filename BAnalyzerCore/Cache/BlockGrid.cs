@@ -16,6 +16,7 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using BAnalyzerCore.Utils;
+using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 
 namespace BAnalyzerCore.Cache;
@@ -112,9 +113,9 @@ public class BlockGrid
     /// <summary>
     /// Append the given <param name="collection"/> of "k-lines" to the current "grid".
     /// </summary>
-    public void Append(IReadOnlyList<IBinanceKline> collection)
+    public void Append(KlineInterval granularity, IReadOnlyList<IBinanceKline> collection)
     {
-        var blockToAppend = new KLineBlock(collection);
+        var blockToAppend = new KLineBlock(granularity, collection);
 
         if (blockToAppend.IsEmpty())
             return;
