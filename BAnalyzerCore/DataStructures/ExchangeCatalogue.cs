@@ -15,46 +15,38 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using BAnalyzerCore.DataStructures;
 using Binance.Net.Enums;
-using Binance.Net.Interfaces;
 
-namespace BAnalyzerCore.Cache;
+namespace BAnalyzerCore.DataStructures;
 
 /// <summary>
-/// Functionality allowing to cache "k-line" series.
+/// Functionality allowing to store and access data
+/// according to its "symbol" and "time-interval" properties.
 /// </summary>
-internal class BinanceCache
+internal class ExchangeCatalogue<TD>
 {
-    private readonly ExchangeCatalogue<AssetCache> _data = new();
+    private readonly Dictionary<Tuple<string, KlineInterval>, TD> _data = new();
 
     /// <summary>
-    /// Returns cached data in the given interval or "null"
-    /// if the data can't be retrieved.
+    /// Returns key composed of the given pair of property values.
     /// </summary>
-    public IList<IBinanceKline> Retrieve(string symbol, KlineInterval granularity, DateTime timeBegin,
-        DateTime timeEnd)
-    {
-        if (!_data.TryGet(symbol, granularity, out var cache))
-            return null;
-
-        return cache.Grid.Retrieve(timeBegin, timeEnd);
-    }
+    private static Tuple<string, KlineInterval> Key(string symbol, KlineInterval granularity)
+        => new(symbol, granularity);
 
     /// <summary>
-    /// Appends new data to the cache.
+    /// Returns "true" if a data item with the given <param name="symbol"/>
+    /// and <param name="granularity"/> values exists in the catalogue,
+    /// in which case the data can be accessed via the output parameter
+    /// <param name="item"/>.
     /// </summary>
-    public void Append(string symbol, KlineInterval granularity, IReadOnlyList<IBinanceKline> kLines)
-    {
-        if (_data.TryGet(symbol, granularity, out var cache))
-        {
-            cache.Grid.Append(kLines);
-        }
-        else
-        {
-            var newCache = new AssetCache() { Grid = new BlockGrid(granularity) };
-            newCache.Grid.Append(kLines);
-            _data.Set(symbol, granularity, newCache);
-        }
-    }
+    public bool TryGet(string symbol, KlineInterval granularity, out TD item) =>
+        _data.TryGetValue(Key(symbol, granularity), out item);
+
+    /// <summary>
+    /// Assigns given data <param name="item"/> to a cell corresponding
+    /// to the given <param name="symbol"/> and <param name="granularity"/>
+    /// properties.
+    /// </summary>
+    public void Set(string symbol, KlineInterval granularity, TD item) =>
+        _data[Key(symbol, granularity)] = item;
 }

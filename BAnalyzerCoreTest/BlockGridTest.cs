@@ -99,9 +99,9 @@ public class BlockGridTest
 
         block0.CanBeMergedWith(block1).Should().BeFalse("because the blocks are supposed to be distinct");
 
-        var grid = new BlockGrid();
-        grid.Append(granularity, block0.Data);
-        grid.Append(granularity, block1.Data);
+        var grid = new BlockGrid(granularity);
+        grid.Append(block0.Data);
+        grid.Append(block1.Data);
 
         // Act/Assert
         RunExtensiveDataRetrievalTest([block0, block1], grid);
@@ -125,12 +125,12 @@ public class BlockGridTest
         var separateStandingBlockToTheRight = KLineGenerator.
             GenerateBlock(adjacentBlock2.End.Add(10 * granularity.ToTimeSpan()), granularity, 10);
 
-        var grid = new BlockGrid();
-        grid.Append(granularity, separateStandingBlockToTheLeft.Data);
-        grid.Append(granularity, adjacentBlock1.Data);
-        grid.Append(granularity, adjacentBlock2.Data);
-        grid.Append(granularity, adjacentBlock0.Data);
-        grid.Append(granularity, separateStandingBlockToTheRight.Data);
+        var grid = new BlockGrid(granularity);
+        grid.Append(separateStandingBlockToTheLeft.Data);
+        grid.Append(adjacentBlock1.Data);
+        grid.Append(adjacentBlock2.Data);
+        grid.Append(adjacentBlock0.Data);
+        grid.Append(separateStandingBlockToTheRight.Data);
 
         var mergedAdjacentBlocks = adjacentBlock0.Copy().MergeOverwrite(adjacentBlock1).MergeOverwrite(adjacentBlock2);
 
@@ -154,10 +154,10 @@ public class BlockGridTest
         var block1 = KLineGenerator.GenerateBlock(block0.End.Add(-5 * granularity.ToTimeSpan()), granularity, 15);
         var block2 = KLineGenerator.GenerateBlock(block1.End.Add(-5 * granularity.ToTimeSpan()), granularity, 10);
 
-        var grid = new BlockGrid();
-        grid.Append(granularity, block0.Data);
-        grid.Append(granularity, block1.Data);
-        grid.Append(granularity, block2.Data);
+        var grid = new BlockGrid(granularity);
+        grid.Append(block0.Data);
+        grid.Append(block1.Data);
+        grid.Append(block2.Data);
 
         RunExtensiveDataRetrievalTest([block0.Copy().MergeOverwrite(block1).MergeOverwrite(block2)], grid);
     }
@@ -168,9 +168,9 @@ public class BlockGridTest
     /// </summary>
     private static BlockGrid CheckThatAppendedBlockOverridesExistingDataInTheGrid(KLineBlock block0, KLineBlock block1)
     {
-        var grid = new BlockGrid();
-        grid.Append(block0.Granularity,block0.Data);
-        grid.Append(block1.Granularity, block1.Data);
+        var grid = new BlockGrid(block0.Granularity);
+        grid.Append(block0.Data);
+        grid.Append(block1.Data);
 
         var data = grid.Retrieve(block1.Begin, block1.End);
         data.Should().NotBeNull("because this interval must be present in the grid by design");

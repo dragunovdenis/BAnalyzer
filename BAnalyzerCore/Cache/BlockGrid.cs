@@ -26,6 +26,13 @@ namespace BAnalyzerCore.Cache;
 /// </summary>
 public class BlockGrid
 {
+    private readonly KlineInterval _granularity;
+
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    public BlockGrid(KlineInterval granularity) => _granularity = granularity;
+
     /// <summary>
     /// Collection of blocks.
     /// </summary>
@@ -113,9 +120,9 @@ public class BlockGrid
     /// <summary>
     /// Append the given <param name="collection"/> of "k-lines" to the current "grid".
     /// </summary>
-    public void Append(KlineInterval granularity, IReadOnlyList<IBinanceKline> collection)
+    public void Append(IReadOnlyList<IBinanceKline> collection)
     {
-        var blockToAppend = new KLineBlock(granularity, collection);
+        var blockToAppend = new KLineBlock(_granularity, collection);
 
         if (blockToAppend.IsEmpty())
             return;

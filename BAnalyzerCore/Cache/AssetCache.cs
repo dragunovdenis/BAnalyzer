@@ -15,47 +15,15 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using Binance.Net.Enums;
-using Binance.Net.Interfaces;
-
 namespace BAnalyzerCore.Cache;
 
 /// <summary>
-/// Binance data cached for a certain asset
+/// Binance exchange data of a certain granularity related to a certain asset.
 /// </summary>
 internal class AssetCache
 {
     /// <summary>
-    /// Cached data.
+    /// Grid data.
     /// </summary>
-    private readonly Dictionary<KlineInterval, BlockGrid> _data = new();
-
-    /// <summary>
-    /// Returns cached data in the given interval or "null"
-    /// if the data can't be retrieved.
-    /// </summary>
-    public IList<IBinanceKline> Retrieve(KlineInterval granularity, DateTime timeBegin, DateTime timeEnd)
-    {
-        if (!_data.TryGetValue(granularity, out var grid))
-            return null;
-
-        return grid.Retrieve(timeBegin, timeEnd);
-    }
-
-    /// <summary>
-    /// Appends new data to the cache.
-    /// </summary>
-    public void Append(KlineInterval granularity, IReadOnlyList<IBinanceKline> kLines)
-    {
-        if (_data.TryGetValue(granularity, out var grid))
-        {
-            grid.Append(granularity, kLines);
-        }
-        else
-        {
-            var newGrid = new BlockGrid();
-            newGrid.Append(granularity, kLines);
-            _data[granularity] = newGrid;
-        }
-    }
+    public BlockGrid Grid { get; init; }
 }
