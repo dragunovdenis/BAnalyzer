@@ -26,35 +26,27 @@ namespace BAnalyzerCore.Cache;
 /// </summary>
 internal class BinanceCache
 {
-    private readonly ExchangeCatalogue<AssetCache> _data = new();
+    private readonly ExchangeCatalogue<AssetTimeView> _data = new();
 
     /// <summary>
-    /// Returns cached data in the given interval or "null"
-    /// if the data can't be retrieved.
+    /// Returns an existing asset-view object associated with the given pair of keys
+    /// or a newly created one (if such an object does not exist yet).
     /// </summary>
-    public IList<IBinanceKline> Retrieve(string symbol, KlineInterval granularity, DateTime timeBegin,
-        DateTime timeEnd)
+    private AssetTimeView GetOrCreate(string symbol, KlineInterval granularity)
     {
-        if (!_data.TryGet(symbol, granularity, out var cache))
-            return null;
+        if (_data.TryGet(symbol, granularity, out var view))
+            return view;
 
-        return cache.Grid.Retrieve(timeBegin, timeEnd);
+        var newView = new AssetTimeView(granularity);
+        _data.Set(symbol, granularity, newView);
+        return newView;
     }
 
     /// <summary>
-    /// Appends new data to the cache.
+    /// Returns instance of asset-view associated with the given "symbol-granularity" pair.
     /// </summary>
-    public void Append(string symbol, KlineInterval granularity, IReadOnlyList<IBinanceKline> kLines)
+    public AssetTimeView GetAssetViewThreadSafe(string symbol, KlineInterval granularity)
     {
-        if (_data.TryGet(symbol, granularity, out var cache))
-        {
-            cache.Grid.Append(kLines);
-        }
-        else
-        {
-            var newCache = new AssetCache() { Grid = new BlockGrid(granularity) };
-            newCache.Grid.Append(kLines);
-            _data.Set(symbol, granularity, newCache);
-        }
+        lock (this) return GetOrCreate(symbol, granularity);
     }
 }

@@ -15,15 +15,48 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzerCore.Utils;
+using Binance.Net.Enums;
+using Binance.Net.Interfaces;
+
 namespace BAnalyzerCore.Cache;
 
 /// <summary>
 /// Binance exchange data of a certain granularity related to a certain asset.
 /// </summary>
-internal class AssetCache
+internal class AssetTimeView
 {
     /// <summary>
     /// Grid data.
     /// </summary>
-    public BlockGrid Grid { get; init; }
+    private readonly BlockGrid _grid;
+
+    private DateTime _zeroTime = DateTime.MinValue;
+
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    public AssetTimeView(KlineInterval granularity) => _grid = new BlockGrid(granularity);
+
+    /// <summary>
+    /// Updates the "history begin time" with the new value.
+    /// </summary>
+    public void SetZeroTimePoint(DateTime newTime) => _zeroTime = newTime;
+
+    /// <summary>
+    /// Resets the "history begin time" to its default value.
+    /// </summary>
+    public void ResetZeroTimePoint() => _zeroTime = DateTime.MinValue;
+
+    /// <summary>
+    /// Returns a collection of "k-lines" that cover the given time interval
+    /// or null if the data in the grid does not fully cover the interval.
+    /// </summary>
+    public IList<IBinanceKline> Retrieve(DateTime timeBegin, DateTime timeEnd) =>
+        _grid.Retrieve(DateTimeUtils.Max(timeBegin, _zeroTime), timeEnd);
+
+    /// <summary>
+    /// Append the given <param name="collection"/> of "k-lines" to the current "grid".
+    /// </summary>
+    public void Append(IReadOnlyList<IBinanceKline> collection) => _grid.Append(collection);
 }

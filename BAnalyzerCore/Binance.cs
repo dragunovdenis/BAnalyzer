@@ -20,6 +20,7 @@ using Binance.Net.Interfaces;
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Spot;
 using BAnalyzerCore.Cache;
+using BAnalyzerCore.Utils;
 
 namespace BAnalyzerCore;
 
@@ -60,11 +61,15 @@ public class Binance : IDisposable
     public async Task<IList<IBinanceKline>> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
         KlineInterval granularity, string symbol, bool ensureLatestData)
     {
+        if (timeBegin >= timeEnd)
+            return new List<IBinanceKline>();
+
+        var assetCacheView = _cache.GetAssetViewThreadSafe(symbol, granularity);
+
         IList<IBinanceKline> RetrieveDataFromCache()
         {
-            lock (_cache)
-                return _cache.Retrieve(symbol, granularity, timeBegin,
-                    timeEnd > DateTime.UtcNow ? DateTime.UtcNow : timeEnd);
+            lock (assetCacheView)
+                return assetCacheView.Retrieve(timeBegin, timeEnd > DateTime.UtcNow ? DateTime.UtcNow : timeEnd);
         }
 
         var cachedResult = RetrieveDataFromCache();
@@ -76,29 +81,38 @@ public class Binance : IDisposable
                 var lastKline = cachedResult.Last();
                 // We need to update the last "k-line"
                 var latestKline = (await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
-                    startTime: lastKline.OpenTime, endTime: lastKline.CloseTime, limit: 1000)).Data.ToArray();
+                    startTime: lastKline.OpenTime, endTime: lastKline.CloseTime)).Data.ToArray();
 
                 var updatedKline = latestKline[^1];
                 cachedResult[^1] = updatedKline;
 
-                lock (_cache)
-                    _cache.Append(symbol, granularity, [updatedKline]);
+                lock (assetCacheView)
+                    assetCacheView.Append([updatedKline]);
             }
 
             return cachedResult;
         }
 
-        var granularitySpan = granularity.ToTimeSpan();
+        var extraTimeOffset = DateTimeUtils.Max(timeEnd - timeBegin, granularity.ToTimeSpan() * 25);
         var kLines = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
-            startTime: timeBegin.Subtract(granularitySpan), endTime: timeEnd.Add(granularitySpan), limit: 1000);
+            startTime: timeBegin.Subtract(extraTimeOffset), endTime: timeEnd.Add(extraTimeOffset));
         if (!kLines.Success)
             throw new Exception("Failed to get exchange info");
 
         var result = kLines.Data.ToArray();
 
-        lock (_cache)
+        lock (assetCacheView)
+        {
             if (result.Length > 0)
-                _cache.Append(symbol, granularity, result);
+            {
+                assetCacheView.Append(result);
+
+                if (result[0].OpenTime > timeBegin)
+                    assetCacheView.SetZeroTimePoint(result[0].OpenTime);
+            }
+            else if (result.Length == 0)
+                assetCacheView.SetZeroTimePoint(timeEnd);
+        }
 
         return result;
     }

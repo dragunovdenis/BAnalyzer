@@ -75,4 +75,24 @@ internal static class DateTimeUtils
 
         return first;
     }
+
+    /// <summary>
+    /// Returns maximum of the given two time points.
+    /// </summary>
+    public static DateTime Max(DateTime t0, DateTime t1) => new(Math.Max(t0.Ticks, t1.Ticks));
+
+    /// <summary>
+    /// Returns minimum of the given two time points.
+    /// </summary>
+    public static DateTime Min(DateTime t0, DateTime t1) => new(Math.Min(t0.Ticks, t1.Ticks));
+
+    /// <summary>
+    /// Returns maximum of the given two time spans.
+    /// </summary>
+    public static TimeSpan Max(TimeSpan s0, TimeSpan s1) => new(Math.Max(s0.Ticks, s1.Ticks));
+
+    /// <summary>
+    /// Returns minimum of the given two time spans.
+    /// </summary>
+    public static TimeSpan Min(TimeSpan s0, TimeSpan s1) => new(Math.Min(s0.Ticks, s1.Ticks));
 }
