@@ -53,6 +53,42 @@ public class Binance : IDisposable
     /// </summary>
     public IList<string> GetSymbols() => Task.Run(async () => await GetSymbolsAsync()).Result;
 
+    /// <summary>
+    /// Maximal number of "k-lines" that Binance client can retrieve per time.
+    /// </summary>
+    private const int MaxKLinesPerTime = 1000;
+
+    /// <summary>
+    /// Returns boundaries of the maximal possible time interval
+    /// that covers the given time interval represented with its
+    /// begin-end points and which can be retrieved via a single
+    /// call from Binance server.
+    /// </summary>
+    private static (DateTime TimeBeginExtended, DateTime TimeEndExtended) GetExtendedInterval(DateTime timeBegin,
+        DateTime timeEnd, KlineInterval granularity)
+    {
+        var kLineSpan = granularity.ToTimeSpan();
+
+        var requestedSpan = timeEnd - timeBegin;
+        var kLinesRequested = (int)(requestedSpan / kLineSpan) + 1;
+
+        var kLinesSpare = MaxKLinesPerTime - kLinesRequested;
+
+        if (kLinesSpare < 0)
+            throw new InvalidOperationException("Too large time interval requested");
+
+        var kLinesToAddToTheEnd = Math.Min((int)((DateTime.UtcNow - timeEnd).Duration() / kLineSpan), kLinesSpare / 2);
+        var kLinesToAddToTheBegin = kLinesSpare - kLinesToAddToTheEnd;
+
+        if (kLinesRequested + kLinesToAddToTheEnd + kLinesToAddToTheBegin > MaxKLinesPerTime)
+            throw new InvalidOperationException("Something went wrong!");
+
+        var timeBeginExtended = timeBegin.Subtract(kLineSpan * kLinesToAddToTheBegin);
+        var timeEndExtended = timeEnd.Add(kLineSpan * kLinesToAddToTheEnd);
+
+        return (timeBeginExtended, timeEndExtended);
+    }
+
     private readonly BinanceCache _cache = new();
 
     /// <summary>
@@ -64,12 +100,13 @@ public class Binance : IDisposable
         if (timeBegin >= timeEnd)
             return new List<IBinanceKline>();
 
+        timeEnd = timeEnd.Min(DateTime.UtcNow);
+
         var assetCacheView = _cache.GetAssetViewThreadSafe(symbol, granularity);
 
         IList<IBinanceKline> RetrieveDataFromCache()
         {
-            lock (assetCacheView)
-                return assetCacheView.Retrieve(timeBegin, timeEnd > DateTime.UtcNow ? DateTime.UtcNow : timeEnd);
+            lock (assetCacheView) return assetCacheView.Retrieve(timeBegin, timeEnd);
         }
 
         var cachedResult = RetrieveDataFromCache();
@@ -93,9 +130,10 @@ public class Binance : IDisposable
             return cachedResult;
         }
 
-        var extraTimeOffset = DateTimeUtils.Max(timeEnd - timeBegin, granularity.ToTimeSpan() * 25);
+        var (extendedBegin, extendedEnd) = GetExtendedInterval(timeBegin, timeEnd, granularity);
         var kLines = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
-            startTime: timeBegin.Subtract(extraTimeOffset), endTime: timeEnd.Add(extraTimeOffset));
+            startTime: extendedBegin, endTime: extendedEnd, limit: 1500);
+
         if (!kLines.Success)
             throw new Exception("Failed to get exchange info");
 
@@ -112,9 +150,9 @@ public class Binance : IDisposable
             }
             else if (result.Length == 0)
                 assetCacheView.SetZeroTimePoint(timeEnd);
-        }
 
-        return result;
+            return assetCacheView.Retrieve(timeBegin, timeEnd);
+        }
     }
 
     /// <summary>

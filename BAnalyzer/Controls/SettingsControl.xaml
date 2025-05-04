@@ -41,7 +41,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <RowDefinition Height="30"/>
         </Grid.RowDefinitions>
         <TextBlock Grid.Column="0" Grid.Row="0" Text="Sticks range"/>
-        <local:AdjustmentControl Grid.Column="2" Grid.Row="0" MinValue="10" MaxValue="300" Discretization="10"
+        <local:AdjustmentControl Grid.Column="2" Grid.Row="0" MinValue="10" MaxValue="200" Discretization="10"
                                  Value="{Binding ElementName=Ui, Path=Settings.StickRange,
             UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
         <TextBlock Grid.Column="0" Grid.Row="1" Text="Indicator"/>
