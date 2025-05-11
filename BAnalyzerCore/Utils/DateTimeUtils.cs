@@ -25,7 +25,9 @@ internal static class DateTimeUtils
     /// <summary>
     /// Returns index of the first element in the given <param name="collection"/>
     /// for which the time value returned by <param name="timeExtractor"/>
-    /// is not less than the given <param name="time"/>.
+    /// is not less than the given <param name="time"/>. In case if there is
+    /// no such an element, the number of items in <param name="collection"/>
+    /// is returned.
     /// </summary>
     public static int LowerBoundTime<T>(this IReadOnlyList<T> collection, Func<T, DateTime> timeExtractor, DateTime time)
     {
@@ -52,7 +54,9 @@ internal static class DateTimeUtils
     /// <summary>
     /// Returns index of the first element in the given <param name="collection"/>
     /// for which the time value returned by <param name="timeExtractor"/>
-    /// is greater than the given <param name="time"/>.
+    /// is greater than the given <param name="time"/>. In case if there is
+    /// no such an element, the number of items in <param name="collection"/>
+    /// is returned.
     /// </summary>
     public static int UpperBoundTime<T>(this IReadOnlyList<T> collection, Func<T, DateTime> timeExtractor, DateTime time)
     {
@@ -95,4 +99,20 @@ internal static class DateTimeUtils
     /// Returns minimum of the given two time spans.
     /// </summary>
     public static TimeSpan Min(this TimeSpan s0, TimeSpan s1) => new(Math.Min(s0.Ticks, s1.Ticks));
+
+    /// <summary>
+    /// Trims the given time by decreasing the number of ticks in the given <param name="t"/>
+    /// to the closest number that is divisible by <param name="ticks"/>.
+    /// </summary>
+    public static DateTime Trim(this DateTime t, long ticks)
+    {
+        return new DateTime(t.Ticks - (t.Ticks % ticks), t.Kind);
+    }
+
+    /// <summary>
+    /// Rounds down the given time <param name="t"/> so that its total
+    /// number of seconds is dividable by <param name="numberOfSeconds"/>.
+    /// </summary>
+    public static DateTime RoundToSeconds(this DateTime t, int numberOfSeconds) =>
+        t.Trim(TimeSpan.TicksPerSecond * numberOfSeconds);
 }

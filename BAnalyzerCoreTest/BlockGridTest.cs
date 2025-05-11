@@ -17,6 +17,7 @@
 
 using BAnalyzerCore;
 using BAnalyzerCore.Cache;
+using BAnalyzerCore.DataStructures;
 using Binance.Net.Enums;
 using FluentAssertions;
 
@@ -47,7 +48,7 @@ public class BlockGridTest
     /// versus the given collection of <param name="composingBlocks"/>.
     /// Blocks in <param name="composingBlocks"/> collection are assumed to be non-mergeable.
     /// </summary>
-    private static void RunExtensiveDataRetrievalTest(KLineBlock[] composingBlocks, BlockGrid grid)
+    private static void RunExtensiveDataRetrievalTest(IKLineBlockReadOnly[] composingBlocks, BlockGrid grid)
     {
         var granularity = composingBlocks[0].Granularity;
         var granularitySpan = granularity.ToTimeSpan();
@@ -62,10 +63,13 @@ public class BlockGridTest
             var b = minTimePoint.Add(0.5 * i * granularitySpan);
             var e = minTimePoint.Add(0.5 * j * granularitySpan);
 
-            var cachedData = grid.Retrieve(b, e);
+            var cachedData = grid.Retrieve(b, e, out var gapIndicator);
 
             if (cachedData != null)
             {
+                gapIndicator.Should().BeNull("because gap indicator is supposed to be not null " +
+                                             "in case the requested data can't be retrieved");
+
                 KLineBlock.CheckChronologicalIntegrity(cachedData.ToList(), granularity);
 
                 cachedData.First().OpenTime.Should().Be(i % 2 == 0 ? b : b.Add(-0.5 * granularitySpan),
@@ -84,24 +88,47 @@ public class BlockGridTest
                     IntervalExceedsBlock(x, b, e)).Should().BeTrue(
                     "because if interval is not found in the cache then " +
                     "it must not be covered by the intervals put into the cache");
+
+                gapIndicator.Should()
+                    .NotBeNull("because we need to have some indication on what data to request from server.");
+
+                var existingSubIntervals =
+                    new TimeInterval(b, e).Subtract(gapIndicator).Where(x => !x.IsEmpty()).ToArray();
+
+                existingSubIntervals.All(x => grid.Retrieve(x, out _) != null).Should()
+                    .BeTrue("because this is how data from the gap-indicator should be interpreted");
             }
         }
+    }
+
+    /// <summary>
+    /// Returns grid and a pair of non-intersecting blocks the grid is composed of.
+    /// The blocks have a non-zero length gap between them. The first block is chronologically
+    /// preceding to the last one.
+    /// </summary>
+    private static (BlockGrid Grid, IKLineBlockReadOnly Block0, IKLineBlockReadOnly Block1)
+        CreateStandardGridWithTwoDistinctBlocks()
+    {
+        var beginTime = new DateTime(2000, 1, 1);
+        var granularity = KlineInterval.OneMinute;
+        var block0 = KLineGenerator.GenerateBlock(beginTime, granularity, 15);
+        var block1 = KLineGenerator.GenerateBlock(block0.End.Add(5 * granularity.ToTimeSpan()), granularity, 22);
+
+        block0.Intersects(block1).Should().BeFalse("because this is how the blocks are designed");
+        block0.CanBeMergedWith(block1).Should().BeFalse("because this is how the blocks are designed");
+
+        var grid = new BlockGrid(granularity);
+        grid.Append(block0.Data);
+        grid.Append(block1.Data);
+
+        return (grid, block0, block1);
     }
 
     [TestMethod]
     public void GridWithTwoDistinctBlocksTest()
     {
         // Arrange
-        var beginTime = new DateTime(2000, 1, 1);
-        var granularity = KlineInterval.OneHour;
-        var block0 = KLineGenerator.GenerateBlock(beginTime, granularity, 10);
-        var block1 = KLineGenerator.GenerateBlock(block0.End.AddHours(10), granularity, 10);
-
-        block0.CanBeMergedWith(block1).Should().BeFalse("because the blocks are supposed to be distinct");
-
-        var grid = new BlockGrid(granularity);
-        grid.Append(block0.Data);
-        grid.Append(block1.Data);
+        var (grid, block0, block1) = CreateStandardGridWithTwoDistinctBlocks();
 
         // Act/Assert
         RunExtensiveDataRetrievalTest([block0, block1], grid);
@@ -172,7 +199,7 @@ public class BlockGridTest
         grid.Append(block0.Data);
         grid.Append(block1.Data);
 
-        var data = grid.Retrieve(block1.Begin, block1.End);
+        var data = grid.Retrieve(block1.Begin, block1.End, out _);
         data.Should().NotBeNull("because this interval must be present in the grid by design");
 
         data.Zip(block1.Data, (x, y) => x.Equals(y)).All(x => x).Should().BeTrue(
@@ -197,5 +224,114 @@ public class BlockGridTest
 
         var gridBlock0AddedLast = CheckThatAppendedBlockOverridesExistingDataInTheGrid(block1, block0);
         RunExtensiveDataRetrievalTest([block0], gridBlock0AddedLast);
+    }
+
+    [TestMethod]
+    public void GridRefinementTest()
+    {
+        // Arrange
+        var (grid, block0, block1) = CreateStandardGridWithTwoDistinctBlocks();
+        grid.Blocks.Should().HaveCount(2, "by design");
+        block0.KlineCount.Should().Be(15, "by design");
+        block1.KlineCount.Should().Be(22, "by design");
+
+        // Act
+        var targetBlockGranularity = 5;
+        grid.Refine(targetBlockGranularity);
+
+        grid.Blocks.Should().HaveCount(block0.KlineCount / targetBlockGranularity +
+                                       block1.KlineCount / targetBlockGranularity,
+            "because this is how refinement procedure is supposed to work");
+
+        // Run the general test to ensure that the grid is not altered
+        // in the sense of data that can be retrieved out of it
+        RunExtensiveDataRetrievalTest([block0, block1], grid);
+    }
+
+    /// <summary>
+    /// Returns "middle" time point of the given interval.
+    /// </summary>
+    private static DateTime MiddlePoint(IKLineBlockReadOnly block) => block.Begin.Add(0.5 * (block.End - block.Begin));
+
+    [TestMethod]
+    public void GapIndicatorTest()
+    {
+        // Arrange
+        var (grid, block0, block1) = CreateStandardGridWithTwoDistinctBlocks();
+        grid.Refine(3);
+        grid.Blocks.Should().HaveCount(12, "because this is how many blocks we should get after the refinement");
+        var step = block0.Granularity.ToTimeSpan();
+        var pointBetweenBlocks = block0.End.Add(0.5 * (block1.Begin - block0.End));
+
+        // Act/Assert
+
+        // Scenario 0 : the requested interval can't be retrieved
+        // and there are multiple gaps that are missing in the grid
+        foreach (var interval in new[]
+                 {
+                     new TimeInterval(block0.Begin.Subtract(step), block1.End.Add(step)),
+                     new TimeInterval(block0.Begin.Subtract(step), pointBetweenBlocks),
+                     new TimeInterval(pointBetweenBlocks, block1.End.Add(step)),
+                     new TimeInterval(block0.End, block1.Begin),
+                     new TimeInterval(block0.Begin.Subtract(step), block0.Begin),
+                     new TimeInterval(block1.End, block1.End.Add(step)),
+                 })
+        {
+            grid.Retrieve(interval, out var indicator).Should().
+                BeNull("because this interval can't be retrieved by design (scenario 0)");
+            indicator.Begin.Should().Be(DateTime.MinValue, "because the gap does not have a support from the left");
+            indicator.End.Should().Be(DateTime.MaxValue, "because gap does not have a support from the right");
+        }
+
+        // Scenario 1 : the requested interval can't be retrieved
+        // and there is a single interval with strictly defined right boundary that is missing.
+        foreach (var data in new (TimeInterval Interval, DateTime ExpectedIndicatorPoint)[]
+                 {
+                     (new TimeInterval(block0.Begin.Subtract(10 * step), MiddlePoint(block0)), block0.Begin),
+                     (new TimeInterval(pointBetweenBlocks, MiddlePoint(block1)), block1.Begin),
+                     (new TimeInterval(block0.End, MiddlePoint(block1)), block1.Begin),
+                     (new TimeInterval(block0.End, block1.End), block1.Begin),
+                     (new TimeInterval(block0.Begin.Subtract(10 * step), MiddlePoint(block1)), block1.Begin),
+                 })
+        {
+            grid.Retrieve(data.Interval, out var indicator).Should().
+                BeNull("because this interval can't be retrieved by design (scenario 1)");
+            indicator.Begin.Should().Be(DateTime.MinValue, "because the gap does not have support from the left");
+            indicator.End.Should().Be(data.ExpectedIndicatorPoint, "because this is the expected support point from the right");
+        }
+
+        // Scenario 2 : the requested interval can't be retrieved
+        // and there is a single interval with strictly defined left boundary that is missing.
+        foreach (var data in new (TimeInterval Interval, DateTime ExpectedIndicatorPoint)[]
+                 {
+                     (new TimeInterval(MiddlePoint(block1), block1.End.Add(10 * step)), block1.End),
+                     (new TimeInterval(MiddlePoint(block0), block1.End.Add(10 * step)), block0.End),
+                     (new TimeInterval(MiddlePoint(block0), pointBetweenBlocks), block0.End),
+                     (new TimeInterval(MiddlePoint(block0), block1.Begin), block0.End),
+                     (new TimeInterval(block0.Begin, block1.Begin), block0.End),
+                 })
+        {
+            grid.Retrieve(data.Interval, out var indicator).Should().
+                BeNull("because this interval can't be retrieved by design (scenario 2)");
+            indicator.Begin.Should().Be(data.ExpectedIndicatorPoint, "because this is the expected support point from the left");
+            indicator.End.Should().Be(DateTime.MaxValue, "because the gap does not have support from the right");
+        }
+
+        // Scenario 3 : the requested interval can't be retrieved
+        // and there is a single interval with strictly defined both left and right boundaries that is missing.
+        foreach (var data in new (TimeInterval Interval,
+                     DateTime ExpectedLeftIndicatorPoint, DateTime ExpectedRightIndicatorPoint)[]
+                     {
+                         (new TimeInterval(MiddlePoint(block0), MiddlePoint(block1)), block0.End, block1.Begin),
+                         (new TimeInterval(block0.Begin, block1.End), block0.End, block1.Begin),
+                         (new TimeInterval(MiddlePoint(block0), block1.End), block0.End, block1.Begin),
+                         (new TimeInterval(block0.Begin, MiddlePoint(block1)), block0.End, block1.Begin),
+                     })
+        {
+            grid.Retrieve(data.Interval, out var indicator).Should().
+                BeNull("because this interval can't be retrieved by design (scenario 3)");
+            indicator.Begin.Should().Be(data.ExpectedLeftIndicatorPoint, "because this is the expected support point from the left");
+            indicator.End.Should().Be(data.ExpectedRightIndicatorPoint, "because this is the expected support point from the right");
+        }
     }
 }

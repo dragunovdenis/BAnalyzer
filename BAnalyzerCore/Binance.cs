@@ -20,6 +20,7 @@ using Binance.Net.Interfaces;
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Spot;
 using BAnalyzerCore.Cache;
+using BAnalyzerCore.DataStructures;
 using BAnalyzerCore.Utils;
 
 namespace BAnalyzerCore;
@@ -57,6 +58,7 @@ public class Binance : IDisposable
     /// Maximal number of "k-lines" that Binance client can retrieve per time.
     /// </summary>
     private const int MaxKLinesPerTime = 1000;
+    private static readonly DateTime MinTime = new(2016, 1, 1);
 
     /// <summary>
     /// Returns boundaries of the maximal possible time interval
@@ -64,8 +66,8 @@ public class Binance : IDisposable
     /// begin-end points and which can be retrieved via a single
     /// call from Binance server.
     /// </summary>
-    private static (DateTime TimeBeginExtended, DateTime TimeEndExtended) GetExtendedInterval(DateTime timeBegin,
-        DateTime timeEnd, KlineInterval granularity)
+    private static TimeInterval GetExtendedInterval(DateTime timeBegin,
+        DateTime timeEnd, DateTime localNow, KlineInterval granularity)
     {
         var kLineSpan = granularity.ToTimeSpan();
 
@@ -77,7 +79,7 @@ public class Binance : IDisposable
         if (kLinesSpare < 0)
             throw new InvalidOperationException("Too large time interval requested");
 
-        var kLinesToAddToTheEnd = Math.Min((int)((DateTime.UtcNow - timeEnd).Duration() / kLineSpan), kLinesSpare / 2);
+        var kLinesToAddToTheEnd = Math.Min((int)((localNow - timeEnd).Duration() / kLineSpan), kLinesSpare / 2);
         var kLinesToAddToTheBegin = kLinesSpare - kLinesToAddToTheEnd;
 
         if (kLinesRequested + kLinesToAddToTheEnd + kLinesToAddToTheBegin > MaxKLinesPerTime)
@@ -86,7 +88,26 @@ public class Binance : IDisposable
         var timeBeginExtended = timeBegin.Subtract(kLineSpan * kLinesToAddToTheBegin);
         var timeEndExtended = timeEnd.Add(kLineSpan * kLinesToAddToTheEnd);
 
-        return (timeBeginExtended, timeEndExtended);
+        return new TimeInterval(timeBeginExtended.Max(MinTime), timeEndExtended);
+    }
+
+    /// <summary>
+    /// Returns an adjustment of the given <param name="interval"/>
+    /// according to the given <param name="gapIndicator"/>.
+    /// </summary>
+    private static TimeInterval AdjustTimeInterval(TimeInterval interval, TimeInterval gapIndicator, DateTime localNow)
+    {
+        if (gapIndicator.Begin == DateTime.MinValue && gapIndicator.End == DateTime.MaxValue)
+            return interval.Copy();
+
+        if (gapIndicator.Begin != DateTime.MinValue && gapIndicator.End != DateTime.MaxValue)
+            return gapIndicator.Copy();
+
+        var span = interval.End - interval.Begin;
+
+        return gapIndicator.Begin != DateTime.MinValue ?
+            new TimeInterval(gapIndicator.Begin, gapIndicator.Begin.Add(span).Min(localNow)) :
+            new TimeInterval(gapIndicator.End.Subtract(span), gapIndicator.End);
     }
 
     private readonly BinanceCache _cache = new();
@@ -97,23 +118,30 @@ public class Binance : IDisposable
     public async Task<IList<IBinanceKline>> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
         KlineInterval granularity, string symbol, bool ensureLatestData)
     {
+        // Binance client usually has troubles retrieving
+        // k-lines that are less than a few seconds "old".
+        // To overcome this obstacle we make our local
+        // time to lag for 3 seconds. Experiments show that
+        // a 1-second lag is not enough, 2-seconds lag is OK,
+        // but to be on the safe side we go for the 3-seconds lag.
+        DateTime localNow = DateTime.UtcNow.RoundToSeconds(3);
+        timeEnd = timeEnd.Min(localNow);
+
         if (timeBegin >= timeEnd)
             return new List<IBinanceKline>();
 
-        timeEnd = timeEnd.Min(DateTime.UtcNow);
-
         var assetCacheView = _cache.GetAssetViewThreadSafe(symbol, granularity);
 
-        IList<IBinanceKline> RetrieveDataFromCache()
+        IList<IBinanceKline> RetrieveDataFromCache(out TimeInterval gapIndicator)
         {
-            lock (assetCacheView) return assetCacheView.Retrieve(timeBegin, timeEnd);
+            lock (assetCacheView) return assetCacheView.Retrieve(timeBegin, timeEnd, out gapIndicator);
         }
 
-        var cachedResult = RetrieveDataFromCache();
+        var cachedResult = RetrieveDataFromCache(out var cacheGapIndicator);
 
         if (cachedResult != null)
         {
-            if (ensureLatestData && cachedResult.Last().CloseTime >= DateTime.UtcNow)
+            if (ensureLatestData && cachedResult.Last().CloseTime >= localNow)
             {
                 var lastKline = cachedResult.Last();
                 // We need to update the last "k-line"
@@ -130,28 +158,35 @@ public class Binance : IDisposable
             return cachedResult;
         }
 
-        var (extendedBegin, extendedEnd) = GetExtendedInterval(timeBegin, timeEnd, granularity);
+        var extendedInterval = GetExtendedInterval(timeBegin, timeEnd, localNow, granularity);
+        var adjustedInterval = AdjustTimeInterval(extendedInterval, cacheGapIndicator, localNow);
+
         var kLines = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
-            startTime: extendedBegin, endTime: extendedEnd, limit: 1500);
+            startTime: adjustedInterval.Begin, endTime: adjustedInterval.End, limit: 1500);
 
         if (!kLines.Success)
             throw new Exception("Failed to get exchange info");
 
-        var result = kLines.Data.ToArray();
+        var kLinesArray = kLines.Data.ToArray();
 
         lock (assetCacheView)
         {
-            if (result.Length > 0)
+            if (kLinesArray.Length > 0)
             {
-                assetCacheView.Append(result);
+                assetCacheView.Append(kLinesArray);
 
-                if (result[0].OpenTime > timeBegin)
-                    assetCacheView.SetZeroTimePoint(result[0].OpenTime);
+                if (kLinesArray[0].OpenTime > adjustedInterval.Begin.Add(granularity.ToTimeSpan()))
+                    assetCacheView.SetZeroTimePoint(kLinesArray[0].OpenTime);
             }
-            else if (result.Length == 0)
+            else if (kLinesArray.Length == 0)
                 assetCacheView.SetZeroTimePoint(timeEnd);
 
-            return assetCacheView.Retrieve(timeBegin, timeEnd);
+            var result = assetCacheView.Retrieve(timeBegin, timeEnd, out _);
+
+            if (result == null)
+                throw new InvalidOperationException("Failed to retrieve the data");
+
+            return result;
         }
     }
 

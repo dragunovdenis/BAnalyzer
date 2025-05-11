@@ -15,6 +15,7 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzerCore.DataStructures;
 using BAnalyzerCore.Utils;
 using Binance.Net.Enums;
 using Binance.Net.Interfaces;
@@ -52,8 +53,8 @@ internal class AssetTimeView
     /// Returns a collection of "k-lines" that cover the given time interval
     /// or null if the data in the grid does not fully cover the interval.
     /// </summary>
-    public IList<IBinanceKline> Retrieve(DateTime timeBegin, DateTime timeEnd) =>
-        _grid.Retrieve(DateTimeUtils.Max(timeBegin, _zeroTime), timeEnd);
+    public IList<IBinanceKline> Retrieve(DateTime timeBegin, DateTime timeEnd, out TimeInterval gapIndicator) =>
+        _grid.Retrieve(timeBegin.Max(_zeroTime), timeEnd, out gapIndicator);
 
     /// <summary>
     /// Append the given <param name="collection"/> of "k-lines" to the current "grid".

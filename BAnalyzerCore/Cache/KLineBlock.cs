@@ -102,6 +102,20 @@ public interface IKLineBlockReadOnly
     /// the given <param name="item"/> or "-1" if there is no such item.
     /// </summary>
     int FindItem(IBinanceKline item);
+
+    /// <summary>
+    /// Splits the given block into adjacent sub-blocks containing
+    /// <param name="targetKlineCountInBlock"/> k-lines each, except,
+    /// possibly, for the last block in the returned collection which can
+    /// contain from <param name="targetKlineCountInBlock"/> to
+    /// 2 * <param name="targetKlineCountInBlock"/> - 1 k-lines.
+    /// </summary>
+    IList<KLineBlock> Split(int targetKlineCountInBlock);
+
+    /// <summary>
+    /// Number of "k-lines" in the block.
+    /// </summary>
+    int KlineCount { get; }
 }
 
 /// <summary>
@@ -115,6 +129,9 @@ public class KLineBlock : IKLineBlockReadOnly
     public KlineInterval Granularity => _granularity;
 
     private readonly List<IBinanceKline> _data = new();
+
+    /// <inheritdoc/>
+    public int KlineCount => _data.Count;
 
     /// <inheritdoc/>
     public IReadOnlyList<IBinanceKline> Data => _data;
@@ -157,7 +174,8 @@ public class KLineBlock : IKLineBlockReadOnly
     /// <summary>
     /// Returns difference between "open" and "close" times of the given <param name="item"/>.
     /// </summary>
-    private static TimeSpan GetSpan(IBinanceKline item) => item.CloseTime.AddSeconds(BinanceConstants.KLineTimeGapSec) - item.OpenTime;
+    private static TimeSpan GetSpan(IBinanceKline item) =>
+        item.CloseTime.AddSeconds(BinanceConstants.KLineTimeGapSec) - item.OpenTime;
 
     /// <summary>
     /// Returns index of the first item from the data collection
@@ -398,19 +416,29 @@ public class KLineBlock : IKLineBlockReadOnly
         return this;
     }
 
-    /// <summary>
-    /// Splits the given block onto two adjacent blocks.
-    /// If the number of "k-lines" in the current block is even
-    /// then both returned blocks have the same number of elements.
-    /// Otherwise, the "firmer" one will have one less elements
-    /// than the "latter" one. Can return empty blocks.
-    /// </summary>
-    public (KLineBlock PreviousBlock, KLineBlock NextBlock) SplitByHalf()
+    /// <inheritdoc/>
+    public IList<KLineBlock> Split(int targetKlineCountInBlock)
     {
-        var elementsInTheFirstBlock = _data.Count / 2;
+        if (targetKlineCountInBlock < 1)
+            throw new ArgumentException("Each of the resulting block must have at least one l-line in it");
 
-        return (PreviousBlock: new KLineBlock(_granularity, _data.Take(elementsInTheFirstBlock).ToList()),
-            NextBlock: new KLineBlock(_granularity, _data.Skip(elementsInTheFirstBlock).ToList()));
+        if (_data.Count < 2 * targetKlineCountInBlock)
+            return new List<KLineBlock> { Copy() };
+
+        var resultingBlocks = _data.Count / targetKlineCountInBlock;
+        var result = new List<KLineBlock>();
+
+        var kLinesProcessed = 0;
+
+        for (var blockId = 0; blockId < resultingBlocks - 1; blockId++)
+        {
+            result.Add(new KLineBlock(_granularity, _data.Skip(kLinesProcessed).Take(targetKlineCountInBlock).ToArray()));
+            kLinesProcessed += targetKlineCountInBlock;
+        }
+
+        result.Add(new KLineBlock(_granularity, _data.Skip(kLinesProcessed).ToArray()));
+
+        return result;
     }
 
     /// <summary>
