@@ -181,12 +181,7 @@ public class Binance : IDisposable
             else if (kLinesArray.Length == 0)
                 assetCacheView.SetZeroTimePoint(timeEnd);
 
-            var result = assetCacheView.Retrieve(timeBegin, timeEnd, out _);
-
-            if (result == null)
-                throw new InvalidOperationException("Failed to retrieve the data");
-
-            return result;
+            return assetCacheView.Retrieve(timeBegin, timeEnd, out _);
         }
     }
 
