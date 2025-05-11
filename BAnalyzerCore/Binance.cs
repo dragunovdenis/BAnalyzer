@@ -62,11 +62,11 @@ public class Binance : IDisposable
 
     /// <summary>
     /// Returns boundaries of the maximal possible time interval
-    /// that covers the given time interval represented with its
-    /// begin-end points and which can be retrieved via a single
-    /// call from Binance server.
+    /// which is centered around the given time interval
+    /// represented with its begin-end points and which can be
+    /// retrieved via a single call from Binance server.
     /// </summary>
-    private static TimeInterval GetExtendedInterval(DateTime timeBegin,
+    private static TimeInterval GetDefaultInterval(DateTime timeBegin,
         DateTime timeEnd, DateTime localNow, KlineInterval granularity)
     {
         var kLineSpan = granularity.ToTimeSpan();
@@ -92,22 +92,26 @@ public class Binance : IDisposable
     }
 
     /// <summary>
-    /// Returns an adjustment of the given <param name="interval"/>
-    /// according to the given <param name="gapIndicator"/>.
+    /// Returns a time interval that needs to be retrieved from server
+    /// given the <param name="timeBegin"/> and <param name="timeEnd"/> boundaries
+    /// of the interval requested by the caller.The returned interval is
+    /// optimized with respect to <param name="cacheGapIndicator"/>
+    /// which tells us about the boundaries of the data missing in the cache.
     /// </summary>
-    private static TimeInterval AdjustTimeInterval(TimeInterval interval, TimeInterval gapIndicator, DateTime localNow)
+    private static TimeInterval GetTimeIntervalToRetrieveFromServe(DateTime timeBegin, DateTime timeEnd,
+        KlineInterval granularity, TimeInterval cacheGapIndicator, DateTime localNow)
     {
-        if (gapIndicator.Begin == DateTime.MinValue && gapIndicator.End == DateTime.MaxValue)
-            return interval.Copy();
+        if (cacheGapIndicator.Begin == DateTime.MinValue && cacheGapIndicator.End == DateTime.MaxValue)
+            return GetDefaultInterval(timeBegin, timeEnd, localNow, granularity);
 
-        if (gapIndicator.Begin != DateTime.MinValue && gapIndicator.End != DateTime.MaxValue)
-            return gapIndicator.Copy();
+        if (cacheGapIndicator.Begin != DateTime.MinValue && cacheGapIndicator.End != DateTime.MaxValue)
+            return cacheGapIndicator.Copy();
 
-        var span = interval.End - interval.Begin;
+        var span = granularity.ToTimeSpan() * (MaxKLinesPerTime - 1);
 
-        return gapIndicator.Begin != DateTime.MinValue ?
-            new TimeInterval(gapIndicator.Begin, gapIndicator.Begin.Add(span).Min(localNow)) :
-            new TimeInterval(gapIndicator.End.Subtract(span), gapIndicator.End);
+        return cacheGapIndicator.Begin != DateTime.MinValue ?
+            new TimeInterval(cacheGapIndicator.Begin, cacheGapIndicator.Begin.Add(span).Min(localNow)) :
+            new TimeInterval(cacheGapIndicator.End.Subtract(span), cacheGapIndicator.End);
     }
 
     private readonly BinanceCache _cache = new();
@@ -158,11 +162,10 @@ public class Binance : IDisposable
             return cachedResult;
         }
 
-        var extendedInterval = GetExtendedInterval(timeBegin, timeEnd, localNow, granularity);
-        var adjustedInterval = AdjustTimeInterval(extendedInterval, cacheGapIndicator, localNow);
+        var interval = GetTimeIntervalToRetrieveFromServe(timeBegin, timeEnd, granularity, cacheGapIndicator, localNow);
 
         var kLines = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
-            startTime: adjustedInterval.Begin, endTime: adjustedInterval.End, limit: 1500);
+            startTime: interval.Begin, endTime: interval.End, limit: 1500);
 
         if (!kLines.Success)
             throw new Exception("Failed to get exchange info");
@@ -175,7 +178,7 @@ public class Binance : IDisposable
             {
                 assetCacheView.Append(kLinesArray);
 
-                if (kLinesArray[0].OpenTime > adjustedInterval.Begin.Add(granularity.ToTimeSpan()))
+                if (kLinesArray[0].OpenTime > interval.Begin.Add(granularity.ToTimeSpan()))
                     assetCacheView.SetZeroTimePoint(kLinesArray[0].OpenTime);
             }
             else if (kLinesArray.Length == 0)
