@@ -124,11 +124,9 @@ public class Binance : IDisposable
     {
         // Binance client usually has troubles retrieving
         // k-lines that are less than a few seconds "old".
-        // To overcome this obstacle we make our local
-        // time to lag for 3 seconds. Experiments show that
-        // a 1-second lag is not enough, 2-seconds lag is OK,
-        // but to be on the safe side we go for the 3-seconds lag.
-        DateTime localNow = DateTime.UtcNow.RoundToSeconds(3);
+        // To mitigate this issue we make our local
+        // time to lag for 1 second.
+        var localNow = DateTime.UtcNow.RoundToSeconds(1);
         timeEnd = timeEnd.Min(localNow);
 
         if (timeBegin >= timeEnd)
@@ -182,7 +180,18 @@ public class Binance : IDisposable
                     assetCacheView.SetZeroTimePoint(kLinesArray[0].OpenTime);
             }
             else if (kLinesArray.Length == 0)
-                assetCacheView.SetZeroTimePoint(timeEnd);
+            {
+                if (cacheGapIndicator.Begin == DateTime.MinValue)
+                    assetCacheView.SetZeroTimePoint(interval.End);
+                else
+                {
+                    // This is a glitch of Binance client (or server)
+                    // because, in fact, we have an older data present
+                    // in the cache.
+                    // So, let's just return what we have.
+                    return assetCacheView.Retrieve(timeBegin, cacheGapIndicator.Begin, out _);
+                }
+            }
 
             return assetCacheView.Retrieve(timeBegin, timeEnd, out _);
         }
