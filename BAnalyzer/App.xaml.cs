@@ -15,6 +15,7 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using System.IO;
 using System.Windows;
 
 namespace BAnalyzer;
@@ -24,4 +25,25 @@ namespace BAnalyzer;
 /// </summary>
 public partial class App : Application
 {
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    public App() => AppDomain.CurrentDomain.UnhandledException += LogUnhandledException;
+
+    private const string LogFileName = "BAnalyzerExceptionLog.txt";
+
+    /// <summary>
+    /// Logs unhandled exceptions.
+    /// </summary>
+    private static void LogUnhandledException(object sender, UnhandledExceptionEventArgs args)
+    {
+        Exception e = (Exception)args.ExceptionObject;
+        using StreamWriter sw = File.AppendText(LogFileName);
+        sw.WriteLine("/--------------------------------/");
+        sw.WriteLine($"{DateTime.Now}: Unhandled Exception");
+        sw.WriteLine($"With message: {e.Message}");
+        sw.WriteLine($"Source: {e.Source}");
+        sw.WriteLine($"Stack trace: {e.StackTrace}");
+        sw.WriteLine("/--------------------------------/");
+    }
 }
