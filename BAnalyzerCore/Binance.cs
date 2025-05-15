@@ -95,23 +95,29 @@ public class Binance : IDisposable
     /// Returns a time interval that needs to be retrieved from server
     /// given the <param name="timeBegin"/> and <param name="timeEnd"/> boundaries
     /// of the interval requested by the caller.The returned interval is
-    /// optimized with respect to <param name="cacheGapIndicator"/>
+    /// optimized with respect to <param name="cacheGapInterval"/>
     /// which tells us about the boundaries of the data missing in the cache.
     /// </summary>
     private static TimeInterval GetTimeIntervalToRetrieveFromServe(DateTime timeBegin, DateTime timeEnd,
-        KlineInterval granularity, TimeInterval cacheGapIndicator, DateTime localNow)
+        KlineInterval granularity, TimeInterval cacheGapInterval, DateTime localNow)
     {
-        if (cacheGapIndicator.Begin == DateTime.MinValue && cacheGapIndicator.End == DateTime.MaxValue)
+        if (cacheGapInterval.IsBothSideOpen())
             return GetDefaultInterval(timeBegin, timeEnd, localNow, granularity);
 
-        if (cacheGapIndicator.Begin != DateTime.MinValue && cacheGapIndicator.End != DateTime.MaxValue)
-            return cacheGapIndicator.Copy();
+        var kLineSpan = granularity.ToTimeSpan();
 
-        var span = granularity.ToTimeSpan() * (MaxKLinesPerTime - 1);
+        // Extend gap interval one k-line in each side, if possible.
+        var gapIntervalLocal = new TimeInterval(
+            cacheGapInterval.IsOpenToTheLeft() ? null : cacheGapInterval.Begin.Subtract(kLineSpan),
+            cacheGapInterval.IsOpenToTheRight() ? null : cacheGapInterval.End.Add(kLineSpan));
 
-        return cacheGapIndicator.Begin != DateTime.MinValue ?
-            new TimeInterval(cacheGapIndicator.Begin, cacheGapIndicator.Begin.Add(span).Min(localNow)) :
-            new TimeInterval(cacheGapIndicator.End.Subtract(span), cacheGapIndicator.End);
+        if (!gapIntervalLocal.IsOpen()) return gapIntervalLocal.Copy();
+
+        var span = kLineSpan * (MaxKLinesPerTime - 1);
+
+        return !gapIntervalLocal.IsOpenToTheLeft() ?
+            new TimeInterval(gapIntervalLocal.Begin, gapIntervalLocal.Begin.Add(span).Min(localNow)) :
+            new TimeInterval(gapIntervalLocal.End.Subtract(span), gapIntervalLocal.End);
     }
 
     private readonly BinanceCache _cache = new();
@@ -139,7 +145,7 @@ public class Binance : IDisposable
             lock (assetCacheView) return assetCacheView.Retrieve(timeBegin, timeEnd, out gapIndicator);
         }
 
-        var cachedResult = RetrieveDataFromCache(out var cacheGapIndicator);
+        var cachedResult = RetrieveDataFromCache(out var cacheGapInterval);
 
         if (cachedResult != null)
         {
@@ -160,7 +166,7 @@ public class Binance : IDisposable
             return cachedResult;
         }
 
-        var interval = GetTimeIntervalToRetrieveFromServe(timeBegin, timeEnd, granularity, cacheGapIndicator, localNow);
+        var interval = GetTimeIntervalToRetrieveFromServe(timeBegin, timeEnd, granularity, cacheGapInterval, localNow);
 
         var kLines = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
             startTime: interval.Begin, endTime: interval.End, limit: 1500);
@@ -180,17 +186,15 @@ public class Binance : IDisposable
                     assetCacheView.SetZeroTimePoint(kLinesArray[0].OpenTime);
             }
             else if (kLinesArray.Length == 0)
+                assetCacheView.SetZeroTimePoint(interval.End);
+
+            if (kLinesArray.Length <= 1 && !cacheGapInterval.IsOpenToTheLeft())
             {
-                if (cacheGapIndicator.Begin == DateTime.MinValue)
-                    assetCacheView.SetZeroTimePoint(interval.End);
-                else
-                {
-                    // This is a glitch of Binance client (or server)
-                    // because, in fact, we have an older data present
-                    // in the cache.
-                    // So, let's just return what we have.
-                    return assetCacheView.Retrieve(timeBegin, cacheGapIndicator.Begin, out _);
-                }
+                // This is a glitch of Binance client (or server)
+                // because, in fact, we have an older data present
+                // in the cache.
+                // So, let's just return what we have.
+                return assetCacheView.Retrieve(timeBegin, cacheGapInterval.Begin, out _);
             }
 
             return assetCacheView.Retrieve(timeBegin, timeEnd, out _);

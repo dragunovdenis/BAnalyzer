@@ -20,7 +20,7 @@ namespace BAnalyzerCore.DataStructures;
 /// <summary>
 /// A continuous interval of time defined by "begin" and "end" points.
 /// </summary>
-public class TimeInterval(DateTime begin, DateTime end)
+public class TimeInterval(DateTime? begin, DateTime? end)
 {
     /// <summary>
     /// Returns a copy of the current interval.
@@ -30,12 +30,12 @@ public class TimeInterval(DateTime begin, DateTime end)
     /// <summary>
     /// Left boundary of the interval.
     /// </summary>
-    public DateTime Begin { get; } = begin;
+    public DateTime Begin { get; } = begin ?? DateTime.MinValue;
 
     /// <summary>
     /// Right boundary of the interval.
     /// </summary>
-    public DateTime End { get; } = end;
+    public DateTime End { get; } = end ?? DateTime.MaxValue;
 
     /// <summary>
     /// Returns "true" if the interval is empty.
@@ -52,6 +52,32 @@ public class TimeInterval(DateTime begin, DateTime end)
     /// Returns an empty interval.
     /// </summary>
     public static TimeInterval Empty => new(DateTime.MaxValue, DateTime.MinValue);
+
+    /// <summary>
+    /// Returns the largest possible interval, which is practically
+    /// unbounded from the left and from the right.
+    /// </summary>
+    public static TimeInterval Open => new(DateTime.MinValue, DateTime.MaxValue);
+
+    /// <summary>
+    /// Returns "true" if the interval does not have an "achievable" left boundary.
+    /// </summary>
+    public bool IsOpenToTheLeft() => Begin == DateTime.MinValue;
+
+    /// <summary>
+    /// Returns "true" if the interval does not have an "achievable" right boundary.
+    /// </summary>
+    public bool IsOpenToTheRight() => End == DateTime.MaxValue;
+
+    /// <summary>
+    /// Returns "true" if the interval does not have either left or right boundaries.
+    /// </summary>
+    public bool IsOpen() => IsOpenToTheLeft() || IsOpenToTheRight();
+
+    /// <summary>
+    /// Returns "true" if the interval does not have neither left nor right boundaries.
+    /// </summary>
+    public bool IsBothSideOpen() => IsOpenToTheLeft() && IsOpenToTheRight();
 
     /// <summary>
     /// Returns the result of subtraction of the given

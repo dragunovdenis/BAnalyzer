@@ -181,8 +181,8 @@ public class BlockGrid
             return result;
         }
 
-        gapIndicator = new TimeInterval(blockIdBegin >= 0 ? Blocks[blockIdBegin].End : DateTime.MinValue,
-            blockIdEnd >= 0 ? Blocks[blockIdEnd].Begin : DateTime.MaxValue);
+        gapIndicator = new TimeInterval(blockIdBegin >= 0 ? Blocks[blockIdBegin].End : null,
+            blockIdEnd >= 0 ? Blocks[blockIdEnd].Begin : null);
 
         return null;
     }
