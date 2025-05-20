@@ -354,6 +354,12 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
+    /// Returns an empty data that will clear the chart.
+    /// </summary>
+    private static ChartData EmptyChartData(int updateRequestId) => new([], null, updateRequestId,
+        [], [], 0, 0);
+
+    /// <summary>
     /// Retrieves the "k-line" data for the given time interval.
     /// </summary>
     private static async Task<ChartData> RetrieveKLines(UpdateRequest request, BAnalyzerCore.Binance client)
@@ -364,6 +370,13 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         if (timeFrame == null || timeFrame.Discretization == default ||
             assets.Count == 0 || client == null || !request.IsRequestStillRelevant())
             return null;
+
+        // In case of "three days" granularity k-lines can be misaligned for entire day or two.
+        // This, apparently, is a problem if we want to add them over different assets.
+        // The current solution is just skip the evaluation if we have more
+        // than one asset to process.
+        if (timeFrame.Discretization == KlineInterval.ThreeDay && assets.Count(x => x.Selected) > 1)
+            return EmptyChartData(request.UpdateRequestId);
 
         var frameDuration = timeFrame.Duration;
         var frameBegin = timeFrame.Begin.Subtract(frameDuration);
