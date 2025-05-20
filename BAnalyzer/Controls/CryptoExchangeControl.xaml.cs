@@ -18,6 +18,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Controls;
 using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
 using BAnalyzer.Utils;
@@ -146,8 +147,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Retrieves the sticks-and-price data for the given time interval.
     /// </summary>
-    private static async Task<ChartData> RetrieveSticksAndPrice(UpdateRequest request,
-        BAnalyzerCore.Binance client, AnalysisSettings settings, bool kLinesOnly)
+    private static async Task<ChartData> RetrieveSticks(UpdateRequest request,
+        BAnalyzerCore.Binance client, AnalysisSettings settings)
     {
         var timeFrame = request.TimeFrame;
         var exchangeDescriptor = request.ExchangeDescriptor;
@@ -163,22 +164,17 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         if (!request.IsRequestStillRelevant())
             return null;
 
-        var price = !kLinesOnly ? await client.GetCurrentPrice(exchangeDescriptor) : null;
-
-        if (!request.IsRequestStillRelevant())
-            return null;
-
         var (priceIndicators, volumeIndicators, windowSize) =
             await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks), settings);
 
-        return new ChartData(sticks, price != null ? (double)price.Price : double.NaN, request.UpdateRequestId,
+        return new ChartData(sticks, request.UpdateRequestId,
             priceIndicators, volumeIndicators, windowSize, frameDuration.TotalDays);
     }
 
     /// <summary>
     /// Retrieves order data for the current symbol.
     /// </summary>
-    private static async Task<OrderBook> RetrieveOrderBook(UpdateRequest request, BAnalyzerCore.Binance client)
+    private static async Task<OrderBook> RetrieveOrderBook(UpdateRequestMinimal request, BAnalyzerCore.Binance client)
     {
         if (request.ExchangeDescriptor is null or "" || client == null || !request.IsRequestStillRelevant()) return null;
             
@@ -188,57 +184,40 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Visualizes the given sticks-and-price data. Must be called in UI thread.
     /// </summary>
-    private void VisualizeSticksAndPrice(ChartData chartData)
+    private void VisualizeSticks(ChartData chartData)
     {
         if (chartData == null || !chartData.IsValid())
-        {
             Chart.UpdatePlots(null);
-            Price = "N/A";
-            return;
-        }
+        else
+            Chart.UpdatePlots(chartData);
+    }
 
-        Chart.UpdatePlots(chartData);
-
-        if (!double.IsNaN(chartData.Price))
-            Price = $"Price: {chartData.Price,7:F5} USDT";
+    /// <summary>
+    /// Visualizes the given <paramref name="price"/>
+    /// </summary>
+    private void VisualizePrice(double price)
+    {
+        if (price > 1e-3)
+            Price = double.IsNaN(price) ? "N/A" : $"Value: {price,7:F5} USDT";
+        else
+            Price = double.IsNaN(price) ? "N/A" : $"Value: {price,5:E4} USDT";
     }
 
     /// <summary>
     /// Updates order book control with the given content.
     /// </summary>
-    private void VisualizeOrders(OrderBook orderBook)
-    {
-        if (orderBook?.Book == null)
-        {
-            Orders.Update(null);
-            return;
-        }
-        
-        Orders.Update(orderBook.Book);
-    }
-
-    private readonly UpdateController _updateController = new();
+    private void VisualizeOrders(OrderBook orderBook) => Orders.Update(orderBook?.Book);
 
     /// <summary>
-    /// All the data needed to ensure update of chart data.
+    /// The minimal input data needed to request something from Binance server.
     /// </summary>
-    private class UpdateRequest(TimeFrame timeFrame, string exchangeDescriptor,
-        int updateRequestId, bool force, IUpdateControllerReadOnly updateController)
+    private class UpdateRequestMinimal(string exchangeDescriptor,
+        int updateRequestId, IUpdateControllerReadOnly updateController)
     {
         /// <summary>
         /// Returns "true" if the request should be processed further on.
         /// </summary>
-        public bool IsRequestStillRelevant() => Force || updateController.IsRequestStillRelevant(UpdateRequestId);
-
-        /// <summary>
-        /// Time frame of the update.
-        /// </summary>
-        public TimeFrame TimeFrame { get; } = timeFrame;
-
-        /// <summary>
-        /// Descriptor of the exchange (also known as "symbol").
-        /// </summary>
-        public string ExchangeDescriptor { get; } = exchangeDescriptor;
+        public virtual bool IsRequestStillRelevant() => updateController.IsRequestStillRelevant(UpdateRequestId);
 
         /// <summary>
         /// Request ID of the update to ensure that updates are applied in a chronological order.
@@ -246,40 +225,135 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         public int UpdateRequestId { get; } = updateRequestId;
 
         /// <summary>
-        /// Determines whether the request should be applied despite,
-        /// for example, the system being overloaded by other requests.
+        /// Descriptor of the exchange (also known as "symbol").
         /// </summary>
-        public bool Force { get; } = force;
+        public string ExchangeDescriptor { get; } = exchangeDescriptor;
     }
 
     /// <summary>
-    /// Builds update request according to the current "situation".
+    /// All the data needed to ensure update request chart data from Binance server.
     /// </summary>
-    private UpdateRequest BuildRequest(bool force) =>
-        new(new TimeFrame(TimeDiscretization, Settings.StickRange, DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
-        ExchangeDescriptor, _updateController.IssueNewRequest(), force, _updateController);
+    private class UpdateRequest : UpdateRequestMinimal
+    {
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        public UpdateRequest(TimeFrame timeFrame, string exchangeDescriptor,
+            int updateRequestId, bool force, IUpdateControllerReadOnly updateController) :
+            base(exchangeDescriptor, updateRequestId, updateController)
+        {
+            TimeFrame = timeFrame;
+            Force = force;
+        }
+
+        /// <summary>
+        /// Returns "true" if the request should be processed further on.
+        /// </summary>
+        public override bool IsRequestStillRelevant() => Force || base.IsRequestStillRelevant();
+
+        /// <summary>
+        /// Time frame of the update.
+        /// </summary>
+        public TimeFrame TimeFrame { get; }
+
+        /// <summary>
+        /// Determines whether the request should be applied despite,
+        /// for example, the system being overloaded by other requests.
+        /// </summary>
+        public bool Force { get; }
+    }
+
+    private readonly UpdateController _kLineUpdateController = new();
 
     /// <summary>
-    /// Method to update chart
+    /// Builds "k-line" update request according to the current state of the system.
     /// </summary>
-    private async Task UpdateChartAsync(bool kLinesOnly, bool force)
+    private UpdateRequest BuildKLineRequest(bool force) =>
+        new(new TimeFrame(TimeDiscretization, Settings.StickRange, DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
+        ExchangeDescriptor, _kLineUpdateController.IssueNewRequest(), force, _kLineUpdateController);
+
+    /// <summary>
+    /// Updates chart.
+    /// </summary>
+    private async Task UpdateChartAsync(bool force)
     {
         try
         {
-            var (updateRequest, settings, client) = Dispatcher.Invoke(() => (BuildRequest(force),
-                new AnalysisSettings(Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow), _client));
+            var (updateRequest, settings) = Dispatcher.Invoke(() => (BuildKLineRequest(force),
+                new AnalysisSettings(Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow)));
 
-            var sticksAndPrice = await RetrieveSticksAndPrice(updateRequest, client, settings, kLinesOnly);
-            var orderBook = !kLinesOnly ? await RetrieveOrderBook(updateRequest, client) : null;
+            var sticks = await RetrieveSticks(updateRequest, _client, settings);
+
+            if (sticks == null)
+                return;
 
             Dispatcher.Invoke(() =>
             {
-                if (sticksAndPrice == null || !_updateController.TryApplyRequest(sticksAndPrice.UpdateRequestId))
-                    return;
+                if (_kLineUpdateController.TryApplyRequest(sticks.UpdateRequestId))
+                    VisualizeSticks(sticks);
+            });
+        }
+        catch (TaskCanceledException) { /*Just ignore*/ }
+    }
 
-                VisualizeSticksAndPrice(sticksAndPrice);
+    private readonly UpdateController _priceUpdateController = new();
 
-                if (!kLinesOnly && orderBook != null)
+    /// <summary>
+    /// Builds price update request according to the current state of the system.
+    /// </summary>
+    private UpdateRequestMinimal BuildPriceRequest() =>
+        new(ExchangeDescriptor, _priceUpdateController.IssueNewRequest(), _priceUpdateController);
+
+    /// <summary>
+    /// Updates "price" label.
+    /// </summary>
+    private async Task UpdatePriceAsync()
+    {
+        try
+        {
+            var updateRequest = Dispatcher.Invoke(BuildPriceRequest);
+            var price = await _client.GetCurrentPrice(updateRequest.ExchangeDescriptor);
+
+            if (price == null)
+                return;
+
+            Dispatcher.Invoke(() =>
+            {
+                if (_priceUpdateController.TryApplyRequest(updateRequest.UpdateRequestId))
+                    VisualizePrice((double)price.Price);
+            });
+        }
+        catch (TaskCanceledException) { /*Just ignore*/ }
+    }
+
+    private readonly UpdateController _orderUpdateController = new();
+
+    /// <summary>
+    /// Builds order update request according to the current state of the system.
+    /// </summary>
+    private UpdateRequestMinimal BuildOrderRequest() =>
+        new(ExchangeDescriptor, _orderUpdateController.IssueNewRequest(), _orderUpdateController);
+
+    /// <summary>
+    /// Updates orders.
+    /// </summary>
+    private async Task UpdateOrdersAsync()
+    {
+        try
+        {
+            var (updateRequest, tabSelected) = Dispatcher.Invoke(() => (BuildOrderRequest(), OrdersTab.IsSelected));
+
+            if (!tabSelected)
+                return;
+
+            var orderBook = await RetrieveOrderBook(updateRequest, _client);
+
+            if (orderBook == null)
+                return;
+
+            Dispatcher.Invoke(() =>
+            {
+                if (_orderUpdateController.TryApplyRequest(updateRequest.UpdateRequestId))
                     VisualizeOrders(orderBook);
             });
         }
@@ -314,7 +388,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// Handles property changed events of the settings.
     /// </summary>
     private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e) =>
-        Task.Run(async () => await UpdateChartAsync(kLinesOnly: true, force: false));
+        Task.Run(async () => await UpdateChartAsync(force: false));
 
     /// <summary>
     /// Constructor.
@@ -333,7 +407,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 
         Chart.PropertyChanged += Chart_PropertyChanged;
         Symbols = new ObservableCollection<string>(exchangeSymbols);
-        _updateTimer = new Timer(async _ => await UpdateChartAsync(kLinesOnly: false, force: true),
+        _updateTimer = new Timer(async _ =>
+            {
+                await UpdateChartAsync(force: true);
+                await UpdatePriceAsync();
+                await UpdateOrdersAsync();
+            },
             new AutoResetEvent(false), 1000, 1000);
     }
 
@@ -343,7 +422,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     private void Chart_PropertyChanged(object sender, PropertyChangedEventArgs e)
     {
         if (sender is ExchangeChartControl chart && e.PropertyName == nameof(chart.TimeFrameEndLocalTime))
-            Task.Run(async () => await UpdateChartAsync(kLinesOnly: true, force: false));
+            Task.Run(async () => await UpdateChartAsync(force: false));
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
@@ -374,5 +453,14 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     {
         _updateTimer?.Dispose();
         _updateTimer = null;
+    }
+
+    /// <summary>
+    /// Handles selection-changed event for tabs.
+    /// </summary>
+    private async void TabControl_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (OrdersTab.IsSelected)
+            await UpdateOrdersAsync();
     }
 }

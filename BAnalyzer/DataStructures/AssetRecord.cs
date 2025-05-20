@@ -65,6 +65,16 @@ public class AssetRecord : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Returns deep copy of the current instance.
+    /// </summary>
+    public AssetRecord Copy() => new()
+    {
+        Amount = Amount,
+        AssetId = AssetId,
+        Selected = Selected
+    };
+
+    /// <summary>
     /// Returns value of the asset
     /// </summary>
     public double Value(double price) => Amount * price;

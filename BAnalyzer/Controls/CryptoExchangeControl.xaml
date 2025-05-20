@@ -49,7 +49,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             </TextBlock>
         </StackPanel>
         <TabControl Grid.Column="1" Grid.Row="1" BorderThickness="0"
-                    Background="{DynamicResource BackgroundColor}">
+                    Background="{DynamicResource BackgroundColor}" SelectionChanged="TabControl_OnSelectionChanged">
             <TabItem Header="Chart" Style="{StaticResource TabItemStyle}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -65,7 +65,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                     </Expander>
                 </Grid>
             </TabItem>
-            <TabItem Header="Orders"  Style="{StaticResource TabItemStyle}">
+            <TabItem Header="Orders"  Style="{StaticResource TabItemStyle}" Name="OrdersTab">
                 <controls:ExchangeOrdersControl Grid.Column="0" x:Name="Orders"/>
             </TabItem>
         </TabControl>
