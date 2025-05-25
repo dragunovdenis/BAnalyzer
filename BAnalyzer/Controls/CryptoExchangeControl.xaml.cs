@@ -23,8 +23,8 @@ using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
 using BAnalyzer.Utils;
 using BAnalyzerCore;
+using BAnalyzerCore.DataStructures;
 using Binance.Net.Enums;
-using Binance.Net.Interfaces;
 
 namespace BAnalyzer.Controls;
 
@@ -123,7 +123,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// Returns price and volume indicators calculated according to the current settings.
     /// </summary>
     private static async Task<(IList<int> PriceIndicators, IList<int> VolumeIndicators, int WindowSize)>
-        CalculateIndicatorPoints(IList<IBinanceKline> sticks, IList<double> tradeVolumeData, AnalysisSettings settings)
+        CalculateIndicatorPoints(IList<KLine> sticks, IList<double> tradeVolumeData, AnalysisSettings settings)
     {
         var analysisIndicator = settings.AnalysisIndicator;
         var analysisWindowSize = settings.AnalysisWindowSize;

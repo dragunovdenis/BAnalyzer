@@ -53,11 +53,11 @@ internal class AssetTimeView
     /// Returns a collection of "k-lines" that cover the given time interval
     /// or null if the data in the grid does not fully cover the interval.
     /// </summary>
-    public IList<IBinanceKline> Retrieve(DateTime timeBegin, DateTime timeEnd, out TimeInterval gapIndicator) =>
+    public IList<KLine> Retrieve(DateTime timeBegin, DateTime timeEnd, out TimeInterval gapIndicator) =>
         _grid.Retrieve(timeBegin.Max(_zeroTime), timeEnd, out gapIndicator);
 
     /// <summary>
     /// Append the given <param name="collection"/> of "k-lines" to the current "grid".
     /// </summary>
-    public void Append(IReadOnlyList<IBinanceKline> collection) => _grid.Append(collection);
+    public void Append(IReadOnlyList<KLine> collection) => _grid.Append(collection);
 }

@@ -125,7 +125,7 @@ public class Binance : IDisposable
     /// <summary>
     /// Returns "k-line" data.
     /// </summary>
-    public async Task<IList<IBinanceKline>> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
+    public async Task<IList<KLine>> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
         KlineInterval granularity, string symbol, bool ensureLatestData)
     {
         // Binance client usually has troubles retrieving
@@ -136,11 +136,11 @@ public class Binance : IDisposable
         timeEnd = timeEnd.Min(localNow);
 
         if (timeBegin >= timeEnd)
-            return new List<IBinanceKline>();
+            return new List<KLine>();
 
         var assetCacheView = _cache.GetAssetViewThreadSafe(symbol, granularity);
 
-        IList<IBinanceKline> RetrieveDataFromCache(out TimeInterval gapIndicator)
+        IList<KLine> RetrieveDataFromCache(out TimeInterval gapIndicator)
         {
             lock (assetCacheView) return assetCacheView.Retrieve(timeBegin, timeEnd, out gapIndicator);
         }
@@ -156,7 +156,7 @@ public class Binance : IDisposable
                 var latestKline = (await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
                     startTime: lastKline.OpenTime, endTime: lastKline.CloseTime)).Data.ToArray();
 
-                var updatedKline = latestKline[^1];
+                var updatedKline = new KLine(latestKline[^1]);
                 cachedResult[^1] = updatedKline;
 
                 lock (assetCacheView)
@@ -180,7 +180,7 @@ public class Binance : IDisposable
         {
             if (kLinesArray.Length > 0)
             {
-                assetCacheView.Append(kLinesArray);
+                assetCacheView.Append(kLinesArray.Select(x => new KLine(x)).ToArray());
 
                 if (kLinesArray[0].OpenTime > interval.Begin.Add(granularity.ToTimeSpan()))
                     assetCacheView.SetZeroTimePoint(kLinesArray[0].OpenTime);

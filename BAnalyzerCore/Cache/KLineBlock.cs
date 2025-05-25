@@ -15,9 +15,9 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using Binance.Net.Interfaces;
 using BAnalyzerCore.Utils;
 using Binance.Net.Enums;
+using BAnalyzerCore.DataStructures;
 
 namespace BAnalyzerCore.Cache;
 
@@ -34,7 +34,7 @@ public interface IKLineBlockReadOnly
     /// <summary>
     /// Read-only access to the data.
     /// </summary>
-    IReadOnlyList<IBinanceKline> Data { get; }
+    IReadOnlyList<KLine> Data { get; }
 
     /// <summary>
     /// The left end of the time interval covered by the clock.
@@ -101,7 +101,7 @@ public interface IKLineBlockReadOnly
     /// Returns index of an item with the "open-time" equal to that of
     /// the given <param name="item"/> or "-1" if there is no such item.
     /// </summary>
-    int FindItem(IBinanceKline item);
+    int FindItem(KLine item);
 
     /// <summary>
     /// Splits the given block into adjacent sub-blocks containing
@@ -128,13 +128,13 @@ public class KLineBlock : IKLineBlockReadOnly
     /// <inheritdoc/>
     public KlineInterval Granularity => _granularity;
 
-    private readonly List<IBinanceKline> _data = new();
+    private readonly List<KLine> _data = new();
 
     /// <inheritdoc/>
     public int KlineCount => _data.Count;
 
     /// <inheritdoc/>
-    public IReadOnlyList<IBinanceKline> Data => _data;
+    public IReadOnlyList<KLine> Data => _data;
 
     /// <inheritdoc/>
     public DateTime Begin => _data.Count > 0 ? _data.First().OpenTime : DateTime.MaxValue;
@@ -174,7 +174,7 @@ public class KLineBlock : IKLineBlockReadOnly
     /// <summary>
     /// Returns difference between "open" and "close" times of the given <param name="item"/>.
     /// </summary>
-    private static TimeSpan GetSpan(IBinanceKline item) =>
+    private static TimeSpan GetSpan(KLine item) =>
         item.CloseTime.AddSeconds(BinanceConstants.KLineTimeGapSec) - item.OpenTime;
 
     /// <summary>
@@ -218,7 +218,7 @@ public class KLineBlock : IKLineBlockReadOnly
     /// satisfies chronological integrity requirements
     /// (i.e., same granularity, no gaps).
     /// </summary>
-    public static bool CheckChronologicalIntegrity(IReadOnlyList<IBinanceKline> data, KlineInterval granularity)
+    public static bool CheckChronologicalIntegrity(IReadOnlyList<KLine> data, KlineInterval granularity)
     {
         if (data.Count == 0) return true;
 
@@ -247,8 +247,9 @@ public class KLineBlock : IKLineBlockReadOnly
     /// <summary>
     /// Constructor.
     /// </summary>
+    /// <param name="granularity">Chronological granularity of the data.</param>
     /// <param name="data">Chronologically ordered data.</param>
-    public KLineBlock(KlineInterval granularity, IReadOnlyList<IBinanceKline> data)
+    public KLineBlock(KlineInterval granularity, IReadOnlyList<KLine> data)
     {
         if (data.Count == 0)
             throw new ArgumentException("An empty block is not supposed to be created");
@@ -263,12 +264,12 @@ public class KLineBlock : IKLineBlockReadOnly
     /// <summary>
     /// Compares items of `IBinanceKline` by their open time. 
     /// </summary>
-    private class OpenTimeComparer : IComparer<IBinanceKline>
+    private class OpenTimeComparer : IComparer<KLine>
     {
         /// <summary>
         /// Compares the two items by their "open times".
         /// </summary>
-        public int Compare(IBinanceKline x, IBinanceKline y)
+        public int Compare(KLine x, KLine y)
         {
             if (ReferenceEquals(x, y)) return 0;
             if (y is null) return 1;
@@ -278,7 +279,7 @@ public class KLineBlock : IKLineBlockReadOnly
     }
 
     /// <inheritdoc/>
-    public int FindItem(IBinanceKline item) => _data.BinarySearch(item, new OpenTimeComparer());
+    public int FindItem(KLine item) => _data.BinarySearch(item, new OpenTimeComparer());
 
     /// <summary>
     /// Subtracts the given <param name="blockToSubtract"/> from the current block.

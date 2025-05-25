@@ -145,20 +145,20 @@ public class BlockGrid
     /// Returns a collection of "k-lines" that cover the given time <param name="interval"/>
     /// or null if the data in the grid does not fully cover the interval.
     /// </summary>
-    public IList<IBinanceKline> Retrieve(TimeInterval interval, out TimeInterval gapIndicator) =>
+    public IList<KLine> Retrieve(TimeInterval interval, out TimeInterval gapIndicator) =>
         Retrieve(interval.Begin, interval.End, out gapIndicator);
 
     /// <summary>
     /// Returns a collection of "k-lines" that covers the given time interval
     /// or null if the data in the grid do not (fully) cover the interval.
     /// </summary>
-    public IList<IBinanceKline> Retrieve(DateTime timeBegin, DateTime timeEnd, out TimeInterval gapIndicator)
+    public IList<KLine> Retrieve(DateTime timeBegin, DateTime timeEnd, out TimeInterval gapIndicator)
     {
         gapIndicator = null;
         if (CanRetrieveData(timeBegin, timeEnd, out int blockIdBegin, out int blockIdEnd))
         {
             // All the blocks are there, we need just collect the relevant data.
-            var result = new List<IBinanceKline>();
+            var result = new List<KLine>();
 
             var indexBegin = _blocks[blockIdBegin].FindBeginKLineId(timeBegin);
             var indexEnd = _blocks[blockIdEnd].FindEndKLineId(timeEnd);
@@ -190,7 +190,7 @@ public class BlockGrid
     /// <summary>
     /// Append the given <param name="collection"/> of "k-lines" to the current "grid".
     /// </summary>
-    public void Append(IReadOnlyList<IBinanceKline> collection)
+    public void Append(IReadOnlyList<KLine> collection)
     {
         var blockToAppend = new KLineBlock(_granularity, collection);
 

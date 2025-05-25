@@ -16,7 +16,7 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using BAnalyzer.Utils;
-using Binance.Net.Interfaces;
+using BAnalyzerCore.DataStructures;
 using ScottPlot;
 
 namespace BAnalyzer.DataStructures;
@@ -30,7 +30,7 @@ public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData, int updateR
     /// <summary>
     /// Constructor.
     /// </summary>
-    public ChartData(IList<IBinanceKline> candleStickData, int updateRequestId,
+    public ChartData(IList<KLine> candleStickData, int updateRequestId,
         IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad) :
         this(candleStickData.ToScottPlotCandleSticks(), ToTradeVolumes(candleStickData), updateRequestId,
             priceIndicatorPoints, volumeIndicatorPoints, indicatorWindowSize, timeFrameDurationOad)
@@ -39,8 +39,8 @@ public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData, int updateR
     /// <summary>
     /// Converter.
     /// </summary>
-    public static IList<double> ToTradeVolumes(IList<IBinanceKline> candleStickData) =>
-        candleStickData.Select(x => (double)x.QuoteVolume).ToArray();
+    public static IList<double> ToTradeVolumes(IList<KLine> candleStickData) =>
+        candleStickData.Select(x => x.QuoteVolume).ToArray();
 
     /// <summary>
     /// Sticks.

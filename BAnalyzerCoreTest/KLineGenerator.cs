@@ -17,9 +17,8 @@
 
 using BAnalyzerCore;
 using BAnalyzerCore.Cache;
+using BAnalyzerCore.DataStructures;
 using Binance.Net.Enums;
-using Binance.Net.Interfaces;
-using Moq;
 
 namespace BAnalyzerCoreTest;
 
@@ -35,19 +34,21 @@ internal class KLineGenerator
     /// </summary>
     public static KLineBlock GenerateBlock(DateTime beginTime, KlineInterval granularity, int itemCount)
     {
-        var result = new IBinanceKline[itemCount];
+        var result = new KLine[itemCount];
         var time = beginTime;
         var kLineInterval = granularity.ToTimeSpan();
 
         for (var itemId = 0; itemId < itemCount; itemId++)
         {
-            var kLineMock = new Mock<IBinanceKline>();
-            kLineMock.Setup(x => x.OpenTime).Returns(time);
-            time = time.Add(kLineInterval);
-            kLineMock.Setup(x => x.CloseTime).Returns(time.
-                AddSeconds(-BinanceConstants.KLineTimeGapSec));
+            var closeTime = time.Add(kLineInterval);
+            result[itemId] = new KLine()
+            {
+                OpenTime = time,
+                CloseTime = closeTime.AddSeconds(-BinanceConstants.KLineTimeGapSec)
 
-            result[itemId] = kLineMock.Object;
+            };
+
+            time = closeTime;
         }
 
         return new KLineBlock(granularity, result);

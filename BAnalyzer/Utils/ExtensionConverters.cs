@@ -15,6 +15,7 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzerCore.DataStructures;
 using Binance.Net.Interfaces;
 using ScottPlot;
 
@@ -28,20 +29,20 @@ internal static class ExtensionConverters
     /// <summary>
     /// Converter.
     /// </summary>
-    public static OHLC[] ToScottPlotCandleSticks(this IList<IBinanceKline> candleStickData) =>
+    public static OHLC[] ToScottPlotCandleSticks(this IList<KLine> candleStickData) =>
         candleStickData.Select(x => x.ToScottPlotCandleStick()).ToArray();
 
     /// <summary>
     /// Converts the "binance" candle-stick into a "scott-plot" candle-stick.
     /// </summary>
-    public static OHLC ToScottPlotCandleStick(this IBinanceKline candleStick)
+    public static OHLC ToScottPlotCandleStick(this KLine candleStick)
     {
         return new OHLC()
         {
-            Close = (double)candleStick.ClosePrice,
-            Open = (double)candleStick.OpenPrice,
-            High = (double)candleStick.HighPrice,
-            Low = (double)candleStick.LowPrice,
+            Close = candleStick.ClosePrice,
+            Open = candleStick.OpenPrice,
+            High = candleStick.HighPrice,
+            Low = candleStick.LowPrice,
             TimeSpan = candleStick.CloseTime - candleStick.OpenTime,
             DateTime = candleStick.OpenTime.Add(0.5 * (candleStick.CloseTime - candleStick.OpenTime)).ToLocalTime()
         };
