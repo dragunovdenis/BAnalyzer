@@ -120,7 +120,7 @@ public class Binance : IDisposable
             new TimeInterval(gapIntervalLocal.End.Subtract(span), gapIntervalLocal.End);
     }
 
-    private readonly BinanceCache _cache = new();
+    private BinanceCache _cache = new();
 
     /// <summary>
     /// Returns "k-line" data.
@@ -138,11 +138,12 @@ public class Binance : IDisposable
         if (timeBegin >= timeEnd)
             return new List<KLine>();
 
-        var assetCacheView = _cache.GetAssetViewThreadSafe(symbol, granularity);
+        var assetCacheView = _cache.GetAssetViewThreadSafe(symbol);
 
         IList<KLine> RetrieveDataFromCache(out TimeInterval gapIndicator)
         {
-            lock (assetCacheView) return assetCacheView.Retrieve(timeBegin, timeEnd, out gapIndicator);
+            lock (assetCacheView) return assetCacheView.Retrieve(granularity,
+                timeBegin, timeEnd, out gapIndicator);
         }
 
         var cachedResult = RetrieveDataFromCache(out var cacheGapInterval);
@@ -160,7 +161,7 @@ public class Binance : IDisposable
                 cachedResult[^1] = updatedKline;
 
                 lock (assetCacheView)
-                    assetCacheView.Append([updatedKline]);
+                    assetCacheView.Append(granularity, [updatedKline]);
             }
 
             return cachedResult;
@@ -180,7 +181,7 @@ public class Binance : IDisposable
         {
             if (kLinesArray.Length > 0)
             {
-                assetCacheView.Append(kLinesArray.Select(x => new KLine(x)).ToArray());
+                assetCacheView.Append(granularity, kLinesArray.Select(x => new KLine(x)).ToArray());
 
                 if (kLinesArray[0].OpenTime > interval.Begin.Add(granularity.ToTimeSpan()))
                     assetCacheView.SetZeroTimePoint(kLinesArray[0].OpenTime);
@@ -194,10 +195,10 @@ public class Binance : IDisposable
                 // because, in fact, we have an older data present
                 // in the cache.
                 // So, let's just return what we have.
-                return assetCacheView.Retrieve(timeBegin, cacheGapInterval.Begin, out _);
+                return assetCacheView.Retrieve(granularity, timeBegin, cacheGapInterval.Begin, out _);
             }
 
-            return assetCacheView.Retrieve(timeBegin, timeEnd, out _);
+            return assetCacheView.Retrieve(granularity, timeBegin, timeEnd, out _);
         }
     }
 
@@ -222,4 +223,17 @@ public class Binance : IDisposable
 
         return price.Success ? price.Data : null!;
     }
+
+    /// <summary>
+    /// Saves the cache to the folder with the given <paramref name="folderPath"/>.
+    /// </summary>
+    public async Task SaveCacheAsync(string folderPath) =>
+        await Task.Run(() => _cache.Save(folderPath));
+
+    /// <summary>
+    /// Loads cache from the data in the given <paramref name="folderPath"/>
+    /// saved there previously by <see cref="SaveCacheAsync"/>.
+    /// </summary>
+    public async Task LoadCacheAsync(string folderPath) =>
+        _cache = await Task.Run(() => BinanceCache.Load(folderPath));
 }

@@ -1,4 +1,4 @@
-//Copyright (c) 2025 Denys Dragunov, dragunovdenis@gmail.com
+﻿//Copyright (c) 2025 Denys Dragunov, dragunovdenis@gmail.com
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files(the "Software"), to deal
 //in the Software without restriction, including without limitation the rights
@@ -17,57 +17,16 @@
 
 using System.Runtime.InteropServices;
 
-namespace BAnalyzerCore.Persistence;
+namespace BAnalyzerCore.DataConversionUtils;
 
 /// <summary>
-/// Utility methods for converting byte arrays to the arrays of different types and vice versa
+/// Functionality to marshall byte arrays to arrays of custom structs and back.
 /// </summary>
-internal static class Base64CharUtilities
+internal static class ByteConversionUtils
 {
     /// <summary>
-    /// Decodes the given base-64 char string into a custom array.
-    /// </summary>
-    public static T[] ToArray<T>(string str)
-        where T : struct =>
-        string.IsNullOrEmpty(str) ? [] : ToArray<T>(ToByteArray(str));
-
-    /// <summary>
-    /// Converts the given <paramref name="array"/> into a base-64 char string.
-    /// </summary>
-    public static string ToString<T>(T[] array)
-        where T : struct =>
-        array == null ? string.Empty : ToString(ToByteArray(array));
-
-    /// <summary>
-    /// Converts given struct into a base-64 char string.
-    /// </summary>
-    public static string ToString<T>(T value)
-        where T : struct =>
-        ToString([value]);
-
-    /// <summary>
-    /// Converts given string into an instance of the given type <typeparamref name="T"/>.
-    /// </summary>
-    public static T FromString<T>(string str)
-        where T : struct => ToArray<T>(str)[0];
-
-    /// <summary>
-    /// Converts the given base-64 char string into an array of bytes.
-    /// </summary>
-    public static byte[] ToByteArray(string base64CharString)
-    {
-        var charArray = base64CharString.ToCharArray();
-        return Convert.FromBase64CharArray(charArray, 0, charArray.Length);
-    }
-
-    /// <summary>
-    /// Converts the given array of bytes <paramref name="ba"/> into a base-64 char string.
-    /// </summary>
-    public static string ToString(byte[] ba) => Convert.ToBase64String(ba);
-
-    /// <summary>
     /// Converts the given array of bytes <paramref name="bytes"/>
-    /// into an array of given type <typeparamref name="T"/>.
+    /// into an array of structs of type <typeparamref name="T"/>.
     /// </summary>
     public static T[] ToArray<T>(byte[] bytes)
         where T : struct
@@ -76,7 +35,7 @@ internal static class Base64CharUtilities
         var handle = GCHandle.Alloc(array, GCHandleType.Pinned);
         try
         {
-            IntPtr pointer = handle.AddrOfPinnedObject();
+            var pointer = handle.AddrOfPinnedObject();
             Marshal.Copy(bytes, 0, pointer, bytes.Length);
         }
         finally
@@ -97,7 +56,7 @@ internal static class Base64CharUtilities
         var bytes = new byte[array.Length * Marshal.SizeOf(typeof(T))];
         try
         {
-            IntPtr pointer = handle.AddrOfPinnedObject();
+            var pointer = handle.AddrOfPinnedObject();
             Marshal.Copy(pointer, bytes, 0, bytes.Length);
         }
         finally

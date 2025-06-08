@@ -23,6 +23,7 @@ using System.Windows.Input;
 using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
 using Binance.Net.Enums;
+using Microsoft.Win32;
 
 namespace BAnalyzer.Controls;
 
@@ -310,4 +311,34 @@ public partial class MainWindow : INotifyPropertyChanged
     /// On click event handler of the corresponding menu item.
     /// </summary>
     private void ShowAssetAnalysisMenuItem_OnClick(object sender, RoutedEventArgs e) => AssetAnalysisWindowInstance.Show();
+
+    /// <summary>
+    /// Handles click of the "save cache" menu item.
+    /// </summary>
+    private async void SaveCacheMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folder = new OpenFolderDialog();
+
+            if (folder.ShowDialog(this) == true)
+                await BinanceClientController.Client.SaveCacheAsync(folder.FolderName);
+        }
+        catch (Exception) { /*ignored*/ }
+    }
+
+    /// <summary>
+    /// Handles click of the "load cache" menu item.
+    /// </summary>
+    private async void LoadCacheMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folder = new OpenFolderDialog();
+
+            if (folder.ShowDialog(this) == true)
+                await BinanceClientController.Client.LoadCacheAsync(folder.FolderName);
+        }
+        catch (Exception) { /*ignored*/ }
+    }
 }

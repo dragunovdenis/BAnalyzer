@@ -18,7 +18,6 @@
 using BAnalyzerCore.DataStructures;
 using BAnalyzerCore.Utils;
 using Binance.Net.Enums;
-using Binance.Net.Interfaces;
 
 namespace BAnalyzerCore.Cache;
 
@@ -30,14 +29,25 @@ internal class AssetTimeView
     /// <summary>
     /// Grid data.
     /// </summary>
-    private readonly BlockGrid _grid;
+    private readonly Dictionary<KlineInterval, BlockGrid> _grid = new();
 
     private DateTime _zeroTime = DateTime.MinValue;
 
     /// <summary>
-    /// Constructor.
+    /// Subscript operator.
     /// </summary>
-    public AssetTimeView(KlineInterval granularity) => _grid = new BlockGrid(granularity);
+    private BlockGrid this[KlineInterval granularity]
+    {
+        get
+        {
+            if (_grid.TryGetValue(granularity, out var block))
+                return block;
+
+            return _grid[granularity] = new BlockGrid(granularity);
+        }
+
+        set => _grid[granularity] = value;
+    }
 
     /// <summary>
     /// Updates the "history begin time" with the new value.
@@ -53,11 +63,41 @@ internal class AssetTimeView
     /// Returns a collection of "k-lines" that cover the given time interval
     /// or null if the data in the grid does not fully cover the interval.
     /// </summary>
-    public IList<KLine> Retrieve(DateTime timeBegin, DateTime timeEnd, out TimeInterval gapIndicator) =>
-        _grid.Retrieve(timeBegin.Max(_zeroTime), timeEnd, out gapIndicator);
+    public IList<KLine> Retrieve(KlineInterval granularity, DateTime timeBegin,
+        DateTime timeEnd, out TimeInterval gapIndicator) =>
+        this[granularity].Retrieve(timeBegin.Max(_zeroTime), timeEnd, out gapIndicator);
 
     /// <summary>
     /// Append the given <param name="collection"/> of "k-lines" to the current "grid".
     /// </summary>
-    public void Append(IReadOnlyList<KLine> collection) => _grid.Append(collection);
+    public void Append(KlineInterval granularity, IReadOnlyList<KLine> collection) =>
+        this[granularity].Append(collection);
+
+    /// <summary>
+    /// Saves the "view" into the given folder.
+    /// </summary>
+    public void Save(string folderPath)
+    {
+        foreach (var g in _grid)
+        {
+            var subDir = Directory.CreateDirectory(Path.Combine(folderPath, g.Key.ToString()));
+            g.Value.Save(subDir.FullName);
+        }
+    }
+
+    /// <summary>
+    /// Loads an instance of "asset-view" from the
+    /// data in the given <paramref name="folderPath"/>
+    /// which was previously saved there by <see cref="Save"/>.
+    /// </summary>
+    public static AssetTimeView Load(string folderPath)
+    {
+        var result = new AssetTimeView();
+
+        foreach (var dir in Directory.EnumerateDirectories(folderPath))
+            if (Enum.TryParse(Path.GetFileName(dir), out KlineInterval granularity))
+                result[granularity] = BlockGrid.Load(granularity, dir);
+
+        return result;
+    }
 }

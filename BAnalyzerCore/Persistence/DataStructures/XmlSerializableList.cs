@@ -19,6 +19,7 @@ using System.Reflection;
 using System.Xml;
 using System.Xml.Schema;
 using System.Xml.Serialization;
+using BAnalyzerCore.DataConversionUtils;
 
 namespace BAnalyzerCore.Persistence.DataStructures;
 
@@ -60,7 +61,7 @@ public class XmlSerializableList<T> : List<T>, IXmlSerializable
     {
         reader.ReadToDescendant(XmlNames.Data.ToString());
         Clear();
-        AddRange(Base64CharUtilities.ToArray<T>(reader.ReadElementString(XmlNames.Data.ToString())));
+        AddRange(reader.ReadElementString(XmlNames.Data.ToString()).Base64StringToArray<T>());
         reader.ReadEndElement();
     }
 
@@ -68,6 +69,6 @@ public class XmlSerializableList<T> : List<T>, IXmlSerializable
     public void WriteXml(XmlWriter writer)
     {
         writer.WriteAttributeString(XmlNames.Version.ToString(), _currentVersion);
-        writer.WriteElementString(XmlNames.Data.ToString(), Base64CharUtilities.ToString(ToArray()));
+        writer.WriteElementString(XmlNames.Data.ToString(), ToArray().ToBase64String());
     }
 }

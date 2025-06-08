@@ -15,10 +15,10 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzerCore.DataConversionUtils;
 using BAnalyzerCore.DataStructures;
 using BAnalyzerCore.Utils;
 using Binance.Net.Enums;
-using Binance.Net.Interfaces;
 
 namespace BAnalyzerCore.Cache;
 
@@ -33,6 +33,12 @@ public class BlockGrid
     /// Constructor.
     /// </summary>
     public BlockGrid(KlineInterval granularity) => _granularity = granularity;
+
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    public BlockGrid(KlineInterval granularity, IList<KLineBlock> blocks) :
+        this(granularity) => _blocks = blocks.ToList();
 
     private readonly List<KLineBlock> _blocks = new();
 
@@ -187,6 +193,10 @@ public class BlockGrid
         return null;
     }
 
+    private const int TargetBlockSize = 2000;
+
+    private const int MinBlockSizeToSplit = 2 * TargetBlockSize;
+
     /// <summary>
     /// Append the given <param name="collection"/> of "k-lines" to the current "grid".
     /// </summary>
@@ -211,7 +221,14 @@ public class BlockGrid
             }
         }
 
-        _blocks.Insert(beginBlockIndexToCheck, blockToAppend);
+        if (blockToAppend.Data.Count > MinBlockSizeToSplit)
+        {
+            var chunks = blockToAppend.Split(TargetBlockSize);
+
+            foreach(var c in chunks)
+                _blocks.Insert(beginBlockIndexToCheck++, c);
+        } else
+            _blocks.Insert(beginBlockIndexToCheck, blockToAppend);
 
         if (!BlocksAreOrdered())
             throw new InvalidOperationException("Collection of blocks is broken");
@@ -230,5 +247,69 @@ public class BlockGrid
 
         _blocks.Clear();
         _blocks.AddRange(blocksNew);
+    }
+
+    /// <summary>
+    /// Encodes the time interval of the given <paramref name="block"/>
+    /// as a HEX-char string.
+    /// </summary>
+    private static string EncodeTimeInterval(KLineBlock block) =>
+        new [] {block.Begin.ToOADate(), block.End.ToOADate()}.ToHexString();
+
+    /// <summary>
+    /// Decodes a time interval from the given <paramref name="hexString"/>.
+    /// </summary>
+    private static (DateTime Begin, DateTime End) DecodeTimeInterval(string hexString)
+    {
+        var arr = hexString.HexStringToArray<double>();
+
+        if (arr.Length != 2)
+            throw new ArgumentException("Invalid input.");
+
+        return (DateTime.FromOADate(arr[0]), DateTime.FromOADate(arr[1]));
+    }
+
+    /// <summary>
+    /// Saves the "grid" into the given folder.
+    /// </summary>
+    public void Save(string folderPath)
+    {
+        foreach (var b in _blocks)
+            DataContractSerializationUtils.SaveToFile(Path.Combine(folderPath, EncodeTimeInterval(b)), b);
+    }
+
+    /// <summary>
+    /// Loads an instance of grid from the data in the given <paramref name="folderPath"/>
+    /// which was saved there previously by <see cref="Save"/>.
+    /// </summary>
+    public static BlockGrid Load(KlineInterval granularity, string folderPath)
+    {
+        var blocks = new List<KLineBlock>();
+
+        foreach (var f in Directory.EnumerateFiles(folderPath))
+        {
+            try
+            {
+                var (begin, end) = DecodeTimeInterval(Path.GetFileName(f));
+
+                var block = DataContractSerializationUtils.LoadFromFile<KLineBlock>(f);
+
+                if (block.Begin != begin || block.End != end || !block.IsValid())
+                    throw new InvalidOperationException("Inconsistent data");
+
+                blocks.Add(block);
+            } catch { /*ignore*/ }
+        }
+
+        blocks = blocks.OrderBy(b => b.Begin.ToOADate()).ToList();
+
+        var chronologicalConsistency = blocks.
+            Zip(blocks.Skip(1), (p, n) => p.End <= n.Begin).All(x => x);
+
+        if (!chronologicalConsistency)
+            throw new InvalidOperationException($"Blocks are not chronologically consistent {folderPath}");
+
+
+        return new BlockGrid(granularity, blocks);
     }
 }

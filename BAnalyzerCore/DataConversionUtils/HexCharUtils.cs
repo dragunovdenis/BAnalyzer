@@ -15,38 +15,40 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using Binance.Net.Enums;
-
-namespace BAnalyzerCore.DataStructures;
+namespace BAnalyzerCore.DataConversionUtils;
 
 /// <summary>
-/// Functionality allowing to store and access data
-/// according to its "symbol" and "time-interval" properties.
+/// Utility methods for HEX string encoding/decoding operations.
 /// </summary>
-internal class ExchangeCatalogue<TD>
+internal static class HexCharUtils
 {
-    private readonly Dictionary<Tuple<string, KlineInterval>, TD> _data = new();
+    /// <summary>
+    /// Decodes the given HEX-char string into a custom array.
+    /// </summary>
+    public static T[] HexStringToArray<T>(this string hexStr)
+        where T : struct =>
+        string.IsNullOrEmpty(hexStr) ? [] : ByteConversionUtils.ToArray<T>(HexStringToByteArray(hexStr));
 
     /// <summary>
-    /// Returns key composed of the given pair of property values.
+    /// Converts the given <paramref name="array"/> into a HEX-char string.
     /// </summary>
-    private static Tuple<string, KlineInterval> Key(string symbol, KlineInterval granularity)
-        => new(symbol, granularity);
+    public static string ToHexString<T>(this T[] array)
+        where T : struct =>
+        array == null ? string.Empty : ToHexString(ByteConversionUtils.ToByteArray(array));
 
     /// <summary>
-    /// Returns "true" if a data item with the given <param name="symbol"/>
-    /// and <param name="granularity"/> values exists in the catalogue,
-    /// in which case the data can be accessed via the output parameter
-    /// <param name="item"/>.
+    /// Converts given struct into a HEX-char string.
     /// </summary>
-    public bool TryGet(string symbol, KlineInterval granularity, out TD item) =>
-        _data.TryGetValue(Key(symbol, granularity), out item);
+    public static string ToHexString<T>(this T value)
+        where T : struct => ToHexString([value]);
 
     /// <summary>
-    /// Assigns given data <param name="item"/> to a cell corresponding
-    /// to the given <param name="symbol"/> and <param name="granularity"/>
-    /// properties.
+    /// Converts the given HEX-char string into an array of bytes.
     /// </summary>
-    public void Set(string symbol, KlineInterval granularity, TD item) =>
-        _data[Key(symbol, granularity)] = item;
+    public static byte[] HexStringToByteArray(this string hexString) => Convert.FromHexString(hexString);
+
+    /// <summary>
+    /// Converts the given array of bytes <paramref name="ba"/> into a HEX-char string.
+    /// </summary>
+    public static string ToHexString(this byte[] ba) => Convert.ToHexString(ba);
 }
