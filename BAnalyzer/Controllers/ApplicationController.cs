@@ -16,7 +16,7 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using BAnalyzer.DataStructures;
-using BAnalyzer.Utils;
+using BAnalyzerCore.Utils;
 
 namespace BAnalyzer.Controllers;
 

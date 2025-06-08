@@ -37,6 +37,7 @@ internal class KLineGenerator
         var result = new KLine[itemCount];
         var time = beginTime;
         var kLineInterval = granularity.ToTimeSpan();
+        var rnd = new Random();
 
         for (var itemId = 0; itemId < itemCount; itemId++)
         {
@@ -44,8 +45,18 @@ internal class KLineGenerator
             result[itemId] = new KLine()
             {
                 OpenTime = time,
-                CloseTime = closeTime.AddSeconds(-BinanceConstants.KLineTimeGapSec)
+                CloseTime = closeTime.AddSeconds(-BinanceConstants.KLineTimeGapSec),
 
+                // The assignments below are needed to test serialization functionality
+                OpenPrice = rnd.NextDouble(),
+                ClosePrice = rnd.NextDouble(),
+                HighPrice = rnd.NextDouble(),
+                LowPrice = rnd.NextDouble(),
+                QuoteVolume = rnd.NextDouble(),
+                TakerBuyBaseVolume = rnd.NextDouble(),
+                TakerBuyQuoteVolume = rnd.NextDouble(),
+                TradeCount = rnd.Next(),
+                Volume = rnd.NextDouble(),
             };
 
             time = closeTime;

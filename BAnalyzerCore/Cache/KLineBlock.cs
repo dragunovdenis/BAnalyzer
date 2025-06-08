@@ -15,6 +15,7 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using System.Runtime.Serialization;
 using BAnalyzerCore.Utils;
 using Binance.Net.Enums;
 using BAnalyzerCore.DataStructures;
@@ -121,20 +122,38 @@ public interface IKLineBlockReadOnly
 /// <summary>
 /// A continuous (with respect to time) block of trading information.
 /// </summary>
+[DataContract]
 public class KLineBlock : IKLineBlockReadOnly
 {
-    private readonly KlineInterval _granularity;
+    /// <summary>
+    /// Do not make the field below "readonly" in order to make deserialization possible.
+    /// </summary>
+    [DataMember]
+    private KlineInterval _granularity;
 
     /// <inheritdoc/>
     public KlineInterval Granularity => _granularity;
 
-    private readonly List<KLine> _data = new();
+    /// <summary>
+    /// Do not make the field below "readonly" in order to make deserialization possible.
+    /// </summary>
+    [DataMember]
+    private List<KLine> _data = new();
 
     /// <inheritdoc/>
     public int KlineCount => _data.Count;
 
     /// <inheritdoc/>
     public IReadOnlyList<KLine> Data => _data;
+
+    /// <summary>
+    /// Returns "true" if the current block is equal to the given <paramref name="block"/>.
+    /// </summary>
+    public bool IsEqualTo(KLineBlock block)
+    {
+        return block != null && _granularity == block._granularity &&
+               _data.SequenceEqual(block._data);
+    }
 
     /// <inheritdoc/>
     public DateTime Begin => _data.Count > 0 ? _data.First().OpenTime : DateTime.MaxValue;

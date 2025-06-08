@@ -16,24 +16,35 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
+using BAnalyzerCore.Persistence;
 
-namespace BAnalyzer.Utils;
+namespace BAnalyzerCore.Utils;
 
 /// <summary>
 /// Functionality that facilitates serialization of data
 /// </summary>
-internal class DataContractSerializationUtils
+public class DataContractSerializationUtils
 {
+    /// <summary>
+    /// Returns an instance of serializer for the given type <paramref name="type"/>
+    /// </summary>
+    private static DataContractSerializer InstantiateSerializer(Type type)
+    {
+        var serializer = new DataContractSerializer(type);
+        serializer.SetSerializationSurrogateProvider(new SurrogateProvider());
+
+        return serializer;
+    }
+
     /// <summary>
     /// Method to serialize.
     /// </summary>
     public static string Serialize(object obj)
     {
         using MemoryStream memoryStream = new MemoryStream();
-        new DataContractSerializer(obj.GetType()).WriteObject(memoryStream, obj);
+        InstantiateSerializer(obj.GetType()).WriteObject(memoryStream, obj);
         return Encoding.UTF8.GetString(memoryStream.ToArray());
     }
 
@@ -43,8 +54,7 @@ internal class DataContractSerializationUtils
     public static T Deserialize<T>(string xml)
     {
         using Stream stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
-        var deserializer = new DataContractSerializer(typeof(T));
-        return (T)deserializer.ReadObject(stream);
+        return (T)InstantiateSerializer(typeof(T)).ReadObject(stream);
     }
 
     /// <summary>

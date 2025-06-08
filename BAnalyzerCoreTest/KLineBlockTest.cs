@@ -18,7 +18,7 @@
 using BAnalyzerCore.Cache;
 using Binance.Net.Enums;
 using FluentAssertions;
-using BAnalyzerCore;
+using BAnalyzerCore.Utils;
 
 namespace BAnalyzerCoreTest;
 
@@ -511,5 +511,20 @@ public class KLineBlockTest
         // Act/assert
         RunTrivialSubtractionTest(block0, block1);
         RunTrivialSubtractionTest(block1, block0);
+    }
+
+    [TestMethod]
+    public void SerializationTest()
+    {
+        // Arrange
+        var blockOriginal = KLineGenerator.GenerateBlock(DateTime.Now, KlineInterval.OneHour, 100);
+
+        // Act
+        var blockDeserialized = DataContractSerializationUtils.
+            Deserialize<KLineBlock>(DataContractSerializationUtils.Serialize(blockOriginal));
+
+        // Assert
+        blockOriginal.IsEqualTo(blockDeserialized).Should()
+            .BeTrue("because serialization/deserialization must preserve all the data in the block");
     }
 }
