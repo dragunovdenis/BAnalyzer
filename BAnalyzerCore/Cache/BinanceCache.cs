@@ -44,11 +44,11 @@ internal class BinanceCache
     }
 
     /// <summary>
-    /// Returns instance of asset-view associated with the given "symbol-granularity" pair.
+    /// Returns instance of asset-view associated with the given <paramref name="symbol"/>.
     /// </summary>
     public AssetTimeView GetAssetViewThreadSafe(string symbol)
     {
-        lock (this) return this[symbol];
+        lock (this) { return this[symbol]; }
     }
 
     /// <summary>

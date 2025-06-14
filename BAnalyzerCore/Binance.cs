@@ -16,7 +16,6 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using Binance.Net.Clients;
-using Binance.Net.Interfaces;
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Spot;
 using BAnalyzerCore.Cache;
@@ -98,7 +97,7 @@ public class Binance : IDisposable
     /// optimized with respect to <param name="cacheGapInterval"/>
     /// which tells us about the boundaries of the data missing in the cache.
     /// </summary>
-    private static TimeInterval GetTimeIntervalToRetrieveFromServe(DateTime timeBegin, DateTime timeEnd,
+    private static TimeInterval GetTimeIntervalToRetrieveFromServer(DateTime timeBegin, DateTime timeEnd,
         KlineInterval granularity, TimeInterval cacheGapInterval, DateTime localNow)
     {
         if (cacheGapInterval.IsBothSideOpen())
@@ -138,15 +137,9 @@ public class Binance : IDisposable
         if (timeBegin >= timeEnd)
             return new List<KLine>();
 
-        var assetCacheView = _cache.GetAssetViewThreadSafe(symbol);
+        var cacheGrid = _cache.GetAssetViewThreadSafe(symbol).GetGridThreadSafe(granularity);
 
-        IList<KLine> RetrieveDataFromCache(out TimeInterval gapIndicator)
-        {
-            lock (assetCacheView) return assetCacheView.Retrieve(granularity,
-                timeBegin, timeEnd, out gapIndicator);
-        }
-
-        var cachedResult = RetrieveDataFromCache(out var cacheGapInterval);
+        var cachedResult = cacheGrid.RetrieveRobustThreadSafe(timeBegin, timeEnd, out var cacheGapInterval);
 
         if (cachedResult != null)
         {
@@ -160,14 +153,13 @@ public class Binance : IDisposable
                 var updatedKline = new KLine(latestKline[^1]);
                 cachedResult[^1] = updatedKline;
 
-                lock (assetCacheView)
-                    assetCacheView.Append(granularity, [updatedKline]);
+                cacheGrid.AppendThreadSafe([updatedKline]);
             }
 
             return cachedResult;
         }
 
-        var interval = GetTimeIntervalToRetrieveFromServe(timeBegin, timeEnd, granularity, cacheGapInterval, localNow);
+        var interval = GetTimeIntervalToRetrieveFromServer(timeBegin, timeEnd, granularity, cacheGapInterval, localNow);
 
         var kLines = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
             startTime: interval.Begin, endTime: interval.End, limit: 1500);
@@ -177,29 +169,26 @@ public class Binance : IDisposable
 
         var kLinesArray = kLines.Data.ToArray();
 
-        lock (assetCacheView)
+        if (kLinesArray.Length > 0)
         {
-            if (kLinesArray.Length > 0)
-            {
-                assetCacheView.Append(granularity, kLinesArray.Select(x => new KLine(x)).ToArray());
+            cacheGrid.AppendThreadSafe(kLinesArray.Select(x => new KLine(x)).ToArray());
 
-                if (kLinesArray[0].OpenTime > interval.Begin.Add(granularity.ToTimeSpan()))
-                    assetCacheView.SetZeroTimePoint(kLinesArray[0].OpenTime);
-            }
-            else if (kLinesArray.Length == 0)
-                assetCacheView.SetZeroTimePoint(interval.End);
-
-            if (kLinesArray.Length <= 1 && !cacheGapInterval.IsOpenToTheLeft())
-            {
-                // This is a glitch of Binance client (or server)
-                // because, in fact, we have an older data present
-                // in the cache.
-                // So, let's just return what we have.
-                return assetCacheView.Retrieve(granularity, timeBegin, cacheGapInterval.Begin, out _);
-            }
-
-            return assetCacheView.Retrieve(granularity, timeBegin, timeEnd, out _);
+            if (kLinesArray[0].OpenTime > interval.Begin.Add(granularity.ToTimeSpan()))
+                cacheGrid.SetZeroTimePointThreadSafe(kLinesArray[0].OpenTime);
         }
+        else if (kLinesArray.Length == 0)
+            cacheGrid.SetZeroTimePointThreadSafe(interval.End);
+
+        if (kLinesArray.Length <= 1 && !cacheGapInterval.IsOpenToTheLeft())
+        {
+            // This is a glitch of Binance client (or server)
+            // because, in fact, we have even an older data present
+            // in the cache.
+            // So, let's just return what we have.
+            return cacheGrid.RetrieveRobustThreadSafe(timeBegin, cacheGapInterval.Begin, out _);
+        }
+
+        return cacheGrid.RetrieveRobustThreadSafe(timeBegin, timeEnd, out _);
     }
 
     /// <summary>

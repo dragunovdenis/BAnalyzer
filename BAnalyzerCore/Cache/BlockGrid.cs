@@ -154,9 +154,51 @@ public class BlockGrid
     public IList<KLine> Retrieve(TimeInterval interval, out TimeInterval gapIndicator) =>
         Retrieve(interval.Begin, interval.End, out gapIndicator);
 
+    private DateTime _zeroTime = DateTime.MinValue;
+
+    /// <summary>
+    /// Updates the "history begin time" with the new value in a thread-safe manner.
+    /// </summary>
+    public void SetZeroTimePointThreadSafe(DateTime newTime)
+    {
+        _lock.EnterWriteLock();
+        try
+        {
+            _zeroTime = newTime;
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the data in the interval whose lover boundary is the maximum
+    /// between the given <paramref name="timeBegin"/> and "zero time" (which
+    /// can be set by the caller via <see cref="SetZeroTimePointThreadSafe"/>).
+    /// Returns the data in requested interval or null if the data can't be retrieved.
+    /// In the latter case <paramref name="gapIndicator"/> indicates the part
+    /// of the requested interval which is missing in the grid.
+    /// </summary>
+    public IList<KLine> RetrieveRobustThreadSafe(DateTime timeBegin, DateTime timeEnd, out TimeInterval gapIndicator)
+    {
+        _lock.EnterReadLock();
+
+        try
+        {
+            return Retrieve(timeBegin.Max(_zeroTime), timeEnd, out gapIndicator);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
     /// <summary>
     /// Returns a collection of "k-lines" that covers the given time interval
     /// or null if the data in the grid do not (fully) cover the interval.
+    /// In the latter case <paramref name="gapIndicator"/> indicates the part
+    /// of the requested interval which is missing in the grid.
     /// </summary>
     public IList<KLine> Retrieve(DateTime timeBegin, DateTime timeEnd, out TimeInterval gapIndicator)
     {
@@ -197,6 +239,25 @@ public class BlockGrid
 
     private const int MinBlockSizeToSplit = 2 * TargetBlockSize;
 
+    private readonly ReaderWriterLockSlim _lock = new();
+
+    /// <summary>
+    /// Thread-safe version of <see cref="Append"/> method.
+    /// </summary>
+    public void AppendThreadSafe(IReadOnlyList<KLine> collection)
+    {
+        _lock.EnterWriteLock();
+
+        try
+        {
+            Append(collection);
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+
     /// <summary>
     /// Append the given <param name="collection"/> of "k-lines" to the current "grid".
     /// </summary>
@@ -235,6 +296,23 @@ public class BlockGrid
     }
 
     /// <summary>
+    /// Thread-safe version of <see cref="Refine"/> method.
+    /// </summary>
+    public void RefineThreadSafe(int targetKlineCountInBlock)
+    {
+        _lock.EnterWriteLock();
+
+        try
+        {
+            Refine(targetKlineCountInBlock);
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+
+    /// <summary>
     /// Ensures that the size of blocks in the grid does
     /// not exceed 2*<param name="targetKlineCountInBlock"/>.
     /// </summary>
@@ -267,6 +345,23 @@ public class BlockGrid
             throw new ArgumentException("Invalid input.");
 
         return (DateTime.FromOADate(arr[0]), DateTime.FromOADate(arr[1]));
+    }
+
+    /// <summary>
+    /// Thread-safe version of <see cref="Save"/> method.
+    /// </summary>
+    public void SaveThreadSafe(string folderPath)
+    {
+        _lock.EnterReadLock();
+
+        try
+        {
+            Save(folderPath);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
     }
 
     /// <summary>

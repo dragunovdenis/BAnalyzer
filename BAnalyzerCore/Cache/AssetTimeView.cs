@@ -15,8 +15,6 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using BAnalyzerCore.DataStructures;
-using BAnalyzerCore.Utils;
 using Binance.Net.Enums;
 
 namespace BAnalyzerCore.Cache;
@@ -30,8 +28,6 @@ internal class AssetTimeView
     /// Grid data.
     /// </summary>
     private readonly Dictionary<KlineInterval, BlockGrid> _grid = new();
-
-    private DateTime _zeroTime = DateTime.MinValue;
 
     /// <summary>
     /// Subscript operator.
@@ -50,28 +46,12 @@ internal class AssetTimeView
     }
 
     /// <summary>
-    /// Updates the "history begin time" with the new value.
+    /// Returns an instance of block-grid for the given <paramref name="granularity"/>.
     /// </summary>
-    public void SetZeroTimePoint(DateTime newTime) => _zeroTime = newTime;
-
-    /// <summary>
-    /// Resets the "history begin time" to its default value.
-    /// </summary>
-    public void ResetZeroTimePoint() => _zeroTime = DateTime.MinValue;
-
-    /// <summary>
-    /// Returns a collection of "k-lines" that cover the given time interval
-    /// or null if the data in the grid does not fully cover the interval.
-    /// </summary>
-    public IList<KLine> Retrieve(KlineInterval granularity, DateTime timeBegin,
-        DateTime timeEnd, out TimeInterval gapIndicator) =>
-        this[granularity].Retrieve(timeBegin.Max(_zeroTime), timeEnd, out gapIndicator);
-
-    /// <summary>
-    /// Append the given <param name="collection"/> of "k-lines" to the current "grid".
-    /// </summary>
-    public void Append(KlineInterval granularity, IReadOnlyList<KLine> collection) =>
-        this[granularity].Append(collection);
+    public BlockGrid GetGridThreadSafe(KlineInterval granularity)
+    {
+        lock(this) { return this[granularity]; }
+    }
 
     /// <summary>
     /// Saves the "view" into the given folder.
@@ -81,7 +61,7 @@ internal class AssetTimeView
         foreach (var g in _grid)
         {
             var subDir = Directory.CreateDirectory(Path.Combine(folderPath, g.Key.ToString()));
-            g.Value.Save(subDir.FullName);
+            g.Value.SaveThreadSafe(subDir.FullName);
         }
     }
 
