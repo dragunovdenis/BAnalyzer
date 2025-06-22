@@ -167,11 +167,11 @@ public class Binance : IDisposable
         if (!kLines.Success)
             throw new Exception("Failed to get exchange info");
 
-        var kLinesArray = kLines.Data.ToArray();
+        var kLinesArray = kLines.Data.Select(x => new KLine(x)).ToArray();
 
         if (kLinesArray.Length > 0)
         {
-            cacheGrid.AppendThreadSafe(kLinesArray.Select(x => new KLine(x)).ToArray());
+            cacheGrid.AppendThreadSafe(kLinesArray);
 
             if (kLinesArray[0].OpenTime > interval.Begin.Add(granularity.ToTimeSpan()))
                 cacheGrid.SetZeroTimePointThreadSafe(kLinesArray[0].OpenTime);
@@ -201,16 +201,29 @@ public class Binance : IDisposable
     }
 
     /// <summary>
+    /// Cache of a spot-price data.
+    /// </summary>
+    private readonly Dictionary<string, BinancePrice> _priceCache = new();
+
+    /// <summary>
     /// Returns current price for the given symbol.
     /// </summary>
-    public async Task<BinancePrice> GetCurrentPrice(string symbol)
+    public async Task<BinancePrice> GetCurrentPrice(string symbol, int acceptableStalenessMs = 500)
     {
         if (symbol is null or "")
             return null;
 
+        if (_priceCache.TryGetValue(symbol, out var priceCached) &&
+            priceCached != null && priceCached.Timestamp.HasValue)
+        {
+            if (DateTime.UtcNow.Subtract(priceCached.Timestamp.Value).
+                    Duration().TotalMilliseconds < acceptableStalenessMs)
+                return priceCached;
+        }
+
         var price = await _client.SpotApi.ExchangeData.GetPriceAsync(symbol);
 
-        return price.Success ? price.Data : null!;
+        return _priceCache[symbol] = price.Success ? price.Data with {Timestamp = DateTime.UtcNow} : null;
     }
 
     /// <summary>
