@@ -216,7 +216,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private void VisualizePrice(double price)
     {
-        Price = double.IsNaN(price) ? "N/A" : $"Value: {price,6:F5} USDT";
+        Price = double.IsNaN(price) ? "N/A" : $"Value: {DataFormatter.FloatToCompact(price, "{0:0.###}")} USDT";
     }
 
     /// <summary>

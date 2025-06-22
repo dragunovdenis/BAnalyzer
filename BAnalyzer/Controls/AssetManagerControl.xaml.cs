@@ -22,6 +22,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using BAnalyzer.DataStructures;
 
 namespace BAnalyzer.Controls;
@@ -70,10 +71,23 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         set => SetValue(SymbolsProperty, value);
     }
 
+    private readonly DispatcherTimer _updateTimer;
+
+
     /// <summary>
     /// Constructor.
     /// </summary>
-    public AssetManagerControl() => InitializeComponent();
+    public AssetManagerControl()
+    {
+        InitializeComponent();
+
+        _updateTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _updateTimer.Tick += (_, _) => AssetGrid.Items.Refresh();
+        _updateTimer.Start();
+   }
 
     /// <summary>
     /// Asset record selection handler.
@@ -224,17 +238,5 @@ public partial class AssetManagerControl : INotifyPropertyChanged
     protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-    /// <summary>
-    /// Sets the given <param name="field"/> with a "property-changed" notification.
-    /// </summary>
-    protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-
-        field = value;
-        OnPropertyChanged(propertyName);
-        return true;
     }
 }

@@ -206,6 +206,19 @@ public class Binance : IDisposable
     private readonly Dictionary<string, BinancePrice> _priceCache = new();
 
     /// <summary>
+    /// Returns cached spot-price object for the given <paramref name="symbol"/>
+    /// if it exists in the cache or null, otherwise.
+    /// </summary>
+    public BinancePrice GetCachedPrice(string symbol, int acceptableStalenessMs)
+    {
+        if (!_priceCache.TryGetValue(symbol, out var priceCached) ||
+            priceCached == null || !priceCached.Timestamp.HasValue) return null;
+
+        return DateTime.UtcNow.Subtract(priceCached.Timestamp.Value).
+            Duration().TotalMilliseconds < acceptableStalenessMs ? priceCached : null;
+    }
+
+    /// <summary>
     /// Returns current price for the given symbol.
     /// </summary>
     public async Task<BinancePrice> GetCurrentPrice(string symbol, int acceptableStalenessMs = 500)
@@ -213,13 +226,10 @@ public class Binance : IDisposable
         if (symbol is null or "")
             return null;
 
-        if (_priceCache.TryGetValue(symbol, out var priceCached) &&
-            priceCached != null && priceCached.Timestamp.HasValue)
-        {
-            if (DateTime.UtcNow.Subtract(priceCached.Timestamp.Value).
-                    Duration().TotalMilliseconds < acceptableStalenessMs)
-                return priceCached;
-        }
+        var priceCached = GetCachedPrice(symbol, acceptableStalenessMs);
+
+        if (priceCached != null)
+            return priceCached;
 
         var price = await _client.SpotApi.ExchangeData.GetPriceAsync(symbol);
 

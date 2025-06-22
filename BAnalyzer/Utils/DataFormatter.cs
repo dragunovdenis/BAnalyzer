@@ -22,25 +22,30 @@ public static class DataFormatter
     /// <summary>
     /// Formats given number to an approximate compact from.
     /// </summary>
-    public static string FloatToCompact(double value)
+    public static string FloatToCompact(double value) => FloatToCompact(value, null);
+
+    /// <summary>
+    /// Formats given number to an approximate compact from.
+    /// </summary>
+    public static string FloatToCompact(double value, string baseFormat)
     {
         if (Math.Abs(value) < 1)
-            return $"{value:0.#####}";
+            return string.Format(baseFormat ?? "{0:0.#####}", value);
 
         if (Math.Abs(value) < 1e3)
-            return $"{value:0.##}";
+            return string.Format(baseFormat ?? "{0:0.##}", value);
 
         if (Math.Abs(value) < 1e6)
-            return $"{value / 1e3:0.#}K";
+            return string.Format(baseFormat ?? "{0:0.#}", value / 1e3) + "K";
 
         if (Math.Abs(value) < 1e9)
-            return $"{value / 1e6:0.#}M";
+            return string.Format(baseFormat ?? "{0:0.#}", value / 1e6) + "M";
 
         if (Math.Abs(value) < 1e12)
-            return $"{value / 1e9:0.#}B";
+            return string.Format(baseFormat ?? "{0:0.#}", value / 1e9) + "B";
 
         if (Math.Abs(value) < 1e15)
-            return $"{value / 1e12:0.#}T";
+            return string.Format(baseFormat ?? "{0:0.#}", value / 1e12) + "T";
 
         if (double.IsNaN(value))
             return "NaN";
