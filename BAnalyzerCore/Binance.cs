@@ -15,6 +15,7 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using System.Collections.Concurrent;
 using Binance.Net.Clients;
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Spot;
@@ -203,7 +204,7 @@ public class Binance : IDisposable
     /// <summary>
     /// Cache of a spot-price data.
     /// </summary>
-    private readonly Dictionary<string, BinancePrice> _priceCache = new();
+    private readonly ConcurrentDictionary<string, BinancePrice> _priceCache = new();
 
     /// <summary>
     /// Returns cached spot-price object for the given <paramref name="symbol"/>
