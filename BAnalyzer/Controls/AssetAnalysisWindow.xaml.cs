@@ -29,15 +29,39 @@ namespace BAnalyzer.Controls;
 public partial class AssetAnalysisWindow
 {
     /// <summary>
+    /// State of the window.
+    /// </summary>
+    private record State(
+        BAnalyzerCore.Binance Client,
+        IList<string> ExchangeSymbols,
+        ObservableCollection<AssetRecord> Assets,
+        ExchangeSettings Settings,
+        IChartSynchronizationController SyncController);
+
+    private readonly State _sate;
+
+    /// <summary>
     /// Constructor.
     /// </summary>
     public AssetAnalysisWindow(BAnalyzerCore.Binance client, IList<string> exchangeSymbols,
         ObservableCollection<AssetRecord> assets, ExchangeSettings settings,
         IChartSynchronizationController syncController)
     {
+        _sate = new State(client, exchangeSymbols, assets, settings, syncController);
+
         InitializeComponent();
-        AnalysisControl.Activate(client, exchangeSymbols, assets, settings, syncController);
     }
+
+    /// <summary>
+    /// Activates the analysis control.
+    /// </summary>
+    private void ActivateAnalysisControl() => AnalysisControl.Activate(_sate.Client, _sate.ExchangeSymbols,
+        _sate.Assets, _sate.Settings, _sate.SyncController);
+
+    /// <summary>
+    /// Deactivates the analysis control.
+    /// </summary>
+    private void DeactivateAnalysisControl() => AnalysisControl.Deactivate();
 
     /// <summary>
     /// "Minimize" button click event handler.
@@ -54,12 +78,16 @@ public partial class AssetAnalysisWindow
     /// <summary>
     /// "Close" button click event handler.
     /// </summary>
-    private void Close_OnClick(object sender, RoutedEventArgs e) => Close();
+    private void Close_OnClick(object sender, RoutedEventArgs e)
+    {
+        AnalysisControl.Deactivate();
+        Hide();
+    }
 
     /// <summary>
     /// Handles "on-closed" event.
     /// </summary>
-    private void AssetAnalysisWindow_OnClosed(object sender, EventArgs e) => AnalysisControl.Deactivate();
+    private void AssetAnalysisWindow_OnClosed(object sender, EventArgs e) => DeactivateAnalysisControl();
 
     /// <summary>
     /// Header left mouse button click event handler.
@@ -70,5 +98,14 @@ public partial class AssetAnalysisWindow
             WindowState = WindowState == WindowState.Normal ? WindowState.Maximized : WindowState.Normal;
         else
             DragMove();
+    }
+
+    /// <summary>
+    /// Handles "visibility-change" event of the window.
+    /// </summary>
+    private void AssetAnalysisWindow_OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (IsVisible)
+            ActivateAnalysisControl();
     }
 }

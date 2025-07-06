@@ -16,7 +16,6 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -30,9 +29,9 @@ namespace BAnalyzer.Controls;
 /// <summary>
 /// Interaction logic for MainWindow.xaml
 /// </summary>
-public partial class MainWindow : INotifyPropertyChanged
+public partial class MainWindow
 {
-    private IApplicationSettings _settings;
+    private readonly IApplicationSettings _settings;
 
     /// <summary>
     /// Application settings.
@@ -89,24 +88,11 @@ public partial class MainWindow : INotifyPropertyChanged
 
         if (Settings.ControlSynchronization) SynchronizeSettings(null);
 
-        _assetAnalysisWindow = new AssetAnalysisWindow(BinanceClientController.Client,
+        return _assetAnalysisWindow = new AssetAnalysisWindow(BinanceClientController.Client,
             exchangeSymbols, Settings.Assets, settings[settingsId], _chartSyncController)
         {
             Owner = Application.Current.MainWindow
         };
-
-        _assetAnalysisWindow.Closed += _assetAnalysisWindow_Closed;;
-
-        return _assetAnalysisWindow;
-    }
-
-    /// <summary>
-    /// Handles "closed" event of the asset-analysis window.
-    /// </summary>
-    private void _assetAnalysisWindow_Closed(object sender, EventArgs e)
-    {
-        _assetAnalysisWindow.Closed -= _assetAnalysisWindow_Closed;
-        _assetAnalysisWindow = null;
     }
 
     /// <summary>
@@ -157,16 +143,6 @@ public partial class MainWindow : INotifyPropertyChanged
 
         foreach (var ec in Settings.ExchangeSettings)
             ec.Value.Assign(sourceLocal, excludeExchangeDescriptor: true);
-    }
-
-    public event PropertyChangedEventHandler PropertyChanged;
-        
-    /// <summary>
-    /// Property changed handler.
-    /// </summary>
-    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
     private readonly IReadOnlyList<string> _defaultExchangeStockNames =
@@ -223,7 +199,6 @@ public partial class MainWindow : INotifyPropertyChanged
             {
                 BorderThickness = new Thickness(2, 2, colId == 1 ? 2 : 0, rowId == 1 ? 2 : 0),
             };
-               
 
             Grid.SetColumn(exchangeControl, colId);
             Grid.SetRow(exchangeControl, rowId);
@@ -245,16 +220,7 @@ public partial class MainWindow : INotifyPropertyChanged
         foreach (var ec in _exchangeControls)
             ec.DarkMode = Settings.DarkMode;
     }
-       
-    /// <summary>
-    /// Mouse down event handler.
-    /// </summary>
-    private void Exchange_OnMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is CryptoExchangeControl exchange)
-            DragDrop.DoDragDrop(exchange, exchange, DragDropEffects.Move);
-    }
-
+    
     /// <summary>
     /// Closing event handler.
     /// </summary>
