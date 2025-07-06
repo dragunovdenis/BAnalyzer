@@ -85,9 +85,9 @@ public partial class MainWindow : INotifyPropertyChanged
         {
             settings[settingsId] = SetupExchangeSettings("");
             settings[settingsId].PropertyChanged += ExchangeSettings_PropertyChanged;
-
-            if (Settings.ControlSynchronization) SynchronizeSettings(null);
         }
+
+        if (Settings.ControlSynchronization) SynchronizeSettings(null);
 
         _assetAnalysisWindow = new AssetAnalysisWindow(BinanceClientController.Client,
             exchangeSymbols, Settings.Assets, settings[settingsId], _chartSyncController)
