@@ -127,8 +127,6 @@ public partial class MainWindow : INotifyPropertyChanged
         ApplyTheme();
 
         Closing += MainWindow_Closing;
-
-        //Activated += (_,_) => ShowAssetAnalysisMenuItem_OnClick(this, null);
     }
 
     /// <summary>
@@ -172,7 +170,7 @@ public partial class MainWindow : INotifyPropertyChanged
     }
 
     private readonly IReadOnlyList<string> _defaultExchangeStockNames =
-        new[] { "BTCUSDT", "ETHUSDT", "SOLUSDT", "RVNUSDT" };
+        ["BTCUSDT", "ETHUSDT", "SOLUSDT", "RVNUSDT"];
         
     private readonly IList<CryptoExchangeControl> _exchangeControls;
 
@@ -210,7 +208,7 @@ public partial class MainWindow : INotifyPropertyChanged
 
         var settings = ApplicationController.Instance.ApplicationSettings.ExchangeSettings;
 
-        for (var rowId = 1; rowId < 3; rowId++)
+        for (var rowId = 0; rowId < 2; rowId++)
         for (var colId = 0; colId < 2; colId++)
         {
             var settingsId = $"ExchangeControl_{rowId}:{colId}";
@@ -223,16 +221,13 @@ public partial class MainWindow : INotifyPropertyChanged
             var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client,
                 exchangeSymbols, exSettings, _chartSyncController)
             {
-                //AllowDrop = true,
-                BorderThickness = new Thickness(2, 2, colId == 1 ? 2 : 0, rowId == 2 ? 2 : 0),
+                BorderThickness = new Thickness(2, 2, colId == 1 ? 2 : 0, rowId == 1 ? 2 : 0),
             };
-                
-            //exchangeControl.MouseDown += Exchange_OnMouseDown;
-            //exchangeControl.DragEnter += Exchange_OnDragEnter;
+               
 
             Grid.SetColumn(exchangeControl, colId);
             Grid.SetRow(exchangeControl, rowId);
-            MainGrid.Children.Add(exchangeControl);
+            ChartGrid.Children.Add(exchangeControl);
             result.Add(exchangeControl);
         }
 
@@ -258,33 +253,6 @@ public partial class MainWindow : INotifyPropertyChanged
     {
         if (sender is CryptoExchangeControl exchange)
             DragDrop.DoDragDrop(exchange, exchange, DragDropEffects.Move);
-    }
-
-    /// <summary>
-    /// Drop enter event handler.
-    /// </summary>
-    private void Exchange_OnDragEnter(object sender, DragEventArgs e)
-    {
-        var exchangeMoving = (CryptoExchangeControl)e.Data.GetData(typeof(CryptoExchangeControl));
-            
-        if (!(sender is CryptoExchangeControl exchangeWaiting) || exchangeMoving == null ||
-            exchangeWaiting == exchangeMoving)
-            return;
-
-        var colIdMoving = Grid.GetColumn(exchangeMoving);
-        var rowIdMoving = Grid.GetRow(exchangeMoving);
-
-        var colIdWaiting = Grid.GetColumn(exchangeWaiting);
-        var rowIdWaiting = Grid.GetRow(exchangeWaiting);
-
-        Grid.SetColumn(exchangeMoving, colIdWaiting);
-        Grid.SetRow(exchangeMoving, rowIdWaiting);
-
-        Grid.SetColumn(exchangeWaiting, colIdMoving);
-        Grid.SetRow(exchangeWaiting, rowIdMoving);
-
-        (exchangeMoving.BorderThickness, exchangeWaiting.BorderThickness) =
-            (exchangeWaiting.BorderThickness, exchangeMoving.BorderThickness);
     }
 
     /// <summary>

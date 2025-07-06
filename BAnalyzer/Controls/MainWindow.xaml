@@ -33,14 +33,12 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
     <Grid Name="MainGrid">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="5, 5, 5, 0"
+        <Grid Grid.Row="0" Grid.Column="0" Margin="5, 5, 5, 0"
               MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -61,6 +59,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 <MenuItem Header="_View">
                     <MenuItem IsCheckable="true" IsChecked="{Binding ElementName=Ui, Path=Settings.DarkMode, Mode=TwoWay}" Header="_Dark mode"
                               Background = "{DynamicResource BackgroundColor}"/>
+                </MenuItem>
+                <MenuItem Header="_Tools">
                     <MenuItem Background = "{DynamicResource BackgroundColor}" Header="_Asset analysis" Click="ShowAssetAnalysisMenuItem_OnClick"/>
                 </MenuItem>
             </Menu>
@@ -75,8 +75,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 </StackPanel.Resources>
                 <Button Content="_" Click="Minimize_OnClick" ToolTip="Minimize"/>
                 <Button Content="□" Click="Maximize_OnClick" ToolTip="Maximize"/>
-                <Button Content="x" Click="Close_OnClick" ToolTip="Close"/>
+                <Button Content="X" Click="Close_OnClick" ToolTip="Close"/>
             </StackPanel>
         </Grid>
+        <Border Grid.Row="1" Grid.Column="0" BorderThickness="1" Margin ="1"
+                CornerRadius="0, 0, 6, 6" BorderBrush="{DynamicResource ForegroundColor}">
+            <Grid Name="ChartGrid" Margin="5">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

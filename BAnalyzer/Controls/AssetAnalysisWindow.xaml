@@ -60,9 +60,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 </StackPanel.Resources>
                 <Button Content="_" Click="Minimize_OnClick" ToolTip="Minimize"/>
                 <Button Content="□" Click="Maximize_OnClick" ToolTip="Maximize"/>
+                <Button Content="X" Click="Close_OnClick" ToolTip="Close"/>
             </StackPanel>
         </Grid>
-        <local:AssetAnalysisControl Grid.Row="1" Grid.Column="0" x:Name="AnalysisControl"
-                                    DarkMode="{Binding ElementName= Ui, Path= DarkMode}" Margin="10"/>
+        <Border Grid.Row="1" Grid.Column="0" BorderThickness="1" Margin ="1"
+                CornerRadius="0, 0, 6, 6" BorderBrush="{DynamicResource ForegroundColor}">
+        <local:AssetAnalysisControl x:Name="AnalysisControl"
+                                    DarkMode="{Binding ElementName= Ui, Path= DarkMode}" Margin="5"/>
+        </Border>
     </Grid>
 </Window>
