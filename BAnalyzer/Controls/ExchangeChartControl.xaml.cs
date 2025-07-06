@@ -183,6 +183,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// </summary>
     public void RegisterToSynchronizationController(IChartSynchronizationController syncController)
     {
+        _syncController?.UnRegister(this);
         _syncController = syncController;
         _syncController?.Register(this);
     }

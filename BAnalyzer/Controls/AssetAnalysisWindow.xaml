@@ -22,7 +22,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BAnalyzer.Controls"
         mc:Ignorable="d" WindowStyle="None"
-        Height="450" Width="800" Name="Ui">
+        Height="450" Width="800" Name="Ui" Closed="AssetAnalysisWindow_OnClosed">
     <Window.Resources>
         <Style TargetType="{x:Type Grid}">
             <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>

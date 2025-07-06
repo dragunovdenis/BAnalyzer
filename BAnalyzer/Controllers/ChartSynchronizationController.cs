@@ -30,6 +30,12 @@ public interface IChartSynchronizationController
     void Register(ExchangeChartControl control);
 
     /// <summary>
+    /// Un-registers the given control.
+    /// Returns "true" in case of success.
+    /// </summary>
+    bool UnRegister(ExchangeChartControl control);
+
+    /// <summary>
     /// Broadcasts given time-frame end between all the registered controls.
     /// </summary>
     void BroadcastFrameEnd(object sender, double frameEnd);
@@ -73,7 +79,22 @@ internal class ChartSynchronizationController : IChartSynchronizationController
     }
 
     /// <inheritdoc/>
-    public void Register(ExchangeChartControl control) => _controls.Add(control);
+    public void Register(ExchangeChartControl control)
+    {
+        if (control == null) throw new ArgumentNullException(nameof(control));
+
+        _controls.Add(control);
+
+        if (_controls.Count > 1 && _synchronizationEnabled)
+        {
+            var source = _controls.First();
+            control.UpdateTimeFrameEndNoBroadcast(source.TimeFrameEndLocalTime);
+            control.UpdateInFocusTimeNoBroadcast(source.InFocusTime);
+        }
+    }
+
+    /// <inheritdoc/>
+    public bool UnRegister(ExchangeChartControl control) => _controls.Remove(control);
 
     /// <summary>
     /// General method to broadcast property values.

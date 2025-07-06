@@ -35,7 +35,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
 {
     private BAnalyzerCore.Binance _client = null;
 
-    private Timer _updateTimer;
+    private System.Timers.Timer _updateTimer;
 
     private ObservableCollection<string> _symbols = null!;
 
@@ -160,20 +160,61 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
             new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
                 Where(x => x != KlineInterval.OneSecond));
 
-        Assets.CollectionChanged += Assets_CollectionChanged;
         Assets = assets;
+        Assets.CollectionChanged += Assets_CollectionChanged;
 
         AssetManager.PropertyChanged += AssetManager_PropertyChanged;
 
         Symbols = new ObservableCollection<string>(exchangeSymbols);
         Chart.PropertyChanged += ChartOnPropertyChanged;
 
-        _updateTimer = new Timer(async _ =>
-            {
-                await UpdateChartAsync(forceCompleteUpdate: true);
-                await UpdatePrice();
-            },
-            new AutoResetEvent(false), 1000, 1000);
+        _updateTimer = new System.Timers.Timer(1000);
+        _updateTimer.Elapsed += _updateTimer_Elapsed;  
+
+        _updateTimer.Start();
+    }
+
+    /// <summary>
+    /// Handles "elapsed" event of the timer.
+    /// </summary>
+    private async void _updateTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+    {
+        await UpdateChartAsync(forceCompleteUpdate: true);
+        await UpdatePrice();
+    }
+
+    /// <summary>
+    /// Indicates whether the control is activated or not.
+    /// </summary>
+    private bool IsActivated => _client != null;
+
+    /// <summary>
+    /// Does opposite to what <see cref="Activate"/> does.
+    /// </summary>
+    public void Deactivate()
+    {
+        Chart.RegisterToSynchronizationController(null);
+
+        if (_updateTimer != null)
+        {
+            _updateTimer.Elapsed -= _updateTimer_Elapsed;
+            _updateTimer.Stop();
+            _updateTimer.Dispose();
+            _updateTimer = null;
+        }
+
+        if (Assets != null)
+        {
+            Assets.CollectionChanged -= Assets_CollectionChanged;
+            Assets = null;
+        }
+
+        AssetManager.PropertyChanged -= AssetManager_PropertyChanged;
+
+        Chart.PropertyChanged -= ChartOnPropertyChanged;
+
+        Settings = null;
+        _client = null;
     }
 
     /// <summary>
@@ -470,9 +511,12 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Builds update request for "k-line" data according to the current state of the system.
     /// </summary>
-    private UpdateRequest BuildKLineRequest(bool force) =>
-        new(new TimeFrame(TimeDiscretization, Settings.StickRange, DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
-        Assets.ToArray(), _kLineUpdateController.IssueNewRequest(), force, _kLineUpdateController);
+    private UpdateRequest BuildKLineRequest(bool force)
+    {
+        return IsActivated ? new UpdateRequest(new TimeFrame(TimeDiscretization, Settings.StickRange,
+                DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
+            Assets.ToArray(), _kLineUpdateController.IssueNewRequest(), force, _kLineUpdateController) : null;
+    }
 
     /// <summary>
     /// Method to update chart.
@@ -482,6 +526,9 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         try
         {
             var kLineUpdateRequest = Dispatcher.Invoke(() => BuildKLineRequest(forceCompleteUpdate));
+
+            if (kLineUpdateRequest == null)
+                return;
 
             var sticks = await RetrieveKLines(kLineUpdateRequest, _client);
 
@@ -499,8 +546,9 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Builds update request for "price" data according to the current state of the system.
     /// </summary>
-    private UpdateRequestMinimal BuildPriceRequest() =>
-        new(Assets.ToArray(), _priceUpdateController.IssueNewRequest(), _priceUpdateController);
+    private UpdateRequestMinimal BuildPriceRequest() => IsActivated ?
+        new UpdateRequestMinimal(Assets.ToArray(), _priceUpdateController.IssueNewRequest(),
+            _priceUpdateController) : null;
 
     /// <summary>
     /// Method to update price label.
@@ -510,6 +558,9 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         try
         {
             var priceUpdateRequest = Dispatcher.Invoke(BuildPriceRequest);
+
+            if (priceUpdateRequest == null)
+                return;
 
             var price = await RetrievePrice(priceUpdateRequest, _client);
 

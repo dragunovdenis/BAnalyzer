@@ -83,15 +83,30 @@ public partial class MainWindow : INotifyPropertyChanged
         var settingsId = "AssetAnalysisWindow";
         if (!settings.ContainsKey(settingsId))
         {
-            settings.Add(settingsId, SetupExchangeSettings(""));
+            settings[settingsId] = SetupExchangeSettings("");
             settings[settingsId].PropertyChanged += ExchangeSettings_PropertyChanged;
+
+            if (Settings.ControlSynchronization) SynchronizeSettings(null);
         }
 
-        return _assetAnalysisWindow = new AssetAnalysisWindow(BinanceClientController.Client,
+        _assetAnalysisWindow = new AssetAnalysisWindow(BinanceClientController.Client,
             exchangeSymbols, Settings.Assets, settings[settingsId], _chartSyncController)
         {
             Owner = Application.Current.MainWindow
         };
+
+        _assetAnalysisWindow.Closed += _assetAnalysisWindow_Closed;;
+
+        return _assetAnalysisWindow;
+    }
+
+    /// <summary>
+    /// Handles "closed" event of the asset-analysis window.
+    /// </summary>
+    private void _assetAnalysisWindow_Closed(object sender, EventArgs e)
+    {
+        _assetAnalysisWindow.Closed -= _assetAnalysisWindow_Closed;
+        _assetAnalysisWindow = null;
     }
 
     /// <summary>
@@ -137,8 +152,13 @@ public partial class MainWindow : INotifyPropertyChanged
     /// </summary>
     private void SynchronizeSettings(ExchangeSettings source)
     {
+        var sourceLocal = source ?? Settings.ExchangeSettings.Values.FirstOrDefault();
+
+        if (sourceLocal == null)
+            return;
+
         foreach (var ec in Settings.ExchangeSettings)
-            ec.Value.Assign(source, excludeExchangeDescriptor: true);
+            ec.Value.Assign(sourceLocal, excludeExchangeDescriptor: true);
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
@@ -276,7 +296,7 @@ public partial class MainWindow : INotifyPropertyChanged
             ec.Dispose();
 
         _exchangeControls.Clear();
-        _assetAnalysisWindow?.Dispose();
+        _assetAnalysisWindow?.Close();
     }
 
     /// <summary>

@@ -16,8 +16,6 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 using BAnalyzer.Controllers;
@@ -28,19 +26,8 @@ namespace BAnalyzer.Controls;
 /// <summary>
 /// Interaction logic for AssetAnalysisWindow.xaml
 /// </summary>
-public partial class AssetAnalysisWindow : Window, IDisposable, INotifyPropertyChanged
+public partial class AssetAnalysisWindow
 {
-    private bool _darkMode = true;
-
-    /// <summary>
-    /// Switches between white and dark modes.
-    /// </summary>
-    public bool DarkMode
-    {
-        get => _darkMode;
-        set => SetField(ref _darkMode, value);
-    }
-
     /// <summary>
     /// Constructor.
     /// </summary>
@@ -53,16 +40,26 @@ public partial class AssetAnalysisWindow : Window, IDisposable, INotifyPropertyC
     }
 
     /// <summary>
-    /// Minimize button click event handler.
+    /// "Minimize" button click event handler.
     /// </summary>
     private void Minimize_OnClick(object sender, RoutedEventArgs e) =>
         WindowState = WindowState.Minimized;
 
     /// <summary>
-    /// Maximize button click event handler.
+    /// "Maximize" button click event handler.
     /// </summary>
     private void Maximize_OnClick(object sender, RoutedEventArgs e) =>
         WindowState = WindowState == WindowState.Normal ? WindowState.Maximized : WindowState.Normal;
+
+    /// <summary>
+    /// "Close" button click event handler.
+    /// </summary>
+    private void Close_OnClick(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>
+    /// Handles "on-closed" event.
+    /// </summary>
+    private void AssetAnalysisWindow_OnClosed(object sender, EventArgs e) => AnalysisControl.Deactivate();
 
     /// <summary>
     /// Header left mouse button click event handler.
@@ -73,31 +70,5 @@ public partial class AssetAnalysisWindow : Window, IDisposable, INotifyPropertyC
             WindowState = WindowState == WindowState.Normal ? WindowState.Maximized : WindowState.Normal;
         else
             DragMove();
-    }
-
-    /// <summary>
-    /// Closes the window.
-    /// </summary>
-    public void Dispose() => Close();
-
-    public event PropertyChangedEventHandler PropertyChanged;
-
-    /// <summary>
-    /// Raises property-changed event.
-    /// </summary>
-    private void OnPropertyChanged([CallerMemberName] string propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-    /// <summary>
-    /// Sets field and raises the corresponding property-changed event.
-    /// </summary>
-    private bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-        field = value;
-        OnPropertyChanged(propertyName);
-        return true;
     }
 }

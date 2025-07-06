@@ -134,6 +134,8 @@ public class ExchangeSettings : IExchangeSettings
     /// <inheritdoc/>
     public void Assign(IExchangeSettings source, bool excludeExchangeDescriptor = false)
     {
+        if (this == source) return;
+
         if (!excludeExchangeDescriptor)
             ExchangeDescriptor = source.ExchangeDescriptor;
 
