@@ -161,7 +161,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         var sticks = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameDuration),
             timeFrame.End.Add(frameDuration), timeFrame.Discretization, exchangeDescriptor, request.Force);
 
-        if (!request.IsRequestStillRelevant())
+        if (!request.IsRequestStillRelevant() || sticks == null)
             return null;
 
         var (priceIndicators, volumeIndicators, windowSize) =
