@@ -148,8 +148,15 @@ public class Binance : IDisposable
             {
                 var lastKline = cachedResult.Last();
                 // We need to update the last "k-line"
-                var latestKline = (await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
-                    startTime: lastKline.OpenTime, endTime: lastKline.CloseTime)).Data.ToArray();
+
+                var binanceResult = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
+                    startTime: lastKline.OpenTime, endTime: lastKline.CloseTime);
+
+                if (!binanceResult.Success)
+                    // return empty list instead of throwing an exception in order to make application more robust
+                    return new List<KLine>(); 
+
+                var latestKline = binanceResult.Data.ToArray();
 
                 var updatedKline = new KLine(latestKline[^1]);
                 cachedResult[^1] = updatedKline;
@@ -166,7 +173,8 @@ public class Binance : IDisposable
             startTime: interval.Begin, endTime: interval.End, limit: 1500);
 
         if (!kLines.Success)
-            throw new Exception("Failed to get exchange info");
+            // return empty list instead of throwing an exception in order to make application more robust
+            return new List<KLine>();
 
         var kLinesArray = kLines.Data.Select(x => new KLine(x)).ToArray();
 

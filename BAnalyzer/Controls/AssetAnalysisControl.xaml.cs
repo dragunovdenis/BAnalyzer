@@ -387,7 +387,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
                 return Task.CompletedTask;
 
             var price = await client.GetCurrentPrice(asset.Symbol);
-            prices[assetId] = asset.Value((double)price.Price);
+
+            prices[assetId] = asset.Value(price != null ? (double)price.Price : double.NaN);
             return Task.CompletedTask;
         }));
 
