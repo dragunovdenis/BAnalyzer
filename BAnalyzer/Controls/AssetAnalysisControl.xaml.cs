@@ -271,23 +271,13 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         if (!TimeIsPracticallyTheSame(priceStick.DateTime, valueStick.DateTime))
             throw new InvalidOperationException("Sticks must correspond to the same time-frame.");
 
-        return AdjustHighLow(valueStick with
+        return valueStick with
         {
             Open = valueStick.Open + asset.Value(priceStick.Open),
             Close = valueStick.Close + asset.Value(priceStick.Close),
-        });
-    }
-
-    /// <summary>
-    /// Returns the given <param name="valueStick"/> with its "high" and "low" field values
-    /// adjusted according to the "open" and "close" field values.
-    /// </summary>
-    private static OHLC AdjustHighLow(OHLC valueStick)
-    {
-        var maxValue = Math.Max(valueStick.Open, valueStick.Close);
-        var minValue = Math.Min(valueStick.Open, valueStick.Close);
-
-        return valueStick with { High = maxValue, Low = minValue };
+            Low = valueStick.Low + asset.Value(priceStick.Low),
+            High = valueStick.High + asset.Value(priceStick.High),
+        };
     }
 
     /// <summary>
@@ -296,15 +286,15 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private static OHLC ToValue(OHLC priceStick, AssetRecord asset)
     {
-        var result = new OHLC()
+        return new OHLC()
         {
             DateTime = priceStick.DateTime,
             TimeSpan = priceStick.TimeSpan,
             Open = asset.Value(priceStick.Open),
             Close = asset.Value(priceStick.Close),
+            Low = asset.Value(priceStick.Low),
+            High = asset.Value(priceStick.High),
         };
-
-        return AdjustHighLow(result);
     }
 
     /// <summary>
