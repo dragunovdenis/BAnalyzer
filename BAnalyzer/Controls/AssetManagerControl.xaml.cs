@@ -71,8 +71,7 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         set => SetValue(SymbolsProperty, value);
     }
 
-    private readonly DispatcherTimer _updateTimer;
-
+    private DispatcherTimer _updateTimer;
 
     /// <summary>
     /// Constructor.
@@ -80,14 +79,29 @@ public partial class AssetManagerControl : INotifyPropertyChanged
     public AssetManagerControl()
     {
         InitializeComponent();
+    }
 
+    /// <summary>
+    /// Activates the control.
+    /// </summary>
+    public void Activate()
+    {
         _updateTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
         };
         _updateTimer.Tick += (_, _) => AssetGrid.Items.Refresh();
         _updateTimer.Start();
-   }
+    }
+
+    /// <summary>
+    /// De-activates the control.
+    /// </summary>
+    public void Deactivate()
+    {
+        _updateTimer.Stop();
+        _updateTimer = null;
+    }
 
     /// <summary>
     /// Asset record selection handler.

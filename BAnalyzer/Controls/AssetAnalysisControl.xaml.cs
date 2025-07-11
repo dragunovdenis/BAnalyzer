@@ -163,6 +163,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         Assets = assets;
         Assets.CollectionChanged += Assets_CollectionChanged;
 
+        AssetManager.Activate();
         AssetManager.PropertyChanged += AssetManager_PropertyChanged;
 
         Symbols = new ObservableCollection<string>(exchangeSymbols);
@@ -210,6 +211,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         }
 
         AssetManager.PropertyChanged -= AssetManager_PropertyChanged;
+        AssetManager.Deactivate();
 
         Chart.PropertyChanged -= ChartOnPropertyChanged;
 
