@@ -15,35 +15,16 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using BAnalyzerCore.DataStructures;
-using ScottPlot;
 
 namespace BAnalyzer.Utils;
 
 /// <summary>
-/// Extension methods that convert data.
+/// Extension methods for IEnumerable implementing types.
 /// </summary>
-internal static class ExtensionConverters
+public static class EnumerableExtensions
 {
     /// <summary>
-    /// Converter.
+    /// Returns "true" if the given <paramref name="collection"/> is null or empty.
     /// </summary>
-    public static OHLC[] ToScottPlotCandleSticks(this IList<KLine> candleStickData) =>
-        candleStickData.Select(x => x.ToScottPlotCandleStick()).ToArray();
-
-    /// <summary>
-    /// Converts the "binance" candle-stick into a "scott-plot" candle-stick.
-    /// </summary>
-    public static OHLC ToScottPlotCandleStick(this KLine candleStick)
-    {
-        return new OHLC()
-        {
-            Close = candleStick.ClosePrice,
-            Open = candleStick.OpenPrice,
-            High = candleStick.HighPrice,
-            Low = candleStick.LowPrice,
-            TimeSpan = candleStick.CloseTime - candleStick.OpenTime,
-            DateTime = candleStick.OpenTime.Add(0.5 * (candleStick.CloseTime - candleStick.OpenTime)).ToLocalTime()
-        };
-    }
+    public static bool IsNullOrEmpty<T>(this IEnumerable<T> collection) => collection == null || !collection.Any();
 }

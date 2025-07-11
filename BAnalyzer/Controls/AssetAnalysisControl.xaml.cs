@@ -423,11 +423,13 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
 
             var symbol = asset.Symbol;
 
-            var priceSticks = (await client.GetCandleSticksAsync(frameBegin, frameEnd,
-                timeFrame.Discretization, symbol, request.Force)).Select(x => x.ToScottPlotCandleStick()).Reverse().ToArray();
+            var (data, success) = await client.GetCandleSticksAsync(frameBegin, frameEnd,
+                timeFrame.Discretization, symbol, request.Force);
 
-            if (priceSticks.Length == 0)
-                continue;
+            if (!success || data.IsNullOrEmpty())
+                return null;
+
+            var priceSticks = data.Select(x => x.ToScottPlotCandleStick()).Reverse().ToArray();
 
             valueSticks = valueSticks == null ? priceSticks.Select(x => ToValue(x, asset)).ToArray() :
                 Append(valueSticks, priceSticks, asset);
@@ -504,7 +506,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private UpdateRequest BuildKLineRequest(bool force)
     {
-        return IsActivated ? new UpdateRequest(new TimeFrame(TimeDiscretization, Settings.StickRange,
+        return IsActivated && _kLineUpdateController.PendingRequestsCount == 0 ?
+            new UpdateRequest(new TimeFrame(TimeDiscretization, Settings.StickRange,
                 DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
             Assets.ToArray(), _kLineUpdateController.IssueNewRequest(), force, _kLineUpdateController) : null;
     }
@@ -525,7 +528,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
 
             Dispatcher.Invoke(() =>
             {
-                if (sticks != null && _kLineUpdateController.TryApplyRequest(sticks.UpdateRequestId))
+                if (_kLineUpdateController.TryApplyRequest(kLineUpdateRequest.UpdateRequestId) && sticks != null)
                     VisualizeSticks(sticks);
             });
         }
@@ -537,7 +540,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Builds update request for "price" data according to the current state of the system.
     /// </summary>
-    private UpdateRequestMinimal BuildPriceRequest() => IsActivated ?
+    private UpdateRequestMinimal BuildPriceRequest() => IsActivated && _priceUpdateController.PendingRequestsCount == 0 ?
         new UpdateRequestMinimal(Assets.ToArray(), _priceUpdateController.IssueNewRequest(),
             _priceUpdateController) : null;
 

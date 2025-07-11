@@ -36,7 +36,7 @@ internal interface IUpdateControllerReadOnly
 /// </summary>
 internal class UpdateController : IUpdateControllerReadOnly
 {
-    private volatile int _latestIssueRequestId = 0;
+    private volatile int _latestIssueRequestId = -1;
     private volatile int _latestAppliedRequestId = -1;
 
     /// <summary>
@@ -65,4 +65,9 @@ internal class UpdateController : IUpdateControllerReadOnly
     {
         return _latestAppliedRequestId < requestId;
     }
+
+    /// <summary>
+    /// Number of pending requests (i.e., those that have been issued but not applied yet).
+    /// </summary>
+    public int PendingRequestsCount => _latestIssueRequestId - _latestAppliedRequestId;
 }

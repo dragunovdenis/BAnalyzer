@@ -158,10 +158,10 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             return null;
 
         var frameDuration = timeFrame.Duration;
-        var sticks = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameDuration),
+        var (sticks, success) = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameDuration),
             timeFrame.End.Add(frameDuration), timeFrame.Discretization, exchangeDescriptor, request.Force);
 
-        if (!request.IsRequestStillRelevant() || sticks == null)
+        if (!request.IsRequestStillRelevant() || !success || sticks.IsNullOrEmpty())
             return null;
 
         var (priceIndicators, volumeIndicators, windowSize) =
@@ -268,9 +268,9 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Builds "k-line" update request according to the current state of the system.
     /// </summary>
-    private UpdateRequest BuildKLineRequest(bool force) =>
-        new(new TimeFrame(TimeDiscretization, Settings.StickRange, DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
-        ExchangeDescriptor, _kLineUpdateController.IssueNewRequest(), force, _kLineUpdateController);
+    private UpdateRequest BuildKLineRequest(bool force) => _kLineUpdateController.PendingRequestsCount == 0 ?
+        new (new TimeFrame(TimeDiscretization, Settings.StickRange, DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
+        ExchangeDescriptor, _kLineUpdateController.IssueNewRequest(), force, _kLineUpdateController) : null;
 
     /// <summary>
     /// Updates chart.
@@ -282,14 +282,14 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             var (updateRequest, settings) = Dispatcher.Invoke(() => (BuildKLineRequest(force),
                 new AnalysisSettings(Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow)));
 
-            var sticks = await RetrieveSticks(updateRequest, _client, settings);
-
-            if (sticks == null)
+            if (updateRequest == null)
                 return;
+
+            var sticks = await RetrieveSticks(updateRequest, _client, settings);
 
             Dispatcher.Invoke(() =>
             {
-                if (_kLineUpdateController.TryApplyRequest(sticks.UpdateRequestId))
+                if (_kLineUpdateController.TryApplyRequest(updateRequest.UpdateRequestId) && sticks != null)
                     VisualizeSticks(sticks);
             });
         }
@@ -301,8 +301,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Builds price update request according to the current state of the system.
     /// </summary>
-    private UpdateRequestMinimal BuildPriceRequest() =>
-        new(ExchangeDescriptor, _priceUpdateController.IssueNewRequest(), _priceUpdateController);
+    private UpdateRequestMinimal BuildPriceRequest() => _priceUpdateController.PendingRequestsCount == 0 ?
+        new (ExchangeDescriptor, _priceUpdateController.IssueNewRequest(), _priceUpdateController) : null;
 
     /// <summary>
     /// Updates "price" label.
@@ -312,14 +312,14 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         try
         {
             var updateRequest = Dispatcher.Invoke(BuildPriceRequest);
-            var price = await _client.GetCurrentPrice(updateRequest.ExchangeDescriptor);
 
-            if (price == null)
-                return;
+            if (updateRequest == null) return;
+
+            var price = await _client.GetCurrentPrice(updateRequest.ExchangeDescriptor);
 
             Dispatcher.Invoke(() =>
             {
-                if (_priceUpdateController.TryApplyRequest(updateRequest.UpdateRequestId))
+                if (_priceUpdateController.TryApplyRequest(updateRequest.UpdateRequestId) && price != null)
                     VisualizePrice((double)price.Price);
             });
         }
@@ -331,8 +331,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Builds order update request according to the current state of the system.
     /// </summary>
-    private UpdateRequestMinimal BuildOrderRequest() =>
-        new(ExchangeDescriptor, _orderUpdateController.IssueNewRequest(), _orderUpdateController);
+    private UpdateRequestMinimal BuildOrderRequest() => _orderUpdateController.PendingRequestsCount == 0 ?
+        new (ExchangeDescriptor, _orderUpdateController.IssueNewRequest(), _orderUpdateController) : null;
 
     /// <summary>
     /// Updates orders.
@@ -341,19 +341,16 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var (updateRequest, tabSelected) = Dispatcher.Invoke(() => (BuildOrderRequest(), OrdersTab.IsSelected));
+            var updateRequest = Dispatcher.Invoke(() => OrdersTab.IsSelected ? BuildOrderRequest() : null);
 
-            if (!tabSelected)
+            if (updateRequest == null)
                 return;
 
             var orderBook = await RetrieveOrderBook(updateRequest, _client);
 
-            if (orderBook == null)
-                return;
-
             Dispatcher.Invoke(() =>
             {
-                if (_orderUpdateController.TryApplyRequest(updateRequest.UpdateRequestId))
+                if (_orderUpdateController.TryApplyRequest(updateRequest.UpdateRequestId) && orderBook != null)
                     VisualizeOrders(orderBook);
             });
         }

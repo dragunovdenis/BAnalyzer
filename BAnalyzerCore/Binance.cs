@@ -125,7 +125,7 @@ public class Binance : IDisposable
     /// <summary>
     /// Returns "k-line" data.
     /// </summary>
-    public async Task<IList<KLine>> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
+    public async Task<(IList<KLine> Data, bool Success)> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
         KlineInterval granularity, string symbol, bool ensureLatestData)
     {
         // Binance client usually has troubles retrieving
@@ -136,7 +136,7 @@ public class Binance : IDisposable
         timeEnd = timeEnd.Min(localNow);
 
         if (timeBegin >= timeEnd)
-            return new List<KLine>();
+            return (new List<KLine>(), true);
 
         var cacheGrid = _cache.GetAssetViewThreadSafe(symbol).GetGridThreadSafe(granularity);
 
@@ -153,8 +153,7 @@ public class Binance : IDisposable
                     startTime: lastKline.OpenTime, endTime: lastKline.CloseTime);
 
                 if (!binanceResult.Success)
-                    // return empty list instead of throwing an exception in order to make application more robust
-                    return new List<KLine>(); 
+                    return (new List<KLine>(), false); 
 
                 var latestKline = binanceResult.Data.ToArray();
 
@@ -164,7 +163,7 @@ public class Binance : IDisposable
                 cacheGrid.AppendThreadSafe([updatedKline]);
             }
 
-            return cachedResult;
+            return (cachedResult, true);
         }
 
         var interval = GetTimeIntervalToRetrieveFromServer(timeBegin, timeEnd, granularity, cacheGapInterval, localNow);
@@ -173,8 +172,7 @@ public class Binance : IDisposable
             startTime: interval.Begin, endTime: interval.End, limit: 1500);
 
         if (!kLines.Success)
-            // return empty list instead of throwing an exception in order to make application more robust
-            return new List<KLine>();
+            return (new List<KLine>(), false);
 
         var kLinesArray = kLines.Data.Select(x => new KLine(x)).ToArray();
 
@@ -194,10 +192,10 @@ public class Binance : IDisposable
             // because, in fact, we have even an older data present
             // in the cache.
             // So, let's just return what we have.
-            return cacheGrid.RetrieveRobustThreadSafe(timeBegin, cacheGapInterval.Begin, out _);
+            return (cacheGrid.RetrieveRobustThreadSafe(timeBegin, cacheGapInterval.Begin, out _), true);
         }
 
-        return cacheGrid.RetrieveRobustThreadSafe(timeBegin, timeEnd, out _);
+        return (cacheGrid.RetrieveRobustThreadSafe(timeBegin, timeEnd, out _), true);
     }
 
     /// <summary>
