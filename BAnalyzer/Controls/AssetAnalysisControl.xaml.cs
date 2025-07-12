@@ -15,16 +15,18 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using BAnalyzer.DataStructures;
-using Binance.Net.Enums;
 using BAnalyzer.Controllers;
-using System.Windows;
+using BAnalyzer.DataStructures;
 using BAnalyzer.Utils;
 using BAnalyzerCore;
+using Binance.Net.Enums;
 using ScottPlot;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Windows;
+using System.Windows.Threading;
 
 namespace BAnalyzer.Controls;
 
@@ -35,7 +37,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
 {
     private BAnalyzerCore.Binance _client = null;
 
-    private System.Timers.Timer _updateTimer;
+    private DispatcherTimer _updateTimer;
 
     private ObservableCollection<string> _symbols = null!;
 
@@ -138,8 +140,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Handles property changed events of the settings.
     /// </summary>
-    private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e) =>
-        Task.Run(async () => await UpdateChartAsync(forceCompleteUpdate: false));
+    private async void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e) =>
+        await UpdateChartAsync(fundamentalUpdate: false);
 
     /// <summary>
     /// Constructor.
@@ -169,18 +171,20 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         Symbols = new ObservableCollection<string>(exchangeSymbols);
         Chart.PropertyChanged += ChartOnPropertyChanged;
 
-        _updateTimer = new System.Timers.Timer(1000);
-        _updateTimer.Elapsed += _updateTimer_Elapsed;  
-
+        _updateTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _updateTimer.Tick += TimerTickEventHandler;  
         _updateTimer.Start();
     }
 
     /// <summary>
-    /// Handles "elapsed" event of the timer.
+    /// Handles "tick" event of the timer.
     /// </summary>
-    private async void _updateTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+    private async void TimerTickEventHandler(object sender, EventArgs e)
     {
-        await UpdateChartAsync(forceCompleteUpdate: true);
+        await UpdateChartAsync(fundamentalUpdate: true);
         await UpdatePrice();
     }
 
@@ -194,13 +198,14 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     public void Deactivate()
     {
+        if (!IsActivated) return;
+
         Chart.RegisterToSynchronizationController(null);
 
         if (_updateTimer != null)
         {
-            _updateTimer.Elapsed -= _updateTimer_Elapsed;
+            _updateTimer.Tick -= TimerTickEventHandler;
             _updateTimer.Stop();
-            _updateTimer.Dispose();
             _updateTimer = null;
         }
 
@@ -222,26 +227,26 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Handles change of properties of the "asset manager".
     /// </summary>
-    private void AssetManager_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    private async void AssetManager_PropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        if (sender is AssetManagerControl control && e.PropertyName == nameof(control.Assets))
-            Task.Run(async () => await UpdateChartAsync(forceCompleteUpdate: false));
+        if (sender is AssetManagerControl && e.PropertyName == nameof(AssetManagerControl.Assets))
+            await UpdateChartAsync(fundamentalUpdate: false);
     }
 
     /// <summary>
     /// Handles change of chart properties.
     /// </summary>
-    private void ChartOnPropertyChanged(object sender, PropertyChangedEventArgs e)
+    private async void ChartOnPropertyChanged(object sender, PropertyChangedEventArgs e)
     {
-        if (sender is ExchangeChartControl chart && e.PropertyName == nameof(chart.TimeFrameEndLocalTime))
-            Task.Run(async () => await UpdateChartAsync(forceCompleteUpdate: false));
+        if (sender is ExchangeChartControl && e.PropertyName == nameof(ExchangeChartControl.TimeFrameEndLocalTime))
+            await UpdateChartAsync(fundamentalUpdate: false);
     }
 
     /// <summary>
     /// Handles change of the collection of assets.
     /// </summary>
-    private void Assets_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
-        Task.Run(async () => await UpdateChartAsync(forceCompleteUpdate: false));
+    private async void Assets_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e) =>
+        await UpdateChartAsync(fundamentalUpdate: false);
 
     /// <summary>
     /// Visualizes the given sticks-and-price data. Must be called in UI thread.
@@ -384,13 +389,13 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
             return Task.CompletedTask;
         }));
 
-        return new PriceData(prices.Sum(), request.UpdateRequestId);
+        return new PriceData(prices.Sum());
     }
 
     /// <summary>
     /// Returns an empty data that will clear the chart.
     /// </summary>
-    private static ChartData EmptyChartData(int updateRequestId) => new([], null, updateRequestId,
+    private static ChartData EmptyChartData() => new([], null,
         [], [], 0, 0);
 
     /// <summary>
@@ -402,7 +407,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         var assets = request.Assets.Select(x => x.Copy()).ToList();
 
         if (timeFrame == null || timeFrame.Discretization == default ||
-            assets.Count == 0 || client == null || !request.IsRequestStillRelevant())
+            assets.Count == 0 || client == null || request.Cancelled)
             return null;
 
         // In case of "three days" granularity k-lines can be misaligned for entire day or two.
@@ -410,7 +415,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         // The current solution is just skip the evaluation if we have more
         // than one asset to process.
         if (timeFrame.Discretization == KlineInterval.ThreeDay && assets.Count(x => x.Selected) > 1)
-            return EmptyChartData(request.UpdateRequestId);
+            return EmptyChartData();
 
         var frameDuration = timeFrame.Duration;
         var frameBegin = timeFrame.Begin.Subtract(frameDuration);
@@ -426,42 +431,28 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
             var symbol = asset.Symbol;
 
             var (data, success) = await client.GetCandleSticksAsync(frameBegin, frameEnd,
-                timeFrame.Discretization, symbol, request.Force);
+                timeFrame.Discretization, symbol, request.FundamentalUpdate);
 
-            if (!success || data.IsNullOrEmpty())
+            if (!success || data.IsNullOrEmpty() || request.Cancelled)
                 return null;
 
             var priceSticks = data.Select(x => x.ToScottPlotCandleStick()).Reverse().ToArray();
 
             valueSticks = valueSticks == null ? priceSticks.Select(x => ToValue(x, asset)).ToArray() :
                 Append(valueSticks, priceSticks, asset);
-
-            if (!request.IsRequestStillRelevant())
-                return null;
         }
 
         valueSticks = valueSticks.Reverse().ToArray();
 
-        return new ChartData(valueSticks, null, request.UpdateRequestId, [], [],
+        return new ChartData(valueSticks, null, [], [],
             0, frameDuration.TotalDays);
     }
 
     /// <summary>
     /// The input needed to request current price of selected "assets".
     /// </summary>
-    private class UpdateRequestMinimal(IList<AssetRecord> assets, int updateRequestId,
-        IUpdateControllerReadOnly updateController)
+    private class UpdateRequestMinimal(IList<AssetRecord> assets)
     {
-        /// <summary>
-        /// Returns "true" if the request should be processed further on.
-        /// </summary>
-        public virtual bool IsRequestStillRelevant() => updateController.IsRequestStillRelevant(UpdateRequestId);
-
-        /// <summary>
-        /// Request ID of the update to ensure that updates are applied in a chronological order.
-        /// </summary>
-        public int UpdateRequestId { get; } = updateRequestId;
-
         /// <summary>
         /// Collection of assets to process.
         /// </summary>
@@ -473,21 +464,27 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private class UpdateRequest : UpdateRequestMinimal
     {
+        private readonly CancellationTokenSource _cancellationTokenSource = new();
+
+        /// <summary>
+        /// Returns "true" if cancellation was requested.
+        /// </summary>
+        public bool Cancelled => _cancellationTokenSource.Token.IsCancellationRequested;
+
+        /// <summary>
+        /// Cancels the request.
+        /// </summary>
+        public void Cancel() => _cancellationTokenSource.Cancel();
+
         /// <summary>
         /// Constructor.
         /// </summary>
         public UpdateRequest(TimeFrame timeFrame, IList<AssetRecord> assets,
-            int updateRequestId, bool force, IUpdateControllerReadOnly updateController) :
-            base(assets, updateRequestId, updateController)
+            bool fundamentalUpdate) : base(assets)
         {
             TimeFrame = timeFrame;
-            Force = force;
+            FundamentalUpdate = fundamentalUpdate;
         }
-
-        /// <summary>
-        /// Returns "true" if the request should be processed further on.
-        /// </summary>
-        public override bool IsRequestStillRelevant() => Force || base.IsRequestStillRelevant();
 
         /// <summary>
         /// Time frame of the update.
@@ -495,78 +492,115 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         public TimeFrame TimeFrame { get; }
 
         /// <summary>
-        /// Determines whether the request should be applied despite,
-        /// for example, the system being overloaded by other requests.
+        /// If "true" the request can possibly result in some queries to Binance server, whereas if "false"
+        /// the request most probably will be resolved using chased data (if available).
         /// </summary>
-        public bool Force { get; }
+        public bool FundamentalUpdate { get; }
     }
 
-    private readonly UpdateController _kLineUpdateController = new();
+    private bool _kLineRequestIsBeingProcessed = false;
+
+    private UpdateRequest _kLineRequest = null;
 
     /// <summary>
     /// Builds update request for "k-line" data according to the current state of the system.
     /// </summary>
     private UpdateRequest BuildKLineRequest(bool force)
     {
-        return IsActivated && _kLineUpdateController.PendingRequestsCount == 0 ?
-            new UpdateRequest(new TimeFrame(TimeDiscretization, Settings.StickRange,
-                DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)),
-            Assets.ToArray(), _kLineUpdateController.IssueNewRequest(), force, _kLineUpdateController) : null;
+        return IsActivated ? new UpdateRequest(new TimeFrame(TimeDiscretization, Settings.StickRange,
+                DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)), Assets.ToArray(), force) : null;
     }
+
+    /// <summary>
+    /// Returns "true" if the thread in which this function is called is the UI one.
+    /// </summary>
+    private static bool IsUiThread => Dispatcher.CurrentDispatcher.Thread == Thread.CurrentThread;
 
     /// <summary>
     /// Method to update chart.
     /// </summary>
-    private async Task UpdateChartAsync(bool forceCompleteUpdate)
+    private async Task UpdateChartAsync(bool fundamentalUpdate)
     {
+        if (!IsUiThread)
+            throw new InvalidOperationException("This is supposed to me the UI thread");
+
+        var tempRequest = BuildKLineRequest(fundamentalUpdate);
+
+        if (tempRequest == null)
+            return;
+
+        // Cancel heavy fundamental update requests if those are coming faster than we can process them.
+        if (_kLineRequest is { FundamentalUpdate: true })
+            _kLineRequest.Cancel();
+
+        _kLineRequest = tempRequest;
+
+        if (_kLineRequestIsBeingProcessed)
+            return;
+
+        _kLineRequestIsBeingProcessed = true;
+
         try
         {
-            var kLineUpdateRequest = Dispatcher.Invoke(() => BuildKLineRequest(forceCompleteUpdate));
+            UpdateRequest request;
 
-            if (kLineUpdateRequest == null)
-                return;
-
-            var sticks = await RetrieveKLines(kLineUpdateRequest, _client);
-
-            Dispatcher.Invoke(() =>
+            do
             {
-                if (_kLineUpdateController.TryApplyRequest(kLineUpdateRequest.UpdateRequestId) && sticks != null)
-                    VisualizeSticks(sticks);
-            });
+                request = _kLineRequest;
+
+                var sticks = await Task.Run(async () => await RetrieveKLines(request, _client));
+
+                if (sticks != null && !request.Cancelled) VisualizeSticks(sticks);
+
+            } while (_kLineRequest != request);
         }
-        catch (TaskCanceledException) { /*Ignore*/ }
+        finally
+        {
+            _kLineRequestIsBeingProcessed = false;
+        }
     }
 
-    private readonly UpdateController _priceUpdateController = new();
+    private bool _priceRequestIsBeingProcessed = false;
+
+    private UpdateRequestMinimal _priceRequest = null;
 
     /// <summary>
     /// Builds update request for "price" data according to the current state of the system.
     /// </summary>
-    private UpdateRequestMinimal BuildPriceRequest() => IsActivated && _priceUpdateController.PendingRequestsCount == 0 ?
-        new UpdateRequestMinimal(Assets.ToArray(), _priceUpdateController.IssueNewRequest(),
-            _priceUpdateController) : null;
+    private UpdateRequestMinimal BuildPriceRequest() => IsActivated ? new UpdateRequestMinimal(Assets.ToArray()) : null;
 
     /// <summary>
     /// Method to update price label.
     /// </summary>
     private async Task UpdatePrice()
     {
+        if (!IsUiThread)
+            throw new InvalidOperationException("This is supposed to me the UI thread");
+
+        _priceRequest = BuildPriceRequest();
+
+        if (_priceRequest == null || _priceRequestIsBeingProcessed)
+            return;
+
+        _priceRequestIsBeingProcessed = true;
+
         try
         {
-            var priceUpdateRequest = Dispatcher.Invoke(BuildPriceRequest);
-
-            if (priceUpdateRequest == null)
-                return;
-
-            var price = await RetrievePrice(priceUpdateRequest, _client);
-
-            Dispatcher.Invoke(() =>
+            do
             {
-                if (_priceUpdateController.TryApplyRequest(price.UpdateRequestId))
-                    VisualizePrice(price.Price);
-            });
+                var request = _priceRequest;
+                _priceRequest = null;
+
+                var price = await Task.Run(async () => await RetrievePrice(request, _client));
+
+                VisualizePrice(price.Price);
+
+            } while (_priceRequest != null);
         }
-        catch (TaskCanceledException) { /*Ignore*/ }
+        finally
+        {
+            _priceRequestIsBeingProcessed = false;
+        }
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
@@ -593,9 +627,5 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Disposes resources.
     /// </summary>
-    public void Dispose()
-    {
-        _updateTimer?.Dispose();
-        _updateTimer = null;
-    }
+    public void Dispose() => Deactivate();
 }

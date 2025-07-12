@@ -24,15 +24,15 @@ namespace BAnalyzer.DataStructures;
 /// <summary>
 /// Sticks and price data struct.
 /// </summary>
-public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData, int updateRequestId,
+public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData,
     IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad)
 {
     /// <summary>
     /// Constructor.
     /// </summary>
-    public ChartData(IList<KLine> candleStickData, int updateRequestId,
+    public ChartData(IList<KLine> candleStickData,
         IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad) :
-        this(candleStickData.ToScottPlotCandleSticks(), ToTradeVolumes(candleStickData), updateRequestId,
+        this(candleStickData.ToScottPlotCandleSticks(), ToTradeVolumes(candleStickData),
             priceIndicatorPoints, volumeIndicatorPoints, indicatorWindowSize, timeFrameDurationOad)
     {}
 
@@ -71,11 +71,6 @@ public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData, int updateR
     /// Collection of OAD time values for each candle-stick.
     /// </summary>
     public IReadOnlyList<double> Times => _times;
-
-    /// <summary>
-    /// ID of the update request due to which this data was issued.
-    /// </summary>
-    public int UpdateRequestId { get; } = updateRequestId;
 
     /// <summary>
     /// Indicator points calculate with respect to price.

@@ -20,15 +20,10 @@ namespace BAnalyzer.DataStructures;
 /// <summary>
 /// The of price retrieved from Binance server.
 /// </summary>
-internal class PriceData(double price, int updateRequestId)
+internal class PriceData(double price)
 {
     /// <summary>
     /// Price.
     /// </summary>
     public double Price { get; } = price;
-
-    /// <summary>
-    /// ID of the update request due to which this data was issued.
-    /// </summary>
-    public int UpdateRequestId { get; } = updateRequestId;
 }

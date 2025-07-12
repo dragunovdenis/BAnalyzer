@@ -22,15 +22,10 @@ namespace BAnalyzer.DataStructures;
 /// <summary>
 /// Book of orders.
 /// </summary>
-public class OrderBook(BinanceOrderBook book, long updateRequestId)
+public class OrderBook(BinanceOrderBook book)
 {
     /// <summary>
     /// The book.
     /// </summary>
     public BinanceOrderBook Book { get; } = book;
-
-    /// <summary>
-    /// ID of the update request due to which this data was issued.
-    /// </summary>
-    public long UpdateRequestId { get; } = updateRequestId;
 }
