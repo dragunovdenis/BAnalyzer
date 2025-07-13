@@ -295,4 +295,17 @@ public partial class MainWindow
         }
         catch (Exception) { /*ignored*/ }
     }
+
+    /// <summary>
+    /// Handles click of the "about" menu item.
+    /// </summary>
+    private void AboutMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        var aboutWindow = new AboutWindow
+        {
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        aboutWindow.ShowDialog();
+    }
 }

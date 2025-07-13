@@ -40,6 +40,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         </Grid.RowDefinitions>
         <Grid Grid.Row="0" Grid.Column="0" Margin="5, 5, 5, 0"
               MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
+            <Grid.Resources>
+                <Style TargetType="MenuItem">
+                    <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+                </Style>
+            </Grid.Resources>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -47,21 +52,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <Menu Grid.Column="0" DockPanel.Dock="Top" Background = "{DynamicResource BackgroundColor}"
                   Foreground="{DynamicResource ForegroundColor}">
                 <MenuItem Header="_File">
-                    <MenuItem Click="SaveCacheMenuItem_OnClick" Header="_Save Cache"
-                              Background = "{DynamicResource BackgroundColor}"/>
-                    <MenuItem Click="LoadCacheMenuItem_OnClick"  Header="_Load Cache"
-                              Background = "{DynamicResource BackgroundColor}"/>
+                    <MenuItem Click="SaveCacheMenuItem_OnClick" Header="_Save Cache"/>
+                    <MenuItem Click="LoadCacheMenuItem_OnClick"  Header="_Load Cache"/>
                 </MenuItem>
                 <MenuItem Header="_Edit">
                     <MenuItem IsCheckable="true" IsChecked="{Binding ElementName=Ui, Path=Settings.ControlSynchronization}"
-                              Header="_Synchronize intervals" Background = "{DynamicResource BackgroundColor}"/>
+                              Header="_Synchronize intervals"/>
                 </MenuItem>
                 <MenuItem Header="_View">
-                    <MenuItem IsCheckable="true" IsChecked="{Binding ElementName=Ui, Path=Settings.DarkMode, Mode=TwoWay}" Header="_Dark mode"
-                              Background = "{DynamicResource BackgroundColor}"/>
+                    <MenuItem IsCheckable="true" IsChecked="{Binding ElementName=Ui, Path=Settings.DarkMode, Mode=TwoWay}" Header="_Dark mode"/>
                 </MenuItem>
                 <MenuItem Header="_Tools">
-                    <MenuItem Background = "{DynamicResource BackgroundColor}" Header="_Asset analysis" Click="ShowAssetAnalysisMenuItem_OnClick"/>
+                    <MenuItem Header="_Asset analysis" Click="ShowAssetAnalysisMenuItem_OnClick"/>
+                </MenuItem>
+                <MenuItem Header="_Help">
+                    <MenuItem Header="_About" Click="AboutMenuItem_OnClick"/>
                 </MenuItem>
             </Menu>
             <StackPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal">
