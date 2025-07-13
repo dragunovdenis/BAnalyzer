@@ -255,4 +255,59 @@ public class Binance : IDisposable
     /// </summary>
     public async Task LoadCacheAsync(string folderPath) =>
         _cache = await Task.Run(() => BinanceCache.Load(folderPath));
+
+    /// <summary>
+    /// Reads out all the "k-line" data that corresponds to the given <paramref name="symbol"/>
+    /// starting from "now" back to the "first placement" moment and puts the data into the
+    /// given <paramref name="storage"/> provided by the caller.
+    /// </summary>
+    public async Task ReadOutData(string symbol, BinanceCache storage,
+        Action<KlineInterval, DateTime, DateTime> progressReportCallback)
+    {
+        var excludedIntervals = new[]
+        {
+            KlineInterval.OneSecond,
+        }.ToHashSet();
+
+        foreach (var granularity in Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>()
+                     .Where(x => !excludedIntervals.Contains(x)))
+            await ReadOutData(symbol, granularity, storage, _client, progressReportCallback);
+    }
+
+    /// <summary>
+    /// Reads out all the "k-line" data that corresponds to the given <paramref name="symbol"/>
+    /// and given <paramref name="granularity"/> starting from "now" back to the "first placement"
+    /// moment and puts the data into the given <paramref name="storage"/> provided by the caller.
+    /// </summary>
+    public static async Task ReadOutData(string symbol, KlineInterval granularity, BinanceCache storage,
+        BinanceRestClient client, Action<KlineInterval, DateTime, DateTime> progressReportCallback)
+    {
+        var end = DateTime.UtcNow;
+        var granularitySpan = granularity.ToTimeSpan();
+
+        var container = storage.GetAssetViewThreadSafe(symbol).GetGridThreadSafe(granularity);
+
+        DateTime begin;
+
+        do
+        {
+            begin = end.Subtract(MaxKLinesPerTime * granularitySpan).Max(MinTime);
+            var kLines = await client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
+                startTime: begin, endTime: end, limit: 1500);
+
+            if (!kLines.Success)
+                throw new Exception($"Failed to get exchange info: {kLines.Error}");
+
+            var kLinesArray = kLines.Data.Select(x => new KLine(x)).ToArray();
+
+            if (kLinesArray.Length == 0)
+                break;
+
+            container.AppendThreadSafe(kLinesArray);
+            progressReportCallback?.Invoke(granularity, container.Blocks.First().Begin, container.Blocks.Last().End);
+
+            end = kLinesArray.First().OpenTime;
+
+        } while (begin.Add(granularitySpan) >= end);
+    }
 }

@@ -22,7 +22,7 @@ namespace BAnalyzerCore.Cache;
 /// <summary>
 /// Functionality allowing to cache "k-line" series.
 /// </summary>
-internal class BinanceCache
+public class BinanceCache
 {
     private readonly Dictionary<string, AssetTimeView> _data = new();
 

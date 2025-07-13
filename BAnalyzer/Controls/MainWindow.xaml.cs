@@ -296,6 +296,22 @@ public partial class MainWindow
         catch (Exception) { /*ignored*/ }
     }
 
+    private CacheManagerWindow _cacheManagerWindow;
+
+    /// <summary>
+    /// Handles click of the "build cache" menu item.
+    /// </summary>
+    private void BuildCacheMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        _cacheManagerWindow ??= new CacheManagerWindow(BinanceClientController.Client)
+        {
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        _cacheManagerWindow.ShowDialog();
+    }
+
     /// <summary>
     /// Handles click of the "about" menu item.
     /// </summary>

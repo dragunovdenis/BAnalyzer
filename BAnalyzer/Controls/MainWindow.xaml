@@ -64,6 +64,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 </MenuItem>
                 <MenuItem Header="_Tools">
                     <MenuItem Header="_Asset analysis" Click="ShowAssetAnalysisMenuItem_OnClick"/>
+                    <MenuItem Header="_Cache Manager" Click="BuildCacheMenuItem_OnClick"/>
                 </MenuItem>
                 <MenuItem Header="_Help">
                     <MenuItem Header="_About" Click="AboutMenuItem_OnClick"/>

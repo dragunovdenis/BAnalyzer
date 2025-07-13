@@ -22,7 +22,7 @@ namespace BAnalyzerCore.Cache;
 /// <summary>
 /// Binance exchange data of a certain granularity related to a certain asset.
 /// </summary>
-internal class AssetTimeView
+public class AssetTimeView
 {
     /// <summary>
     /// Grid data.

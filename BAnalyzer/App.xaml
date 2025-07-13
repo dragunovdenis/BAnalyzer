@@ -23,6 +23,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
     <Application.Resources>
         <converters:FloatToCompactConverter x:Key="FloatToCompactConverter"/>
         <converters:AssetRecordToSpotPriceConverter x:Key="AssetRecordToSpotPriceConverter"/>
+        <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <Style x:Key="ComboBoxItemStyle" TargetType="{x:Type ComboBoxItem}">
             <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BackgroundColor}"/>
@@ -427,6 +429,16 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         </Style>
 
         <Style x:Key="ButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+            <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ForegroundColor}"/>
+        </Style>
+
+        <Style x:Key="ListBoxStyle" TargetType="{x:Type ListBox}">
+            <Style.Resources>
+                <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ScrollBarStyle}"/>
+            </Style.Resources>
             <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
             <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource ForegroundColor}"/>
