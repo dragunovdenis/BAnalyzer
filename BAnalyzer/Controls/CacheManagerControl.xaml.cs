@@ -20,6 +20,7 @@ using Binance.Net.Enums;
 using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -150,10 +151,10 @@ public partial class CacheManagerControl :INotifyPropertyChanged
         var client = Client;
         Processing = true;
 
-        string ReportProgress(string symbol, KlineInterval granularity, DateTime begin, DateTime end)
+        string ReportProgress(string symbol, KlineInterval granularity, DateTime begin, DateTime end, double dataRateKbSec)
         {
             return $"{symbol} / {granularity.ToString()} / " +
-                   $"[{begin.ToString(CultureInfo.InvariantCulture)} : {end.ToString(CultureInfo.InvariantCulture)}]";
+                   $"[{begin.ToString(CultureInfo.InvariantCulture)} : {end.ToString(CultureInfo.InvariantCulture)}] / {dataRateKbSec} KB/Sec";
         }
 
         int updateCounter = 0;
@@ -164,11 +165,25 @@ public partial class CacheManagerControl :INotifyPropertyChanged
             {
                 for (var symbolId = PendingSymbols.Count - 1; symbolId >= 0; symbolId--)
                 {
+                    var sw = new Stopwatch();
+                    sw.Restart();
+                    long timePrevMs = 0;
+                    long bytesLoadedPrev = 0;
+
                     var symbol = PendingSymbols[symbolId];
-                    await client.ReadOutData(symbol, _cache, (g, begin, end) =>
+                    await client.ReadOutData(symbol, _cache, (g, begin, end, bytesLoaded) =>
                     {
+                        var kBytesLoadedDiff = (bytesLoaded - bytesLoadedPrev) / 1024.0;
+                        bytesLoadedPrev = bytesLoaded;
+
+                        var currentTime = sw.ElapsedMilliseconds;
+                        var elapsedTimeSec = (currentTime - timePrevMs) / 1000.0;
+                        timePrevMs = currentTime;
+
+                        var dataRateKbPerSec = Math.Round(kBytesLoadedDiff / elapsedTimeSec, 2);
+
                         if (updateCounter++ % 3 == 0)
-                            Dispatcher.BeginInvoke(() => ProgressInfo.Text = ReportProgress(symbol, g, begin, end));
+                            Dispatcher.BeginInvoke(() => ProgressInfo.Text = ReportProgress(symbol, g, begin, end, dataRateKbPerSec));
                     });
 
                     await Dispatcher.BeginInvoke(() =>

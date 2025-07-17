@@ -16,11 +16,13 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using Binance.Net.Clients;
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Spot;
 using BAnalyzerCore.Cache;
 using BAnalyzerCore.DataStructures;
+using BAnalyzerCore.Persistence.DataStructures;
 using BAnalyzerCore.Utils;
 
 namespace BAnalyzerCore;
@@ -257,12 +259,16 @@ public class Binance : IDisposable
         _cache = await Task.Run(() => BinanceCache.Load(folderPath));
 
     /// <summary>
+    /// Delegate to report progress when caching data.
+    /// </summary>
+    public delegate void CachingProgressReport(KlineInterval granularity, DateTime beginTime, DateTime endTime, long cachedBytes);
+
+    /// <summary>
     /// Reads out all the "k-line" data that corresponds to the given <paramref name="symbol"/>
     /// starting from "now" back to the "first placement" moment and puts the data into the
     /// given <paramref name="storage"/> provided by the caller.
     /// </summary>
-    public async Task ReadOutData(string symbol, BinanceCache storage,
-        Action<KlineInterval, DateTime, DateTime> progressReportCallback)
+    public async Task ReadOutData(string symbol, BinanceCache storage, CachingProgressReport progressReportCallback)
     {
         var excludedIntervals = new[]
         {
@@ -280,7 +286,7 @@ public class Binance : IDisposable
     /// moment and puts the data into the given <paramref name="storage"/> provided by the caller.
     /// </summary>
     public static async Task ReadOutData(string symbol, KlineInterval granularity, BinanceCache storage,
-        BinanceRestClient client, Action<KlineInterval, DateTime, DateTime> progressReportCallback)
+        BinanceRestClient client, CachingProgressReport progressReportCallback)
     {
         var end = DateTime.UtcNow;
         var granularitySpan = granularity.ToTimeSpan();
@@ -288,6 +294,9 @@ public class Binance : IDisposable
         var container = storage.GetAssetViewThreadSafe(symbol).GetGridThreadSafe(granularity);
 
         DateTime begin;
+
+        int itemSize = Marshal.SizeOf<KLineSurrogate>();
+        var totalCachedSize = 0L;
 
         do
         {
@@ -303,8 +312,10 @@ public class Binance : IDisposable
             if (kLinesArray.Length == 0)
                 break;
 
+            totalCachedSize += kLinesArray.Length * itemSize;
+
             container.AppendThreadSafe(kLinesArray);
-            progressReportCallback?.Invoke(granularity, container.Blocks.First().Begin, container.Blocks.Last().End);
+            progressReportCallback?.Invoke(granularity, container.Begin, container.End, totalCachedSize);
 
             end = kLinesArray.First().OpenTime;
 

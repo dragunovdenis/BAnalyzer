@@ -15,6 +15,7 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzer.Utils;
 using BAnalyzerCore.DataConversionUtils;
 using BAnalyzerCore.DataStructures;
 using BAnalyzerCore.Utils;
@@ -41,6 +42,18 @@ public class BlockGrid
         this(granularity) => _blocks = blocks.ToList();
 
     private readonly List<KLineBlock> _blocks = new();
+
+    /// <summary>
+    /// Returns "begin" time of the "earliest" block in the
+    /// grid or the "max-time" if the grid has no blocks in it.
+    /// </summary>
+    public DateTime Begin => _blocks.IsNullOrEmpty() ? DateTime.MaxValue : _blocks.First().Begin;
+
+    /// <summary>
+    /// Returns "end" time of the "latest" block in the
+    /// grid or the "min-time" if the grid has no blocks in it.
+    /// </summary>
+    public DateTime End => _blocks.IsNullOrEmpty() ? DateTime.MinValue : _blocks.Last().End;
 
     /// <summary>
     /// Collection of blocks.
