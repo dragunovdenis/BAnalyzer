@@ -51,7 +51,17 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     /// <summary>
     /// The cache.
     /// </summary>
-    private readonly BinanceCache _cache = new();
+    private BinanceCache _cache = new();
+
+    /// <summary>
+    /// Visualizes cached data in UI.
+    /// </summary>
+    private void VisualizeCachedData()
+    {
+        CachedSymbols.Clear();
+        foreach (var s in _cache.CachedSymbols)
+            CachedSymbols.Add(s);
+    }
 
     private bool _processing;
 
@@ -189,7 +199,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
                     await Dispatcher.BeginInvoke(() =>
                     {
                         PendingSymbols.Remove(symbol);
-                        CachedSymbols.Add(symbol);
+                        VisualizeCachedData();
                     });
                 }
             });
@@ -202,21 +212,53 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Handles "click" event of the "load cache" button.
+    /// </summary>
+    private async void LoadCacheButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dialog = new OpenFolderDialog
+            {
+                Title = "Select folder with cache data."
+            };
+
+            try
+            {
+                if (dialog.ShowDialog(Application.Current.MainWindow) != true) return;
+
+                ProgressInfo.Text = "Loading...";
+                Processing = true;
+                _cache = await Task.Run(() => BinanceCache.Load(dialog.FolderName));
+                VisualizeCachedData();
+            }
+            finally
+            {
+                Processing = false;
+            }
+        }
+        catch (Exception) { /*ignored*/ }
+    }
+
+    /// <summary>
     /// Handles "click" event of the "save cache" button.
     /// </summary>
     private async void SaveCacheButton_OnClick(object sender, RoutedEventArgs e)
     {
         try
         {
-            var folder = new OpenFolderDialog();
+            var dialog = new OpenFolderDialog
+            {
+                Title = "Select folder to save cache data."
+            };
 
             try
             {
-                if (folder.ShowDialog(Application.Current.MainWindow) != true) return;
+                if (dialog.ShowDialog(Application.Current.MainWindow) != true) return;
 
                 ProgressInfo.Text = "Saving...";
                 Processing = true;
-                await Task.Run(() => _cache.Save(folder.FolderName));
+                await Task.Run(() => _cache.Save(dialog.FolderName));
             }
             finally
             {

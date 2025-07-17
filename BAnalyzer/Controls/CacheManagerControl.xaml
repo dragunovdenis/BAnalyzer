@@ -69,6 +69,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <StackPanel Grid.Row="1" Grid.Column="0" VerticalAlignment="Bottom">
                 <Button Content="Add to Pending List" Click="AddPendingSymbolButton_OnClick"/>
                 <Button Content="Download" Click="DownloadButton_OnClick"/>
+                <Button Content="Load Cache" Click="LoadCacheButton_OnClick"/>
                 <Button Content="Save Cache" Click="SaveCacheButton_OnClick"/>
             </StackPanel>
         </Grid>

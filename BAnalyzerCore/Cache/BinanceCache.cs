@@ -44,6 +44,11 @@ public class BinanceCache
     }
 
     /// <summary>
+    /// Collection of all the symbols present in teh cache.
+    /// </summary>
+    public IReadOnlyCollection<string> CachedSymbols => _data.Keys;
+
+    /// <summary>
     /// Returns instance of asset-view associated with the given <paramref name="symbol"/>.
     /// </summary>
     public AssetTimeView GetAssetViewThreadSafe(string symbol)
