@@ -44,6 +44,11 @@ public class BlockGrid
     private readonly List<KLineBlock> _blocks = new();
 
     /// <summary>
+    /// Approximate size of the current instance in bytes.
+    /// </summary>
+    public int SizeInBytes => _blocks.Sum(x => x.SizeInBytes);
+
+    /// <summary>
     /// Returns "begin" time of the "earliest" block in the
     /// grid or the "max-time" if the grid has no blocks in it.
     /// </summary>

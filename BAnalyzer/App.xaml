@@ -443,5 +443,45 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource ForegroundColor}"/>
         </Style>
+
+        <!-- DataGrid -->
+        <Style x:Key="DataGridStyle" TargetType="{x:Type DataGrid}">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="SelectionMode" Value="Single"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="CanUserSortColumns" Value="False"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="CanUserResizeColumns" Value="False"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BackgroundAltColor}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+
+            <Style.Resources>
+                <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ScrollBarStyle}"/>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="{DynamicResource BackgroundAltColor}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+                </Style>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BackgroundColor}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource BackgroundSelectedColor}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="False">
+                            <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+                </Style>
+            </Style.Resources>
+        </Style>
     </Application.Resources>
 </Application>

@@ -44,9 +44,19 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     public ObservableCollection<string> PendingSymbols { get; } = new();
 
     /// <summary>
+    /// Essential information about cache interval of a certain exchange symbol.
+    /// </summary>
+    public record CachedTimeIntervalInfo(KlineInterval Granularity, DateTime Begin, DateTime End, double SizeBytes);
+
+    /// <summary>
+    /// Essential information about a cached symbol.
+    /// </summary>
+    public record CachedSymbolInfo(string Symbol, ObservableCollection<CachedTimeIntervalInfo> Items);
+
+    /// <summary>
     /// Contains all the symbols that are already present in the cache.
     /// </summary>
-    public ObservableCollection<string> CachedSymbols { get; } = new();
+    public ObservableCollection<CachedSymbolInfo> CachedSymbols { get; } = new();
 
     /// <summary>
     /// The cache.
@@ -59,8 +69,21 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     private void VisualizeCachedData()
     {
         CachedSymbols.Clear();
-        foreach (var s in _cache.CachedSymbols)
-            CachedSymbols.Add(s);
+        foreach (var symbol in _cache.CachedSymbols)
+        {
+            var asset = _cache.GetAssetViewThreadSafe(symbol);
+
+            var granularityItems = new List<CachedTimeIntervalInfo>();
+
+            foreach (var granularity in asset.Granularities)
+            {
+                var grid = asset.GetGridThreadSafe(granularity);
+                granularityItems.Add(new CachedTimeIntervalInfo(granularity, grid.Begin, grid.End, grid.SizeInBytes));
+            }
+
+            CachedSymbols.Add(new CachedSymbolInfo(symbol,
+                new ObservableCollection<CachedTimeIntervalInfo>(granularityItems.OrderBy(x => (int)x.Granularity))));
+        }
     }
 
     private bool _processing;
@@ -156,8 +179,6 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     /// </summary>
     private async void DownloadButton_OnClick(object sender, RoutedEventArgs e)
     {
-        if (Client == null) throw new InvalidOperationException("Invalid client instance");
-
         var client = Client;
         Processing = true;
 

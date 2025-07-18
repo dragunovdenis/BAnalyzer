@@ -15,7 +15,9 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzerCore.Persistence.DataStructures;
 using Binance.Net.Interfaces;
+using System.Runtime.InteropServices;
 
 namespace BAnalyzerCore.DataStructures;
 
@@ -41,6 +43,11 @@ public record KLine
         TakerBuyQuoteVolume = (double)source.TakerBuyQuoteVolume;
         TradeCount = source.TradeCount;
     }
+
+    /// <summary>
+    /// Approximate size of an instance.
+    /// </summary>
+    public static int SizeInBytes { get; } = Marshal.SizeOf<KLineSurrogate>();
 
     /// <summary>
     /// Default constructor;

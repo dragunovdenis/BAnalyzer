@@ -147,6 +147,11 @@ public class KLineBlock : IKLineBlockReadOnly
     public IReadOnlyList<KLine> Data => _data;
 
     /// <summary>
+    /// Approximate size of the data in the current "block".
+    /// </summary>
+    public int SizeInBytes => _data.Count * KLine.SizeInBytes;
+
+    /// <summary>
     /// Returns "true" if the current block is equal to the given <paramref name="block"/>.
     /// </summary>
     public bool IsEqualTo(KLineBlock block)

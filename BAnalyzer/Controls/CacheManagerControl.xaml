@@ -49,7 +49,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="3*"/>
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Row="0" Grid.Column="0" Text="Available Symbols" HorizontalAlignment="Center"/>
         <TextBlock Grid.Row="0" Grid.Column="1" Text="Pending Symbols" HorizontalAlignment="Center"/>
@@ -74,7 +74,24 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             </StackPanel>
         </Grid>
         <ListBox Grid.Row="1" Grid.Column="1" Margin ="5"  ItemsSource="{Binding ElementName=Ui, Path=PendingSymbols}"/>
-        <ListBox Grid.Row="1" Grid.Column="2" Margin ="5" ItemsSource="{Binding ElementName=Ui, Path=CachedSymbols}"/>
+        <ListBox Grid.Row="1" Grid.Column="2" Margin ="5" ItemsSource="{Binding ElementName=Ui, Path=CachedSymbols}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Expander Header="{Binding Symbol}" Style="{StaticResource ExpanderStyle}" ExpandDirection="Down">
+                        <DataGrid Style="{StaticResource DataGridStyle}" BorderThickness="0"
+                                  ItemsSource="{Binding Items}" VerticalScrollBarVisibility="Auto" MaxHeight="150">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Granularity" Binding="{Binding Granularity, Mode=OneWay}" Width="80" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Begin" Binding="{Binding Begin, Mode=OneWay}" Width="137" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="End" Binding="{Binding End, Mode=OneWay}" Width="137" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Size, B" Binding="{Binding SizeBytes, Mode=OneWay,
+                                    Converter={StaticResource FloatToCompactConverter}}" Width="55" IsReadOnly="True"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Expander>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
         <StatusBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
                    VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
                    Background="{DynamicResource BackgroundColor}"

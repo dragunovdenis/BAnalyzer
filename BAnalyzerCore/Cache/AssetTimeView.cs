@@ -30,6 +30,11 @@ public class AssetTimeView
     private readonly Dictionary<KlineInterval, BlockGrid> _grid = new();
 
     /// <summary>
+    /// Collection of all the time granularities present in the view.
+    /// </summary>
+    public IReadOnlyCollection<KlineInterval> Granularities => _grid.Keys;
+
+    /// <summary>
     /// Subscript operator.
     /// </summary>
     private BlockGrid this[KlineInterval granularity]

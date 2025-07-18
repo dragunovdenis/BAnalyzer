@@ -294,8 +294,6 @@ public class Binance : IDisposable
         var container = storage.GetAssetViewThreadSafe(symbol).GetGridThreadSafe(granularity);
 
         DateTime begin;
-
-        int itemSize = Marshal.SizeOf<KLineSurrogate>();
         var totalCachedSize = 0L;
 
         do
@@ -312,7 +310,7 @@ public class Binance : IDisposable
             if (kLinesArray.Length == 0)
                 break;
 
-            totalCachedSize += kLinesArray.Length * itemSize;
+            totalCachedSize += kLinesArray.Length * KLine.SizeInBytes;
 
             container.AppendThreadSafe(kLinesArray);
             progressReportCallback?.Invoke(granularity, container.Begin, container.End, totalCachedSize);
