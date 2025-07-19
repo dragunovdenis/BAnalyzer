@@ -24,6 +24,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace BAnalyzer.Controls;
@@ -308,5 +309,17 @@ public partial class CacheManagerControl :INotifyPropertyChanged
         field = value;
         OnPropertyChanged(propertyName);
         return true;
+    }
+
+    /// <summary>
+    /// Handles mouse wheel preview event of the scroll viewer control
+    /// so that we can scroll while mouse pointer is over the content
+    /// (and not only over the scroll viewer bar).
+    /// </summary>
+    private void ScrollViewer_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        var scv = (ScrollViewer)sender;
+        scv.ScrollToVerticalOffset(scv.VerticalOffset - e.Delta / 7.0);
+        e.Handled = true;
     }
 }

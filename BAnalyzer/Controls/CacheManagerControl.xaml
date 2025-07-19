@@ -74,12 +74,16 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             </StackPanel>
         </Grid>
         <ListBox Grid.Row="1" Grid.Column="1" Margin ="5"  ItemsSource="{Binding ElementName=Ui, Path=PendingSymbols}"/>
-        <ListBox Grid.Row="1" Grid.Column="2" Margin ="5" ItemsSource="{Binding ElementName=Ui, Path=CachedSymbols}">
+        <ScrollViewer Grid.Row="1" Grid.Column="2" VerticalScrollBarVisibility="Auto" PreviewMouseWheel="ScrollViewer_OnPreviewMouseWheel">
+            <ScrollViewer.Resources>
+                <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
+            </ScrollViewer.Resources>
+            <ListBox Margin ="5" ItemsSource="{Binding ElementName=Ui, Path=CachedSymbols}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Expander Header="{Binding Symbol}" Style="{StaticResource ExpanderStyle}" ExpandDirection="Down">
                         <DataGrid Style="{StaticResource DataGridStyle}" BorderThickness="0"
-                                  ItemsSource="{Binding Items}" VerticalScrollBarVisibility="Auto" MaxHeight="150">
+                                  ItemsSource="{Binding Items}" VerticalScrollBarVisibility="Disabled">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Granularity" Binding="{Binding Granularity, Mode=OneWay}" Width="80" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Begin" Binding="{Binding Begin, Mode=OneWay}" Width="137" IsReadOnly="True"/>
@@ -92,6 +96,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+        </ScrollViewer>
         <StatusBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
                    VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
                    Background="{DynamicResource BackgroundColor}"
