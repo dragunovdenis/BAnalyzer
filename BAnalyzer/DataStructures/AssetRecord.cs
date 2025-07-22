@@ -49,7 +49,11 @@ public class AssetRecord : INotifyPropertyChanged
     public double Amount
     {
         get => _amount;
-        set => SetField(ref _amount, value);
+        set
+        {
+            if (SetField(ref _amount, value))
+                OnPropertyChanged(nameof(CurrentValue));
+        }
     }
 
     private bool _selected;
@@ -63,6 +67,26 @@ public class AssetRecord : INotifyPropertyChanged
         get => _selected;
         set => SetField(ref _selected, value);
     }
+
+    private double _price;
+
+    /// <summary>
+    /// Current price of the asset.
+    /// </summary>
+    public double Price
+    {
+        get => _price;
+        set
+        {
+            if (SetField(ref _price, value))
+                OnPropertyChanged(nameof(CurrentValue));
+        }
+    }
+
+    /// <summary>
+    /// Value of the asset given the price.
+    /// </summary>
+    public double CurrentValue => Value(Price);
 
     /// <summary>
     /// Returns deep copy of the current instance.

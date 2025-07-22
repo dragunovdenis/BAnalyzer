@@ -29,8 +29,14 @@ namespace BAnalyzer.Controls.Converters
         /// <summary>
         /// Straight conversion.
         /// </summary>
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
-            DataFormatter.FloatToCompact((double)value);
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            var val = (double)value;
+            if (parameter is string formatter)
+                return DataFormatter.FloatToCompact(val, formatter);
+
+            return DataFormatter.FloatToCompact(val);
+        }
 
         /// <summary>
         /// Back conversion.

@@ -15,6 +15,8 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzer.Controllers;
+using BAnalyzer.DataStructures;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -23,7 +25,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
-using BAnalyzer.DataStructures;
 
 namespace BAnalyzer.Controls;
 
@@ -90,7 +91,14 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         {
             Interval = TimeSpan.FromSeconds(1)
         };
-        _updateTimer.Tick += (_, _) => AssetGrid.Items.Refresh();
+        _updateTimer.Tick += (_, _) =>
+        {
+            foreach (var a in Assets)
+            {
+                var cachedPrice = BinanceClientController.Client.GetCachedPrice(a.Symbol, 2000 /*ms*/);
+                a.Price = cachedPrice == null ? double.NaN : (double)cachedPrice.Price;
+            }
+        };
         _updateTimer.Start();
     }
 
