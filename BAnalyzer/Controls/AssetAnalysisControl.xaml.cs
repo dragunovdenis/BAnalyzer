@@ -530,8 +530,13 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
             return;
 
         // Cancel heavy fundamental update requests if those are coming faster than we can process them.
-        if (_kLineRequest is { FundamentalUpdate: true })
-            _kLineRequest.Cancel();
+        if (_kLineRequest is { FundamentalUpdate: true, Cancelled: false })
+        {
+            if (tempRequest is { FundamentalUpdate: false })
+                _kLineRequest.Cancel();
+            else if (_kLineRequestIsBeingProcessed)
+                return;
+        }
 
         _kLineRequest = tempRequest;
 
