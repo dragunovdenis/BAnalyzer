@@ -130,6 +130,10 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         return result;
     }
 
+    /// <summary>
+    /// Handles "test change" event of the text boxes
+    /// and ensures that the entered data is always valid.
+    /// </summary>
     private void OnTextChanged(object sender, TextChangedEventArgs e)
     {
         var tb = (TextBox)sender;
@@ -173,7 +177,9 @@ public partial class AssetManagerControl : INotifyPropertyChanged
     /// </summary>
     private void UpdateAsset()
     {
-        if (!IsNumber(AssetAmountBox.Text) || !Symbols.Contains(AssetBox.Text))
+        if (!IsNumber(AssetAmountBox.Text) ||
+            !IsNumber(AssetInvestmentBox.Text) ||
+            !Symbols.Contains(AssetBox.Text))
         {
             AssetAmountBox.Text = "0";
             return;
@@ -195,6 +201,7 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         var assetRecord = new AssetRecord()
         {
             Amount = ToNumber(AssetAmountBox.Text),
+            Investment = ToNumber(AssetInvestmentBox.Text),
             AssetId = AssetBox.Text,
             Selected = indexOfExistingRecord < 0 || Assets[indexOfExistingRecord].Selected,
         };
@@ -240,13 +247,14 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         {
             AssetBox.SelectedItem = record.AssetId;
             AssetAmountBox.Text = record.Amount.ToString(CultureInfo.InvariantCulture);
+            AssetInvestmentBox.Text = record.Investment.ToString(CultureInfo.InvariantCulture);
         }
     }
 
     /// <summary>
     /// Event handler.
     /// </summary>
-    private void AssetAmountBox_OnKeyDown(object sender, KeyEventArgs e)
+    private void AssetBox_OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key is Key.Enter) UpdateAsset();
     }

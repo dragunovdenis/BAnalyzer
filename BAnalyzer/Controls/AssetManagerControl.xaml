@@ -29,22 +29,33 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Margin="1">
-            <Grid Background="{DynamicResource BackgroundAltColor}">
+            <Grid Background="{DynamicResource BackgroundColor}" Margin="0,5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="2*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <ComboBox HorizontalAlignment="Stretch" Grid.Column="0" Grid.Row="0" Name="AssetBox"
-                              ItemsSource="{Binding ElementName=Ui, Path= Symbols,
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Column="0" Grid.Row="0" Text="Symbol" HorizontalAlignment="Center"/>
+                <ComboBox HorizontalAlignment="Stretch" Grid.Column="0" Grid.Row="1" Name="AssetBox"
+                          ItemsSource="{Binding ElementName=Ui, Path= Symbols,
                     UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ComboBoxStyle}"
-                              IsTextSearchEnabled="True" IsEditable="True" SelectedIndex="0" Margin="2"
-                              SelectionChanged="AssetBox_OnSelectionChanged">
+                          IsTextSearchEnabled="True" IsEditable="True" SelectedIndex="0" Margin="2"
+                          SelectionChanged="AssetBox_OnSelectionChanged">
                 </ComboBox>
-                <TextBox HorizontalAlignment="Stretch" Text="0" Grid.Column="1" Grid.Row="0" Name="AssetAmountBox"
+                <TextBlock Grid.Column="1" Grid.Row="0" Text="Amount, USDT" HorizontalAlignment="Center"/>
+                <TextBox HorizontalAlignment="Stretch" Text="0" Grid.Column="1" Grid.Row="1" Name="AssetAmountBox"
                          Style="{StaticResource TextBoxStyle}" TextChanged="OnTextChanged" Margin="2"
-                         KeyDown="AssetAmountBox_OnKeyDown"/>
-                <Button HorizontalAlignment="Stretch" Grid.Column="2" Grid.Row="0" Name="UpdateButton"
+                         KeyDown="AssetBox_OnKeyDown"/>
+                <TextBlock Grid.Column="2" Grid.Row="0" Text="Investment, USDT" HorizontalAlignment="Center"/>
+                <TextBox HorizontalAlignment="Stretch" Text="0" Grid.Column="2" Grid.Row="1" Name="AssetInvestmentBox"
+                         Style="{StaticResource TextBoxStyle}" TextChanged="OnTextChanged" Margin="2"
+                         KeyDown="AssetBox_OnKeyDown"/>
+                <Button HorizontalAlignment="Stretch" Grid.Column="3" Grid.Row="1" Name="UpdateButton"
                         Style="{StaticResource ButtonStyle}" Margin="2" Content="OK" Click="UpdateButton_OnClick"/>
             </Grid>
         </StackPanel>
@@ -59,11 +70,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Asset ID" Binding="{Binding AssetId, Mode=OneWay}" Width="75" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Asset ID" Binding="{Binding AssetId, Mode=OneWay}" Width="50" IsReadOnly="True"/>
                 <DataGridTextColumn Header="Amount" Binding="{Binding Amount, Mode=OneWay}" Width="*" IsReadOnly="True"/>
                 <DataGridTextColumn Header="Value, USDT" Binding="{Binding CurrentValue,
-                    Mode=OneWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FloatToCompactConverter},
+                    Mode=OneWay, Converter={StaticResource FloatToCompactConverter},
                     ConverterParameter='\{0:0.###}'}" Width="*" IsReadOnly="True"/>
+                <DataGridTemplateColumn Header="Profit, USDT">
+                    <DataGridTemplateColumn.CellTemplate >
+                        <DataTemplate>
+                            <TextBlock Text="{Binding CurrentProfit, Mode=OneWay,
+                                Converter={StaticResource FloatToCompactConverter}, ConverterParameter='\{0:0.###}'}"
+                                       Foreground="{Binding CurrentProfit, Converter= {StaticResource FloatSignToColorConverter}}"
+                                       FontWeight="Bold"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

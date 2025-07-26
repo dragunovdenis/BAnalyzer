@@ -52,7 +52,10 @@ public class AssetRecord : INotifyPropertyChanged
         set
         {
             if (SetField(ref _amount, value))
+            {
                 OnPropertyChanged(nameof(CurrentValue));
+                OnPropertyChanged(nameof(CurrentProfit));
+            }
         }
     }
 
@@ -79,9 +82,33 @@ public class AssetRecord : INotifyPropertyChanged
         set
         {
             if (SetField(ref _price, value))
+            {
                 OnPropertyChanged(nameof(CurrentValue));
+                OnPropertyChanged(nameof(CurrentProfit));
+            }
         }
     }
+
+    private double _investment;
+
+    /// <summary>
+    /// Investment value of the asset.
+    /// </summary>
+    [DataMember]
+    public double Investment
+    {
+        get => _investment;
+        set
+        {
+            if (SetField(ref _investment, value))
+                OnPropertyChanged(nameof(CurrentProfit));
+        }
+    }
+
+    /// <summary>
+    /// Current profit of the asset.
+    /// </summary>
+    public double CurrentProfit => Profit(Price);
 
     /// <summary>
     /// Value of the asset given the price.
@@ -95,13 +122,20 @@ public class AssetRecord : INotifyPropertyChanged
     {
         Amount = Amount,
         AssetId = AssetId,
-        Selected = Selected
+        Selected = Selected,
+        Price = Price,
+        Investment = Investment,
     };
 
     /// <summary>
-    /// Returns value of the asset
+    /// Returns value of the asset given the <paramref name="price"/>.
     /// </summary>
     public double Value(double price) => Amount * price;
+
+    /// <summary>
+    /// Returns profit of the asset given the <paramref name="price"/>.
+    /// </summary>
+    public double Profit(double price) => Value(Price) - Investment;
 
     /// <summary>
     /// Returns exchange symbol associated with the asset.

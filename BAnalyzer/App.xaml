@@ -24,6 +24,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <converters:FloatToCompactConverter x:Key="FloatToCompactConverter"/>
         <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
         <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:FloatSignToColorConverter x:Key="FloatSignToColorConverter"/>
         <Style x:Key="ComboBoxItemStyle" TargetType="{x:Type ComboBoxItem}">
             <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BackgroundColor}"/>

@@ -100,15 +100,26 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         set => _settings.TimeDiscretization = value;
     }
 
-    private string _price = "";
+    private double _value;
 
     /// <summary>
-    /// Current price
+    /// Current value of all the assets.
     /// </summary>
-    public string Price
+    public double Value
     {
-        get => _price;
-        private set => SetField(ref _price, value);
+        get => _value;
+        private set => SetField(ref _value, value);
+    }
+
+    private double _profit;
+
+    /// <summary>
+    /// Current profit yielded by all the assets.
+    /// </summary>
+    public double Profit
+    {
+        get => _profit;
+        set => SetField(ref _profit, value);
     }
 
     private ExchangeSettings _settings;
@@ -260,11 +271,12 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
-    /// Visualizes the given <paramref name="price"/>
+    /// Visualizes the given <paramref name="value"/> and <paramref name="profit"/>.
     /// </summary>
-    private void VisualizePrice(double price)
+    private void VisualizeValueAndProfit(double value, double profit)
     {
-        Price = double.IsNaN(price) ? "N/A" : $"Value: {DataFormatter.FloatToCompact(price, "{0:0.###}")} USDT";
+        Value = value;
+        Profit = profit;
     }
 
     /// <summary>
@@ -370,15 +382,16 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
-    /// Returns current total price of all selected assets.
+    /// Returns current total value of all selected assets and the corresponding profit.
     /// </summary>
-    private static async Task<PriceData> RetrievePrice(UpdateRequestMinimal request,
+    private static async Task<(double Value, double Profit)> RetrieveValueAndProfit(UpdateRequestMinimal request,
         BAnalyzerCore.Binance client)
     {
-        if (client == null) return new PriceData(double.NaN);// deactivated state
+        if (client == null) return new (double.NaN, double.NaN);// deactivated state
 
         var assets = request.Assets.Select(x => x.Copy()).ToList();
-        var prices = new double[assets.Count];
+        var values = new double[assets.Count];
+        var profits = new double[assets.Count];
 
         await Task.WhenAll(assets.Select(async (asset, assetId) =>
         {
@@ -387,11 +400,13 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
 
             var price = await client.GetCurrentPrice(asset.Symbol);
 
-            prices[assetId] = asset.Value(price != null ? (double)price.Price : double.NaN);
+            var priceExpanded = price != null ? (double)price.Price : double.NaN;
+            values[assetId] = asset.Value(priceExpanded);
+            profits[assetId] = asset.Profit(priceExpanded);
             return Task.CompletedTask;
         }));
 
-        return new PriceData(prices.Sum());
+        return (values.Sum(), profits.Sum());
     }
 
     /// <summary>
@@ -600,9 +615,9 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
                 var request = _priceRequest;
                 _priceRequest = null;
 
-                var price = await Task.Run(async () => await RetrievePrice(request, _client));
+                var (value, profit) = await Task.Run(async () => await RetrieveValueAndProfit(request, _client));
 
-                VisualizePrice(price.Price);
+                VisualizeValueAndProfit(value, profit);
 
             } while (_priceRequest != null);
         }
