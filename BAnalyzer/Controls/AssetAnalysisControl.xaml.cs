@@ -375,6 +375,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     private static async Task<PriceData> RetrievePrice(UpdateRequestMinimal request,
         BAnalyzerCore.Binance client)
     {
+        if (client == null) return new PriceData(double.NaN);// deactivated state
+
         var assets = request.Assets.Select(x => x.Copy()).ToList();
         var prices = new double[assets.Count];
 
@@ -403,11 +405,13 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     private static async Task<ChartData> RetrieveKLines(UpdateRequest request, BAnalyzerCore.Binance client)
     {
+        if (client == null) return null;// deactivated state
+
         var timeFrame = request.TimeFrame;
         var assets = request.Assets.Select(x => x.Copy()).ToList();
 
         if (timeFrame == null || timeFrame.Discretization == default ||
-            assets.Count == 0 || client == null || request.Cancelled)
+            assets.Count == 0 || request.Cancelled)
             return null;
 
         // In case of "three days" granularity k-lines can be misaligned for entire day or two.
