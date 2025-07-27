@@ -71,8 +71,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 <Setter TargetName="Border" Property="BorderBrush" Value="Transparent"/>
             </Trigger>
             <Trigger SourceName="Popup" Property="Popup.AllowsTransparency" Value="True">
-                <Setter TargetName="SubmenuBorder" Property="CornerRadius" Value="0,0,4,4"/>
-                <Setter TargetName="SubmenuBorder" Property="Padding" Value="0,0,0,3"/>
+                <Setter TargetName="SubmenuBorder" Property="CornerRadius" Value="0"/>
+                <Setter TargetName="SubmenuBorder" Property="Padding" Value="0"/>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
@@ -216,8 +216,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 <Setter TargetName="Border" Property="Background" Value="{DynamicResource BackgroundColor}"/>
             </Trigger>
             <Trigger SourceName="Popup" Property="Popup.AllowsTransparency" Value="True">
-                <Setter TargetName="SubmenuBorder" Property="CornerRadius" Value="4"/>
-                <Setter TargetName="SubmenuBorder" Property="Padding" Value="0,3,0,3"/>
+                <Setter TargetName="SubmenuBorder" Property="CornerRadius" Value="0"/>
+                <Setter TargetName="SubmenuBorder" Property="Padding" Value="0"/>
             </Trigger>
             <Trigger Property="IsEnabled" Value="false">
                 <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
