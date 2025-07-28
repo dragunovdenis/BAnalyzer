@@ -557,7 +557,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         var position = e.GetPosition(plot);
         popup.PlacementTarget = plot;
         popup.HorizontalOffset = position.X + 20;
-        popup.VerticalOffset = position.Y + (showBelowPointer ? 20 : -100);
+        popup.VerticalOffset = position.Y + (showBelowPointer ? 20 : -110);
 
         if (!popup.IsOpen) popup.IsOpen = true;
     }
