@@ -52,10 +52,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             </StackPanel>
             <StackPanel Grid.Column="1" Grid.Row="0" HorizontalAlignment="Right" Orientation="Horizontal">
                 <StackPanel.Resources>
-                    <Style TargetType="Button">
+                    <Style TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
                         <Setter Property="Width" Value="20"/>
-                        <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
-                        <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
                         <Setter Property="BorderThickness" Value="0"/>
                     </Style>
                 </StackPanel.Resources>
