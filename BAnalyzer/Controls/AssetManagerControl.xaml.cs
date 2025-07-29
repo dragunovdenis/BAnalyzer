@@ -93,6 +93,9 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         };
         _updateTimer.Tick += (_, _) =>
         {
+            if (Assets == null)
+                return;
+
             foreach (var a in Assets)
             {
                 var cachedPrice = BinanceClientController.Client.GetCachedPrice(a.Symbol, 2000 /*ms*/);
