@@ -16,14 +16,13 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
 using Binance.Net.Clients;
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Spot;
 using BAnalyzerCore.Cache;
 using BAnalyzerCore.DataStructures;
-using BAnalyzerCore.Persistence.DataStructures;
 using BAnalyzerCore.Utils;
+using Binance.Net.Interfaces;
 
 namespace BAnalyzerCore;
 
@@ -281,6 +280,164 @@ public class Binance : IDisposable
     }
 
     /// <summary>
+    /// Time-span representation of the time-gap between the close-time
+    /// of previous k-line and open-time of the following k-line.
+    /// </summary>
+    private static readonly TimeSpan GapSpan = TimeSpan.FromSeconds(BinanceConstants.KLineTimeGapSec);
+
+    /// <summary>
+    /// Returns boundaries of chronologically contiguous blocks of k-lines
+    /// in the given collection <paramref name="kLines"/>.
+    /// </summary>
+    private static IList<(int BeginIdInclusive, int EndIdExclusive)> FindBlockBoundaries(IBinanceKline[] kLines,
+        Func<IBinanceKline, bool> validityPredicate)
+    {
+        var result = new List<(int, int)>();
+
+        var currentItemId = 0;
+
+        while (currentItemId < kLines.Length)
+        {
+            // skip invalid items if there are any
+            while (currentItemId < kLines.Length && !validityPredicate(kLines[currentItemId]))
+                currentItemId++;
+
+            var blockStart = currentItemId;
+
+            var blockItemCount = 0;
+
+            while (currentItemId < kLines.Length && validityPredicate(kLines[currentItemId]) &&
+                   (blockItemCount == 0 || kLines[currentItemId - 1].CloseTime.Add(GapSpan) ==
+                       kLines[currentItemId].OpenTime))
+            {
+                blockItemCount++;
+                currentItemId++;
+            }
+
+            if (blockItemCount > 0)
+                result.Add((blockStart, blockStart + blockItemCount));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns "true" if the given <paramref name="kLine"/>,
+    /// corresponding to a "one-month" granularity, is valid.
+    /// </summary>
+    private static bool IsValidMonth(IBinanceKline kLine)
+    {
+        if (kLine.OpenTime.Month != kLine.CloseTime.Month) return false;
+
+        var daysInMonth = DateTime.DaysInMonth(kLine.OpenTime.Year, kLine.OpenTime.Month);
+        var expectedMonthSpan = TimeSpan.FromDays(daysInMonth);
+
+        return kLine.CloseTime.Subtract(kLine.OpenTime).Add(GapSpan) == expectedMonthSpan;
+    }
+
+    /// <summary>
+    /// Fills chronological gaps in the given collection <paramref name="kLines"/>
+    /// caused by invalid and/or missing k-lines of "one-month" granularity.
+    /// </summary>
+    private static KLine[] FillMonthGaps(IBinanceKline[] kLines)
+    {
+        var validSubBlocks = FindBlockBoundaries(kLines, IsValidMonth);
+
+        var initialOpenTime = kLines[validSubBlocks.First().BeginIdInclusive].OpenTime;
+
+        var finalCloseTime = kLines[validSubBlocks.Last().EndIdExclusive - 1].CloseTime;
+
+        var resultSize = (finalCloseTime.Year - initialOpenTime.Year) * 12 + finalCloseTime.Month - initialOpenTime.Month + 1;
+
+        int OpenTimeToIndex(DateTime openTime) => (openTime.Year - initialOpenTime.Year) * 12 + openTime.Month - initialOpenTime.Month;
+
+        var result = new KLine[resultSize];
+
+        var currentKlineIndex = 0;
+        DateTime prevSubBlockCloseTime = MinTime;
+
+        foreach (var subBlock in validSubBlocks)
+        {
+            var subBlockBeginId = OpenTimeToIndex(kLines[subBlock.BeginIdInclusive].OpenTime);
+
+            while (currentKlineIndex < subBlockBeginId)
+            {
+                var opeTime = prevSubBlockCloseTime + GapSpan;
+                prevSubBlockCloseTime += TimeSpan.FromDays(DateTime.DaysInMonth(opeTime.Year, opeTime.Month));
+                result[currentKlineIndex++] = new KLine()
+                {
+                    OpenTime = opeTime,
+                    CloseTime = prevSubBlockCloseTime,
+                };
+            }
+
+            for (var originalId = subBlock.BeginIdInclusive; originalId < subBlock.EndIdExclusive; originalId++)
+                result[currentKlineIndex++] = new KLine(kLines[originalId]);
+
+            prevSubBlockCloseTime = kLines[subBlock.EndIdExclusive - 1].CloseTime;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Fills chronological gaps in the given collection <paramref name="kLines"/>
+    /// caused by invalid and/or missing k-lines of the given <paramref name="granularity"/>.
+    /// Can't handle a "one-month" granularity.
+    /// </summary>
+    private static KLine[] FillGaps(IBinanceKline[] kLines, KlineInterval granularity)
+    {
+        if (granularity == KlineInterval.OneMonth)
+            throw new InvalidOperationException("Can't handle \"one-month\" granularity");
+
+        var span = granularity.ToTimeSpan();
+        bool IsValid(IBinanceKline kLine) => kLine.CloseTime.Subtract(kLine.OpenTime).Add(GapSpan) == span;
+
+        var validSubBlocks = FindBlockBoundaries(kLines, IsValid);
+
+        var baseOpenTime = kLines[validSubBlocks.First().BeginIdInclusive].OpenTime;
+
+        var resultSize = (int)Math.Round((kLines[validSubBlocks.Last().EndIdExclusive - 1].CloseTime - baseOpenTime).Add(GapSpan) / span);
+
+        int OpenTimeToIndex(DateTime openTime) => (int)Math.Round((openTime - baseOpenTime) / span);
+
+        var result = new KLine[resultSize];
+
+        var currentKlineIndex = 0;
+        DateTime prevSubBlockCloseTime = MinTime;
+
+        foreach (var subBlock in validSubBlocks)
+        {
+            var subBlockBeginId = OpenTimeToIndex(kLines[subBlock.BeginIdInclusive].OpenTime);
+
+            while (currentKlineIndex < subBlockBeginId)
+            {
+                var opeTime = prevSubBlockCloseTime + GapSpan;
+                prevSubBlockCloseTime += span;
+                result[currentKlineIndex++] = new KLine()
+                {
+                    OpenTime = opeTime,
+                    CloseTime = prevSubBlockCloseTime,
+                };
+            }
+
+            for (var originalId = subBlock.BeginIdInclusive; originalId < subBlock.EndIdExclusive; originalId++)
+                result[currentKlineIndex++] = new KLine(kLines[originalId]);
+
+            prevSubBlockCloseTime = kLines[subBlock.EndIdExclusive - 1].CloseTime;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Fills chronological gaps in the given collection <paramref name="kLines"/>
+    /// caused by invalid and/or missing k-lines of the given <paramref name="granularity"/>.
+    /// </summary>
+    private static KLine[] FillGapsGeneral(IBinanceKline[] kLines, KlineInterval granularity) =>
+        granularity != KlineInterval.OneMonth ? FillGaps(kLines, granularity) : FillMonthGaps(kLines);
+
+    /// <summary>
     /// Reads out all the "k-line" data that corresponds to the given <paramref name="symbol"/>
     /// and given <paramref name="granularity"/> starting from "now" back to the "first placement"
     /// moment and puts the data into the given <paramref name="storage"/> provided by the caller.
@@ -293,30 +450,36 @@ public class Binance : IDisposable
 
         var container = storage.GetAssetViewThreadSafe(symbol).GetGridThreadSafe(granularity);
 
-        DateTime begin;
         var totalCachedSize = 0L;
 
         do
         {
-            begin = end.Subtract(MaxKLinesPerTime * granularitySpan).Max(MinTime);
+            var begin = end.Subtract(MaxKLinesPerTime * granularitySpan).Max(MinTime);
             var kLines = await client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
                 startTime: begin, endTime: end, limit: 1500);
 
             if (!kLines.Success)
                 throw new Exception($"Failed to get exchange info: {kLines.Error}");
 
-            var kLinesArray = kLines.Data.Select(x => new KLine(x)).ToArray();
-
-            if (kLinesArray.Length == 0)
+            if (kLines.Data.Length == 0)
                 break;
+
+            var kLinesArray = FillGapsGeneral(kLines.Data, granularity);
 
             totalCachedSize += kLinesArray.Length * KLine.SizeInBytes;
 
             container.AppendThreadSafe(kLinesArray);
+
             progressReportCallback?.Invoke(granularity, container.Begin, container.End, totalCachedSize);
 
-            end = kLinesArray.First().OpenTime;
+            if (end == kLinesArray[0].OpenTime)
+                break;
 
-        } while (begin.Add(granularitySpan) >= end);
+            end = kLinesArray[0].OpenTime;
+
+        } while (true);
+
+        if (!container.CheckChronologicalIntegrity())
+            throw new InvalidOperationException("Block-grid has failed the chronological integrity test");
     }
 }

@@ -66,6 +66,19 @@ public class BlockGrid
     public IReadOnlyList<IKLineBlockReadOnly> Blocks => _blocks;
 
     /// <summary>
+    /// Returns "true" if there are no chronological "gaps" in-between blocks in the grid.
+    /// Otherwise, "false" is returned.
+    /// </summary>
+    public bool CheckChronologicalIntegrity()
+    {
+        for (var blockId = 1; blockId < _blocks.Count; blockId++)
+            if (_blocks[blockId].Begin != _blocks[blockId - 1].End)
+                return false;
+
+        return true;
+    }
+
+    /// <summary>
     /// Returns index of the first block whose "end time"
     /// is not less than the given <param name="time"/>.
     /// In case there is no such a block "-1" is returned.
