@@ -55,6 +55,33 @@ public record KLine
     public KLine() {}
 
     /// <summary>
+    /// Constructs an "invalid" instance of k-line.
+    /// </summary>
+    public static KLine Invalid(DateTime open, DateTime close)
+    {
+        return new KLine()
+        {
+            OpenTime = open, CloseTime = close,
+        };
+    }
+
+    /// <summary>
+    /// Returns "true" if the current instance is "invalid".
+    /// </summary>
+    public bool IsInvalid()
+    {
+        return OpenPrice.Equals(0) &&
+        ClosePrice.Equals(0) &&
+        LowPrice.Equals(0) &&
+        HighPrice.Equals(0) &&
+        Volume.Equals(0) &&
+        QuoteVolume.Equals(0) &&
+        TakerBuyBaseVolume.Equals(0) &&
+        TakerBuyQuoteVolume.Equals(0) &&
+        TradeCount == 0;
+    }
+
+    /// <summary>
     /// The time this candlestick opened
     /// </summary>
     public DateTime OpenTime { get; init; }

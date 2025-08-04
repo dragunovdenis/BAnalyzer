@@ -281,14 +281,8 @@ public class KLineBlock : IKLineBlockReadOnly
         _granularity = granularity;
         _data = data.ToList();
 
-        // In some cases the data from Binance server does not pass
-        // the validity check being actually corrupted. Currently,
-        // I do not see how this can be fixed. The solution for now
-        // is that we skip the check in Release configuration.
-#if DEBUG 
         if (!IsValid())
             throw new ArgumentException("Unexpected inconsistency detected");
-#endif
     }
 
     /// <summary>

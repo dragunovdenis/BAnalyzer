@@ -158,9 +158,9 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             exchangeDescriptor is null or "" || client == null || request.Cancelled)
             return null;
 
-        var frameDuration = timeFrame.Duration;
-        var (sticks, success) = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameDuration),
-            timeFrame.End.Add(frameDuration), timeFrame.Discretization, exchangeDescriptor, request.FundamentalUpdate);
+        var frameExtension = 0.25 * timeFrame.Duration;
+        var (sticks, success) = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameExtension),
+            timeFrame.End.Add(frameExtension), timeFrame.Discretization, exchangeDescriptor, request.FundamentalUpdate);
 
         if (!success || sticks.IsNullOrEmpty() || request.Cancelled)
             return null;
@@ -169,7 +169,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
             await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks), request.AnalysisSettings);
 
         return new ChartData(sticks, priceIndicators,
-            volumeIndicators, windowSize, frameDuration.TotalDays);
+            volumeIndicators, windowSize, timeFrame.Duration.TotalDays);
     }
 
     /// <summary>

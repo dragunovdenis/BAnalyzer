@@ -107,18 +107,13 @@ public class Binance : IDisposable
 
         var kLineSpan = granularity.ToTimeSpan();
 
-        // Extend gap interval one k-line in each side, if possible.
-        var gapIntervalLocal = new TimeInterval(
-            cacheGapInterval.IsOpenToTheLeft() ? null : cacheGapInterval.Begin.Subtract(kLineSpan),
-            cacheGapInterval.IsOpenToTheRight() ? null : cacheGapInterval.End.Add(kLineSpan));
-
-        if (!gapIntervalLocal.IsOpen()) return gapIntervalLocal.Copy();
+        if (!cacheGapInterval.IsOpen()) return cacheGapInterval.Copy();
 
         var span = kLineSpan * (MaxKLinesPerTime - 1);
 
-        return !gapIntervalLocal.IsOpenToTheLeft() ?
-            new TimeInterval(gapIntervalLocal.Begin, gapIntervalLocal.Begin.Add(span).Min(localNow)) :
-            new TimeInterval(gapIntervalLocal.End.Subtract(span), gapIntervalLocal.End);
+        return !cacheGapInterval.IsOpenToTheLeft() ?
+            new TimeInterval(cacheGapInterval.Begin, cacheGapInterval.Begin.Add(span).Min(localNow)) :
+            new TimeInterval(cacheGapInterval.End.Subtract(span), cacheGapInterval.End);
     }
 
     private BinanceCache _cache = new();
@@ -175,17 +170,15 @@ public class Binance : IDisposable
         if (!kLines.Success)
             return (new List<KLine>(), false);
 
-        var kLinesArray = kLines.Data.Select(x => new KLine(x)).ToArray();
+        var kLinesArray = FillGapsGeneral(kLines.Data, granularity);
 
         if (kLinesArray.Length > 0)
         {
             cacheGrid.AppendThreadSafe(kLinesArray);
 
-            if (kLinesArray[0].OpenTime > interval.Begin.Add(granularity.ToTimeSpan()))
+            if (kLinesArray[0].OpenTime == interval.End)
                 cacheGrid.SetZeroTimePointThreadSafe(kLinesArray[0].OpenTime);
         }
-        else if (kLinesArray.Length == 0)
-            cacheGrid.SetZeroTimePointThreadSafe(interval.End);
 
         if (kLinesArray.Length <= 1 && !cacheGapInterval.IsOpenToTheLeft())
         {
@@ -343,6 +336,9 @@ public class Binance : IDisposable
     {
         var validSubBlocks = FindBlockBoundaries(kLines, IsValidMonth);
 
+        if (validSubBlocks.Count == 0)
+            return [];
+
         var initialOpenTime = kLines[validSubBlocks.First().BeginIdInclusive].OpenTime;
 
         var finalCloseTime = kLines[validSubBlocks.Last().EndIdExclusive - 1].CloseTime;
@@ -364,11 +360,7 @@ public class Binance : IDisposable
             {
                 var opeTime = prevSubBlockCloseTime + GapSpan;
                 prevSubBlockCloseTime += TimeSpan.FromDays(DateTime.DaysInMonth(opeTime.Year, opeTime.Month));
-                result[currentKlineIndex++] = new KLine()
-                {
-                    OpenTime = opeTime,
-                    CloseTime = prevSubBlockCloseTime,
-                };
+                result[currentKlineIndex++] = KLine.Invalid(opeTime, prevSubBlockCloseTime);
             }
 
             for (var originalId = subBlock.BeginIdInclusive; originalId < subBlock.EndIdExclusive; originalId++)
@@ -395,6 +387,9 @@ public class Binance : IDisposable
 
         var validSubBlocks = FindBlockBoundaries(kLines, IsValid);
 
+        if (validSubBlocks.Count == 0)
+            return [];
+
         var baseOpenTime = kLines[validSubBlocks.First().BeginIdInclusive].OpenTime;
 
         var resultSize = (int)Math.Round((kLines[validSubBlocks.Last().EndIdExclusive - 1].CloseTime - baseOpenTime).Add(GapSpan) / span);
@@ -414,11 +409,7 @@ public class Binance : IDisposable
             {
                 var opeTime = prevSubBlockCloseTime + GapSpan;
                 prevSubBlockCloseTime += span;
-                result[currentKlineIndex++] = new KLine()
-                {
-                    OpenTime = opeTime,
-                    CloseTime = prevSubBlockCloseTime,
-                };
+                result[currentKlineIndex++] = KLine.Invalid(opeTime, prevSubBlockCloseTime);
             }
 
             for (var originalId = subBlock.BeginIdInclusive; originalId < subBlock.EndIdExclusive; originalId++)

@@ -436,9 +436,9 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         if (timeFrame.Discretization == KlineInterval.ThreeDay && assets.Count(x => x.Selected) > 1)
             return EmptyChartData();
 
-        var frameDuration = timeFrame.Duration;
-        var frameBegin = timeFrame.Begin.Subtract(frameDuration);
-        var frameEnd = timeFrame.End.Add(frameDuration);
+        var frameExtension = 0.25 * timeFrame.Duration;
+        var frameBegin = timeFrame.Begin.Subtract(frameExtension);
+        var frameEnd = timeFrame.End.Add(frameExtension);
 
         var valueSticks = Array.Empty<OHLC>();
 
@@ -464,7 +464,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         valueSticks = valueSticks.Reverse().ToArray();
 
         return new ChartData(valueSticks, null, [], [],
-            0, frameDuration.TotalDays);
+            0, timeFrame.Duration.TotalDays);
     }
 
     /// <summary>
