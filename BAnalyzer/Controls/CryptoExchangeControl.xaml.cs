@@ -162,8 +162,11 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         var (sticks, success) = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameExtension),
             timeFrame.End.Add(frameExtension), timeFrame.Discretization, exchangeDescriptor, request.FundamentalUpdate);
 
-        if (!success || sticks.IsNullOrEmpty() || request.Cancelled)
+        if (!success || request.Cancelled)
             return null;
+
+        if (sticks.IsNullOrEmpty())
+            return ChartData.CreateInvalid;
 
         var (priceIndicators, volumeIndicators, windowSize) =
             await CalculateIndicatorPoints(sticks, ChartData.ToTradeVolumes(sticks), request.AnalysisSettings);
@@ -185,13 +188,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
     /// <summary>
     /// Visualizes the given sticks-and-price data. Must be called in UI thread.
     /// </summary>
-    private void VisualizeSticks(ChartData chartData)
-    {
-        if (chartData == null || !chartData.IsValid())
-            Chart.UpdatePlots(null);
-        else
-            Chart.UpdatePlots(chartData);
-    }
+    private void VisualizeSticks(ChartData chartData) =>
+        Chart.UpdatePlots(chartData is not { IsValid: true } ? null : chartData);
 
     /// <summary>
     /// Visualizes the given <paramref name="price"/>
@@ -320,7 +318,13 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 
                 var sticks = await Task.Run(async () => await RetrieveSticks(request, _client));
 
-                if (sticks != null && !request.Cancelled) VisualizeSticks(sticks);
+                if (sticks != null && !request.Cancelled)
+                {
+                    VisualizeSticks(sticks);
+
+                    if (!sticks.IsValid) // reset time frame
+                        Chart.TimeFrameEndLocalTime = double.NaN;
+                }
 
             } while (request != _kLineRequest);
         }

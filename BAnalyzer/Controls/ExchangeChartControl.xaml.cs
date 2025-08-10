@@ -150,6 +150,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
 
     /// <summary>
     /// The end of displayed time frame in OLE Automation Date format, local time.
+    /// Can be "NaN" meaning "Now" (time-wise).
     /// </summary>
     public double TimeFrameEndLocalTime
     {
@@ -396,11 +397,12 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
             return TimeFrameEndLocalTime;
 
         var result = TimeFrameEndLocalTime;
+
         if (result < _chartData.MinStickTime + _chartData.TimeFrameDurationOad)
             result = _chartData.MinStickTime + _chartData.TimeFrameDurationOad;
 
         if (result > _chartData.MaxStickTime)
-            result = double.NaN;
+            result = _chartData.MaxStickTimeIsNow ? double.NaN : _chartData.MaxStickTime;
 
         return result;
     }

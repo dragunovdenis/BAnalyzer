@@ -24,9 +24,34 @@ namespace BAnalyzer.DataStructures;
 /// <summary>
 /// Sticks and price data struct.
 /// </summary>
-public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData,
-    IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize, double timeFrameDurationOad)
+public class ChartData
 {
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    public ChartData(OHLC[] sticks, IList<double> tradeVolumeData,
+        IList<int> priceIndicatorPoints, IList<int> volumeIndicatorPoints, int indicatorWindowSize,
+        double timeFrameDurationOad)
+    {
+        Sticks = sticks;
+        TradeVolumeData = tradeVolumeData;
+        PriceIndicatorPoints = priceIndicatorPoints;
+        VolumeIndicatorPoints = volumeIndicatorPoints;
+        IndicatorWindowSize = indicatorWindowSize;
+        _times = sticks.Select(x => x.DateTime.ToOADate()).ToArray();
+        TimeFrameDurationOad = timeFrameDurationOad;
+
+        if (Sticks.Length == 0)
+            return;
+
+        var halfGranularity = 0.5 * Sticks[0].TimeSpan.TotalDays;
+
+        MinStickTime = _times[0] - halfGranularity;
+        MaxStickTime = _times[^1] + halfGranularity;
+
+        MaxStickTimeIsNow = MaxStickTime + halfGranularity > DateTime.Now.ToOADate();
+    }
+
     /// <summary>
     /// Constructor.
     /// </summary>
@@ -37,6 +62,12 @@ public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData,
     {}
 
     /// <summary>
+    /// If "true" indicates that the time of the last item
+    /// in the collection of "sticks" should be regarded as "now".
+    /// </summary>
+    public bool MaxStickTimeIsNow { get; }
+
+    /// <summary>
     /// Converter.
     /// </summary>
     public static IList<double> ToTradeVolumes(IList<KLine> candleStickData) =>
@@ -45,27 +76,27 @@ public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData,
     /// <summary>
     /// Sticks.
     /// </summary>
-    public OHLC[] Sticks { get; } = sticks;
+    public OHLC[] Sticks { get; }
 
     /// <summary>
     /// Trade volume data for each stick.
     /// </summary>
-    public IList<double> TradeVolumeData { get; } = tradeVolumeData;
+    public IList<double> TradeVolumeData { get; }
 
     /// <summary>
     /// Array of stick times in OLEA format.
     /// </summary>
-    private readonly double[] _times = sticks.Select(x => x.DateTime.ToOADate()).ToArray();
+    private readonly double[] _times;
 
     /// <summary>
     /// Minimal time of the series of candlesticks.
     /// </summary>
-    public double MinStickTime => _times[0] - Sticks.First().TimeSpan.TotalDays / 2;
+    public double MinStickTime { get; } = double.NaN;
 
     /// <summary>
     /// Maximal time of the series of candlesticks.
     /// </summary>
-    public double MaxStickTime => _times.Last() + Sticks.First().TimeSpan.TotalDays / 2;
+    public double MaxStickTime { get; } = double.NaN;
 
     /// <summary>
     /// Collection of OAD time values for each candle-stick.
@@ -75,22 +106,22 @@ public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData,
     /// <summary>
     /// Indicator points calculate with respect to price.
     /// </summary>
-    public IList<int> PriceIndicatorPoints { get; } = priceIndicatorPoints;
+    public IList<int> PriceIndicatorPoints { get; }
 
     /// <summary>
     /// Indicator points calculate with respect to trade volume.
     /// </summary>
-    public IList<int> VolumeIndicatorPoints { get; } = volumeIndicatorPoints;
+    public IList<int> VolumeIndicatorPoints { get; }
 
     /// <summary>
     /// Window size used to calculate indicator points
     /// </summary>
-    public int IndicatorWindowSize { get; } = indicatorWindowSize;
+    public int IndicatorWindowSize { get; }
 
     /// <summary>
     /// Duration of the displayed time frame in OLE automation Date format.
     /// </summary>
-    public double TimeFrameDurationOad { get; } = timeFrameDurationOad;
+    public double TimeFrameDurationOad { get; }
 
     /// <summary>
     /// Returns the time of the opening of the first candle-stick.
@@ -119,8 +150,13 @@ public class ChartData(OHLC[] sticks, IList<double> tradeVolumeData,
     /// <summary>
     /// Returns "true" if the current instance was qualified as "valid".
     /// </summary>
-    public bool IsValid() => Sticks is { Length: > 0 };
-        
+    public bool IsValid => Sticks is { Length: > 0 };
+
+    /// <summary>
+    /// Returns an "invalid" instance.
+    /// </summary>
+    public static ChartData CreateInvalid => new([], [], [], 0, 0);
+
     /// <summary>
     /// Returns "true" if the last candle-stick in the corresponding collection is green.
     /// </summary>
