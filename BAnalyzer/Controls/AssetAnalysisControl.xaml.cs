@@ -355,23 +355,15 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     {
         var (offsetValue, offsetPrice) = FindCommonBeginOffset(value, price);
 
-        if (offsetPrice < 0)
-            return value;
+        if (offsetPrice < 0 || offsetValue < 0)
+            return [];
 
-        var resultLength = Math.Max(value.Length - offsetValue, price.Length - offsetPrice);
+        var resultLength = Math.Min(value.Length - offsetValue, price.Length - offsetPrice);
 
         var result = new OHLC[resultLength];
 
-        var commonLength = Math.Min(value.Length - offsetValue, price.Length - offsetPrice);
-
-        for (var itemId = 0; itemId < commonLength; itemId++)
+        for (var itemId = 0; itemId < resultLength; itemId++)
             result[itemId] = Add(value[itemId + offsetValue], price[itemId + offsetPrice], asset);
-
-        for (var itemId = commonLength; itemId < value.Length - offsetValue; itemId++)
-            result[itemId] = value[itemId + offsetValue];
-
-        for (var itemId = commonLength; itemId < price.Length - offsetPrice; itemId++)
-            result[itemId] = ToValue(price[itemId + offsetPrice], asset);
 
         return result;
     }
@@ -405,12 +397,6 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
-    /// Returns an empty data that will clear the chart.
-    /// </summary>
-    private static ChartData EmptyChartData() => new([], null,
-        [], [], 0, 0);
-
-    /// <summary>
     /// Retrieves the "k-line" data for the given time interval.
     /// </summary>
     private static async Task<ChartData> RetrieveKLines(UpdateRequest request, BAnalyzerCore.Binance client)
@@ -429,7 +415,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         // The current solution is just skip the evaluation if we have more
         // than one asset to process.
         if (timeFrame.Discretization == KlineInterval.ThreeDay && assets.Count(x => x.Selected) > 1)
-            return EmptyChartData();
+            return ChartData.CreateInvalid;
 
         var frameExtension = 0.25 * timeFrame.Duration;
         var frameBegin = timeFrame.Begin.Subtract(frameExtension);
@@ -447,13 +433,19 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
             var (data, success) = await client.GetCandleSticksAsync(frameBegin, frameEnd,
                 timeFrame.Discretization, symbol, request.FundamentalUpdate);
 
-            if (!success || data.IsNullOrEmpty() || request.Cancelled)
+            if (!success || request.Cancelled)
                 return null;
+
+            if (data.IsNullOrEmpty())
+                return ChartData.CreateInvalid;
 
             var priceSticks = data.Select(x => x.ToScottPlotCandleStick()).Reverse().ToArray();
 
-            valueSticks = valueSticks == null ? priceSticks.Select(x => ToValue(x, asset)).ToArray() :
+            valueSticks = valueSticks.Length == 0 ? priceSticks.Select(x => ToValue(x, asset)).ToArray() :
                 Append(valueSticks, priceSticks, asset);
+
+            if (valueSticks.IsNullOrEmpty())
+                return ChartData.CreateInvalid;
         }
 
         valueSticks = valueSticks.Reverse().ToArray();
