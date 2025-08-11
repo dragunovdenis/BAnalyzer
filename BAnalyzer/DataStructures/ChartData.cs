@@ -91,12 +91,12 @@ public class ChartData
     /// <summary>
     /// Minimal time of the series of candlesticks.
     /// </summary>
-    public double MinStickTime { get; } = double.NaN;
+    public double MinStickTime { get; } = double.PositiveInfinity;
 
     /// <summary>
     /// Maximal time of the series of candlesticks.
     /// </summary>
-    public double MaxStickTime { get; } = double.NaN;
+    public double MaxStickTime { get; } = double.NegativeInfinity;
 
     /// <summary>
     /// Collection of OAD time values for each candle-stick.
@@ -122,30 +122,6 @@ public class ChartData
     /// Duration of the displayed time frame in OLE automation Date format.
     /// </summary>
     public double TimeFrameDurationOad { get; }
-
-    /// <summary>
-    /// Returns the time of the opening of the first candle-stick.
-    /// </summary>
-    public DateTime GetBeginTime()
-    {
-        if (Sticks == null || Sticks.Length == 0)
-            throw new InvalidOperationException("Invalid collection of candle-sticks.");
-
-        var stickSpan = Sticks.First().TimeSpan;
-        return Sticks.First().DateTime.Add(-0.5 * stickSpan);
-    }
-
-    /// <summary>
-    /// Returns the time of the closing of the last candle-stick.
-    /// </summary>
-    public DateTime GetEndTime()
-    {
-        if (Sticks == null || Sticks.Length == 0)
-            throw new InvalidOperationException("Invalid collection of candle-sticks.");
-
-        var stickSpan = Sticks.First().TimeSpan;
-        return Sticks.Last().DateTime.Add(0.5 * stickSpan);
-    }
 
     /// <summary>
     /// Returns "true" if the current instance was qualified as "valid".
@@ -175,8 +151,7 @@ public class ChartData
     /// </summary>
     private int GetStickId(double timeOa)
     {
-        if (GetBeginTime().ToOADate() > timeOa ||
-            GetEndTime().ToOADate() < timeOa)
+        if (MinStickTime > timeOa || MaxStickTime < timeOa)
             return -1;
 
         var id = Array.BinarySearch(_times, timeOa);

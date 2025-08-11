@@ -52,7 +52,7 @@ internal class TimeFrame
     {
         Discretization = discretization;
         Duration = Discretization.ToTimeSpan().Multiply(sticksPerChart);
-        End = double.IsNaN(timeFrameEndOad) || timeFrameEndOad > DateTime.UtcNow.ToOADate() ?
+        End = timeFrameEndOad > DateTime.UtcNow.ToOADate() ?
             DateTime.UtcNow : DateTime.FromOADate(timeFrameEndOad);
         Begin = End.Subtract(Duration);
     }

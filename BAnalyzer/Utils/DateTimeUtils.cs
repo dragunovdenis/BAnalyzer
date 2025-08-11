@@ -27,8 +27,8 @@ internal static class DateTimeUtils
     /// </summary>
     public static double LocalToUtcOad(double localOad)
     {
-        if (double.IsNaN(localOad))
-            return double.NaN;
+        if (double.IsPositiveInfinity(localOad))
+            return double.PositiveInfinity;
 
         var time = DateTime.FromOADate(localOad);
 

@@ -146,7 +146,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// </summary>
     public static readonly DependencyProperty TimeFrameEndLocalTimeProperty =
         DependencyProperty.Register(nameof(TimeFrameEndLocalTime), typeof(double), typeof(ExchangeChartControl),
-            new PropertyMetadata(defaultValue: double.NaN, OnDependencyPropertyChanged));
+            new PropertyMetadata(defaultValue: double.PositiveInfinity, OnDependencyPropertyChanged));
 
     /// <summary>
     /// The end of displayed time frame in OLE Automation Date format, local time.
@@ -158,7 +158,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         set
         {
             if (UpdateTimeFrameEndNoBroadcast(value))
-                _syncController?.BroadcastFrameEnd(this, GetRegularizedTimeFrame());
+                _syncController?.BroadcastFrameEnd(this, RegularizeTimeFrameEnd(TimeFrameEndLocalTime));
         }
     }
 
@@ -170,7 +170,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         if (!TimeFrameEndLocalTime.Equals(newValue))
         {
             SetValue(TimeFrameEndLocalTimeProperty, newValue);
-            SetAxesLimits(regularizeTimeFrame: false);
+            SetAxesLimits();
             return true;
         }
 
@@ -346,8 +346,8 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
             chartData.TradeVolumeData);
         result.Axes.YAxis = VolPlot.Plot.Axes.Right;
 
-        var startTimeOa = chartData.GetBeginTime().ToOADate();
-        var endTimeOa = chartData.GetEndTime().ToOADate();
+        var startTimeOa = chartData.MinStickTime;
+        var endTimeOa = chartData.MaxStickTime;
         var barWidth = ((endTimeOa - startTimeOa) / result.Bars.Count()) * 0.8;
 
         var barId = 0;
@@ -391,18 +391,18 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// <summary>
     /// Returns value of the end of time frame clamped to its "conservative" limits.
     /// </summary>
-    private double GetRegularizedTimeFrame()
+    private double RegularizeTimeFrameEnd(double notRegularizedTimeFrameEnd)
     {
         if (_chartData == null)
-            return TimeFrameEndLocalTime;
+            return notRegularizedTimeFrameEnd;
 
-        var result = TimeFrameEndLocalTime;
+        var result = notRegularizedTimeFrameEnd;
 
         if (result < _chartData.MinStickTime + _chartData.TimeFrameDurationOad)
             result = _chartData.MinStickTime + _chartData.TimeFrameDurationOad;
 
         if (result > _chartData.MaxStickTime)
-            result = _chartData.MaxStickTimeIsNow ? double.NaN : _chartData.MaxStickTime;
+            result = _chartData.MaxStickTimeIsNow ? double.PositiveInfinity : _chartData.MaxStickTime;
 
         return result;
     }
@@ -410,15 +410,12 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     /// <summary>
     /// Set axes limits for both plots.
     /// </summary>
-    private void SetAxesLimits(bool regularizeTimeFrame)
+    private void SetAxesLimits()
     {
         if (_chartData == null)
             return;
 
-        if (regularizeTimeFrame) // do not do adjustment of time-frame boundaries if we are "dragging"
-            TimeFrameEndLocalTime = GetRegularizedTimeFrame();
-
-        var localFrameEnd = double.IsNaN(TimeFrameEndLocalTime) ? _chartData.GetEndTime().ToOADate() : TimeFrameEndLocalTime;
+        var localFrameEnd = double.IsPositiveInfinity(TimeFrameEndLocalTime) ? _chartData.MaxStickTime : TimeFrameEndLocalTime;
 
         VolPlot.Plot.Axes.SetLimitsX(localFrameEnd - _chartData.TimeFrameDurationOad, localFrameEnd);
         VolPlot.Refresh();
@@ -435,7 +432,11 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         _chartData = chartData;
         _candlestickPlot = BuildCandleSticks(_chartData);
         _volumePlot = BuildVolumeChart(_chartData);
-        SetAxesLimits(regularizeTimeFrame: !PlotDragInProgress);
+
+        if (!PlotDragInProgress)
+            TimeFrameEndLocalTime = RegularizeTimeFrameEnd(TimeFrameEndLocalTime);
+
+        SetAxesLimits();
         ApplyColorPalettes();
     }
         
@@ -625,7 +626,8 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
     private void Plots_OnMouseUp(object sender, MouseButtonEventArgs e)
     {
         _startDragPixel = null;
-        SetAxesLimits(regularizeTimeFrame: true);
+        TimeFrameEndLocalTime = RegularizeTimeFrameEnd(TimeFrameEndLocalTime);
+        SetAxesLimits();
     }
 
     public event PropertyChangedEventHandler PropertyChanged;

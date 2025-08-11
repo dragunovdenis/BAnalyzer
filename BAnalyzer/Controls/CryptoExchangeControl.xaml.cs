@@ -323,7 +323,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
                     VisualizeSticks(sticks);
 
                     if (!sticks.IsValid) // reset time frame
-                        Chart.TimeFrameEndLocalTime = double.NaN;
+                        Chart.TimeFrameEndLocalTime = double.PositiveInfinity;
                 }
 
             } while (request != _kLineRequest);
