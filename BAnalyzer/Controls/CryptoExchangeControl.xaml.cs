@@ -17,6 +17,7 @@
 
 using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
+using BAnalyzer.Interfaces;
 using BAnalyzer.Utils;
 using BAnalyzerCore;
 using BAnalyzerCore.DataStructures;
@@ -32,7 +33,8 @@ namespace BAnalyzer.Controls;
 /// <summary>
 /// Interaction logic for ExchangeChartControl.xaml
 /// </summary>
-public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
+public partial class CryptoExchangeControl : INotifyPropertyChanged,
+    IDisposable, ISynchronizableExchangeControl
 {
     private readonly BAnalyzerCore.Binance _client = null;
 
@@ -425,6 +427,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
 
     private readonly ExchangeSettings _settings;
 
+    /// <inheritdoc/>
+    public ISynchronizableChart SyncChart => Chart;
+
+    /// <inheritdoc/>
+    IExchangeSettings ISynchronizableExchangeControl.Settings => _settings;
+
     /// <summary>
     /// Settings.
     /// </summary>
@@ -463,7 +471,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged, IDisposable
         _client = client;
         InitializeComponent();
 
-        Chart.RegisterToSynchronizationController(syncController);
+        syncController?.Register(this);
+
         AvailableTimeIntervals =
             new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
                 Where(x => x != KlineInterval.OneSecond));

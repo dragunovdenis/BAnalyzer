@@ -15,7 +15,8 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using BAnalyzer.Controls;
+using BAnalyzer.Interfaces;
+using System.ComponentModel;
 
 namespace BAnalyzer.Controllers;
 
@@ -25,34 +26,23 @@ namespace BAnalyzer.Controllers;
 public interface IChartSynchronizationController
 {
     /// <summary>
-    /// Registers the given control.
-    /// </summary>
-    void Register(ExchangeChartControl control);
-
-    /// <summary>
     /// Un-registers the given control.
     /// Returns "true" in case of success.
     /// </summary>
-    bool UnRegister(ExchangeChartControl control);
+    bool UnRegister(ISynchronizableExchangeControl control);
 
     /// <summary>
-    /// Broadcasts given time-frame end between all the registered controls.
+    /// Registers the given control.
     /// </summary>
-    void BroadcastFrameEnd(object sender, double frameEnd);
-
-    /// <summary>
-    /// Broadcasts the given <param name="inFocusTime"/>
-    /// to all the registered chart controls.
-    /// </summary>
-    public void BroadcastInFocusTime(object sender, double inFocusTime);
+    void Register(ISynchronizableExchangeControl control);
 }
 
 /// <summary>
-/// Synchronization controller for <see cref="ExchangeChartControl"/>.
+/// Synchronization controller for <see cref="ISynchronizableChart"/>.
 /// </summary>
 internal class ChartSynchronizationController : IChartSynchronizationController
 {
-    private readonly List<ExchangeChartControl> _controls = new();
+    private readonly List<ISynchronizableExchangeControl> _controls = new();
 
     private bool _synchronizationEnabled = true;
 
@@ -68,52 +58,109 @@ internal class ChartSynchronizationController : IChartSynchronizationController
             {
                 _synchronizationEnabled = value;
 
-                if (_synchronizationEnabled && _controls.Count > 0)
+                if (_synchronizationEnabled && _controls.Count > 1)
                 {
-                    var sender = _controls.First();
-                    BroadcastFrameEnd(sender, sender.TimeFrameEndLocalTime);
-                    BroadcastInFocusTime(sender, sender.InFocusTime);
+                    var source = _controls.MaxBy(x => x.SyncChart.TimeFrameEndLocalTime);
+                    BroadcastFrameEnd(source, source.SyncChart.TimeFrameEndLocalTime);
+                    BroadcastInFocusTime(source, source.SyncChart.InFocusTime);
+                    SynchronizeSettings(source.Settings);
                 }
             }
         }
     }
 
     /// <inheritdoc/>
-    public void Register(ExchangeChartControl control)
+    public void Register(ISynchronizableExchangeControl control)
     {
         if (control == null) throw new ArgumentNullException(nameof(control));
 
+        if (_controls.Contains(control))
+            throw new OperationCanceledException("An attempt to register the same control twice");
+
         _controls.Add(control);
+
+        control.SyncChart.BroadcastFrameEndEvent += BroadcastFrameEnd;
+        control.SyncChart.BroadcastInFocusTimeEvent += BroadcastInFocusTime;
 
         if (_controls.Count > 1 && _synchronizationEnabled)
         {
-            var source = _controls.First();
-            control.UpdateTimeFrameEndNoBroadcast(source.TimeFrameEndLocalTime);
-            control.UpdateInFocusTimeNoBroadcast(source.InFocusTime);
+            var source = _controls[0];
+            control.SyncChart.UpdateTimeFrameEndNoBroadcast(source.SyncChart.TimeFrameEndLocalTime);
+            control.SyncChart.UpdateInFocusTimeNoBroadcast(source.SyncChart.InFocusTime);
+            control.Settings.Assign(source.Settings, excludeExchangeDescriptor: true);
         }
+
+        control.Settings.PropertyChanged += ExchangeSettings_PropertyChanged;
     }
 
     /// <inheritdoc/>
-    public bool UnRegister(ExchangeChartControl control) => _controls.Remove(control);
+    public bool UnRegister(ISynchronizableExchangeControl control)
+    {
+        if (control == null)
+            return false;
+
+        if (_controls.Remove(control))
+        {
+            control.SyncChart.BroadcastFrameEndEvent -= BroadcastFrameEnd;
+            control.SyncChart.BroadcastInFocusTimeEvent -= BroadcastInFocusTime;
+
+            control.Settings.PropertyChanged -= ExchangeSettings_PropertyChanged;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Property changed handler of all exchange controls.
+    /// </summary>
+    private void ExchangeSettings_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not IExchangeSettings source || !_synchronizationEnabled)
+            return;
+
+        SynchronizeSettings(source);
+    }
+
+    /// <summary>
+    /// Synchronizes settings of all the exchange controls with the given <param name="source"/>
+    /// </summary>
+    private void SynchronizeSettings(IExchangeSettings source)
+    {
+        foreach (var control in _controls)
+        {
+            // Unsubscribe from the "property changed" event to
+            // avoid reacting on the changes that follow. Not a
+            // very elegant solution byt let it be so for e while.
+            control.Settings.PropertyChanged -= ExchangeSettings_PropertyChanged;
+            control.Settings.Assign(source, excludeExchangeDescriptor: true);
+            control.Settings.PropertyChanged += ExchangeSettings_PropertyChanged;
+        }
+    }
 
     /// <summary>
     /// General method to broadcast property values.
     /// </summary>
-    private void BroadcastProperty(object sender, Action<ExchangeChartControl> propertyUpdater)
+    private void BroadcastProperty(object sender, Action<ISynchronizableChart> propertyUpdater)
     {
         if (!SynchronizationEnabled)
             return;
 
         foreach (var c in _controls)
-            if (!sender.Equals(c))
-                propertyUpdater(c);
+            if (!sender.Equals(c.SyncChart))
+                propertyUpdater(c.SyncChart);
     }
 
-    /// <inheritdoc/>
-    public void BroadcastFrameEnd(object sender, double frameEnd) =>
+    /// <summary>
+    /// Event handler for the "broadcast frame end" event.
+    /// </summary>
+    private void BroadcastFrameEnd(object sender, double frameEnd) =>
         BroadcastProperty(sender, chart => chart.UpdateTimeFrameEndNoBroadcast(frameEnd));
 
-    /// <inheritdoc/>
-    public void BroadcastInFocusTime(object sender, double inFocusTime) =>
+    /// <summary>
+    /// Event handler for the "broadcast in-focus time" event.
+    /// </summary>
+    private void BroadcastInFocusTime(object sender, double inFocusTime) =>
         BroadcastProperty(sender, chart => chart.UpdateInFocusTimeNoBroadcast(inFocusTime));
 }

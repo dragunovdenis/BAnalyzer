@@ -18,50 +18,10 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
+using BAnalyzer.Interfaces;
 using Binance.Net.Enums;
 
 namespace BAnalyzer.DataStructures;
-
-/// <summary>
-/// Readonly interface for the corresponding data struct below.
-/// </summary>
-public interface IExchangeSettings : INotifyPropertyChanged
-{
-    /// <summary>
-    /// Descriptor of the crypto-currency pair.
-    /// </summary>
-    string ExchangeDescriptor { get; }
-
-    /// <summary>
-    /// Time discretization to use when displaying charts.
-    /// </summary>
-    KlineInterval TimeDiscretization { get; }
-
-    /// <summary>
-    /// Current analysis indicator to visualize.
-    /// </summary>
-    AnalysisIndicatorType CurrentAnalysisIndicator { get; }
-
-    /// <summary>
-    /// Size of the main analysis window to use.
-    /// </summary>
-    int MainAnalysisWindow { get; }
-
-    /// <summary>
-    /// Number of sticks to display on the chart.
-    /// </summary>
-    int StickRange { get; }
-
-    /// <summary>
-    /// Determines whether the focus time marker should be shown.
-    /// </summary>
-    bool ShowFocusTimeMarker { get; }
-
-    /// <summary>
-    /// Assigns current instance with the given one.
-    /// </summary>
-    void Assign(IExchangeSettings source, bool excludeExchangeDescriptor = false);
-}
 
 /// <summary>
 /// Setting of the crypto exchange control.

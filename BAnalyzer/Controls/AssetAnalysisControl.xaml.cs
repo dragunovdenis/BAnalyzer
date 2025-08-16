@@ -17,6 +17,7 @@
 
 using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
+using BAnalyzer.Interfaces;
 using BAnalyzer.Utils;
 using BAnalyzerCore;
 using Binance.Net.Enums;
@@ -33,7 +34,8 @@ namespace BAnalyzer.Controls;
 /// <summary>
 /// Interaction logic for AssetAnalysisControl.xaml
 /// </summary>
-public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
+public partial class AssetAnalysisControl : INotifyPropertyChanged,
+    IDisposable, ISynchronizableExchangeControl
 {
     private BAnalyzerCore.Binance _client = null;
 
@@ -122,6 +124,12 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         set => SetField(ref _profit, value);
     }
 
+    /// <inheritdoc/>
+    public ISynchronizableChart SyncChart => Chart;
+
+    /// <inheritdoc/>
+    IExchangeSettings ISynchronizableExchangeControl.Settings => _settings;
+
     private ExchangeSettings _settings;
 
     /// <summary>
@@ -159,6 +167,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     /// </summary>
     public AssetAnalysisControl() => InitializeComponent();
 
+    private IChartSynchronizationController _syncController;
+
     /// <summary>
     /// Activates the control.
     /// </summary>
@@ -166,9 +176,11 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
         ObservableCollection<AssetRecord> assets, ExchangeSettings settings, IChartSynchronizationController syncController)
     {
         Settings = settings;
-        _client = client;
 
-        Chart.RegisterToSynchronizationController(syncController);
+        _syncController?.UnRegister(this);
+        _syncController = syncController;
+        _syncController?.Register(this);
+
         AvailableTimeIntervals =
             new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
                 Where(x => x != KlineInterval.OneSecond));
@@ -181,6 +193,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
 
         Symbols = new ObservableCollection<string>(exchangeSymbols);
         Chart.PropertyChanged += ChartOnPropertyChanged;
+
+        _client = client;
 
         _updateTimer = new DispatcherTimer
         {
@@ -211,7 +225,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged, IDisposable
     {
         if (!IsActivated) return;
 
-        Chart.RegisterToSynchronizationController(null);
+        _syncController?.UnRegister(this);
 
         if (_updateTimer != null)
         {

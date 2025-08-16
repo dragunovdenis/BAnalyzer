@@ -54,9 +54,6 @@ public partial class MainWindow
     {
         if (e.PropertyName is nameof(_settings.ControlSynchronization))
         {
-            if (_settings.ControlSynchronization)
-                SynchronizeSettings(_exchangeControls.First().Settings);
-
             _chartSyncController.SynchronizationEnabled = _settings.ControlSynchronization;
         } else if (e.PropertyName is nameof(_settings.DarkMode))
         {
@@ -83,10 +80,7 @@ public partial class MainWindow
         if (!settings.ContainsKey(settingsId))
         {
             settings[settingsId] = SetupExchangeSettings("");
-            settings[settingsId].PropertyChanged += ExchangeSettings_PropertyChanged;
         }
-
-        if (Settings.ControlSynchronization) SynchronizeSettings(null);
 
         return _assetAnalysisWindow = new AssetAnalysisWindow(BinanceClientController.Client,
             exchangeSymbols, Settings.Assets, settings[settingsId], _chartSyncController)
@@ -106,10 +100,7 @@ public partial class MainWindow
         InitializeComponent();
 
         _exchangeControls = SetUpExchangeControls();
-
-        foreach (var s in Settings.ExchangeSettings)
-            s.Value.PropertyChanged += ExchangeSettings_PropertyChanged;
-
+        
         ApplyTheme();
 
         Closing += MainWindow_Closing;
@@ -119,31 +110,6 @@ public partial class MainWindow
     /// Closing event.
     /// </summary>
     private void MainWindow_Closing(object sender, CancelEventArgs e) => ApplicationController.Instance.SaveSettings();
-
-    /// <summary>
-    /// Property changed handler of all exchange controls.
-    /// </summary>
-    private void ExchangeSettings_PropertyChanged(object sender, PropertyChangedEventArgs e)
-    {
-        if (sender is not ExchangeSettings source || !Settings.ControlSynchronization)
-            return;
-
-        SynchronizeSettings(source);
-    }
-
-    /// <summary>
-    /// Synchronizes settings of all the exchange controls with the given <param name="source"/>
-    /// </summary>
-    private void SynchronizeSettings(ExchangeSettings source)
-    {
-        var sourceLocal = source ?? Settings.ExchangeSettings.Values.FirstOrDefault();
-
-        if (sourceLocal == null)
-            return;
-
-        foreach (var ec in Settings.ExchangeSettings)
-            ec.Value.Assign(sourceLocal, excludeExchangeDescriptor: true);
-    }
 
     private readonly IReadOnlyList<string> _defaultExchangeStockNames =
         ["BTCUSDT", "ETHUSDT", "SOLUSDT", "RVNUSDT"];

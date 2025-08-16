@@ -20,8 +20,8 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
+using BAnalyzer.Interfaces;
 using BAnalyzer.Utils;
 using ScottPlot;
 using ScottPlot.Plottables;
@@ -32,7 +32,7 @@ namespace BAnalyzer.Controls;
 /// <summary>
 /// Interaction logic for ExchangeChartControl.xaml
 /// </summary>
-public partial class ExchangeChartControl : INotifyPropertyChanged
+public partial class ExchangeChartControl : INotifyPropertyChanged, ISynchronizableChart
 {
     private bool _showVolumePlot = true;
 
@@ -86,10 +86,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         set => SetValue(ShowFocusTimeMarkerProperty, value);
     }
 
-    /// <summary>
-    /// Updates "in focus time" property with the given
-    /// <param name="newValue"/> without broadcasting.
-    /// </summary>
+    /// <inheritdoc/>
     public bool UpdateInFocusTimeNoBroadcast(double newValue)
     {
         if (SetField(ref _inFocusTime, newValue))
@@ -104,11 +101,12 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         return false;
     }
 
+    /// <inheritdoc/>
+    public event Action<object, double> BroadcastInFocusTimeEvent;
+
     private double _inFocusTime;
 
-    /// <summary>
-    /// Point in time that is under the mouse pointer.
-    /// </summary>
+    /// <inheritdoc/>
     public double InFocusTime
     {
         get => _inFocusTime;
@@ -116,7 +114,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         set
         {
             if (UpdateInFocusTimeNoBroadcast(value))
-                _syncController?.BroadcastInFocusTime(this, InFocusTime);
+                BroadcastInFocusTimeEvent?.Invoke(this, InFocusTime);
         }
     }
 
@@ -141,6 +139,9 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         }
     }
 
+    /// <inheritdoc/>
+    public event Action<object, double> BroadcastFrameEndEvent;
+
     /// <summary>
     /// Dependency property.
     /// </summary>
@@ -148,23 +149,18 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         DependencyProperty.Register(nameof(TimeFrameEndLocalTime), typeof(double), typeof(ExchangeChartControl),
             new PropertyMetadata(defaultValue: double.PositiveInfinity, OnDependencyPropertyChanged));
 
-    /// <summary>
-    /// The end of displayed time frame in OLE Automation Date format, local time.
-    /// Can be "NaN" meaning "Now" (time-wise).
-    /// </summary>
+    /// <inheritdoc/>
     public double TimeFrameEndLocalTime
     {
         get => (double)GetValue(TimeFrameEndLocalTimeProperty);
         set
         {
             if (UpdateTimeFrameEndNoBroadcast(value))
-                _syncController?.BroadcastFrameEnd(this, RegularizeTimeFrameEnd(TimeFrameEndLocalTime));
+                BroadcastFrameEndEvent?.Invoke(this, RegularizeTimeFrameEnd(TimeFrameEndLocalTime));
         }
     }
 
-    /// <summary>
-    /// Updates value of the "end of time frame" parameter but does not "broadcast" the change.
-    /// </summary>
+    /// <inheritdoc/>
     public bool UpdateTimeFrameEndNoBroadcast(double newValue)
     {
         if (!TimeFrameEndLocalTime.Equals(newValue))
@@ -175,18 +171,6 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         }
 
         return false;
-    }
-
-    private IChartSynchronizationController _syncController;
-
-    /// <summary>
-    /// Registers to the given instance the given instance of synchronization controller.
-    /// </summary>
-    public void RegisterToSynchronizationController(IChartSynchronizationController syncController)
-    {
-        _syncController?.UnRegister(this);
-        _syncController = syncController;
-        _syncController?.Register(this);
     }
 
     /// <summary>
@@ -401,7 +385,7 @@ public partial class ExchangeChartControl : INotifyPropertyChanged
         if (result < _chartData.MinStickTime + _chartData.TimeFrameDurationOad)
             result = _chartData.MinStickTime + _chartData.TimeFrameDurationOad;
 
-        if (result > _chartData.MaxStickTime)
+        if (result >= _chartData.MaxStickTime)
             result = _chartData.MaxStickTimeIsNow ? double.PositiveInfinity : _chartData.MaxStickTime;
 
         return result;
