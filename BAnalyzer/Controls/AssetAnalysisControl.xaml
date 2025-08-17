@@ -77,9 +77,27 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                     Converter={StaticResource SymbolToAssetConverter}}"
                                               Assets="{Binding ElementName=Ui, Path= Assets}"/>
             </Expander>
-            <controls:ExchangeChartControl Grid.Column="1" x:Name ="Chart" DarkMode = "{Binding ElementName= Ui, Path = DarkMode,
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <StackPanel.Resources>
+                        <Style TargetType="RadioButton" BasedOn="{StaticResource RadioButtonStyle}">
+                            <Setter Property="Margin" Value="5, 0, 5, 5"/>
+                        </Style>
+                    </StackPanel.Resources>
+                    <RadioButton GroupName="AssetValueProfitSwitch" Checked="RadioButton_OnChecked"
+                                 IsChecked="{Binding ElementName=Ui, Path=ShowValueChart}">Value</RadioButton>
+                    <RadioButton GroupName="AssetValueProfitSwitch" Checked="RadioButton_OnChecked"
+                                 IsChecked="{Binding ElementName=Ui, Path=ShowValueChart,
+                        Converter={StaticResource InverseBooleanConverter}}">Profit</RadioButton>
+                </StackPanel>
+                <controls:ExchangeChartControl Grid.Row="1" x:Name ="Chart" DarkMode = "{Binding ElementName= Ui, Path = DarkMode,
                         UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" ShowFocusTimeMarker="{Binding ElementName=Ui,
                         Path=Settings.ShowFocusTimeMarker}" ShowVolumePlot="False"/>
+            </Grid>
             <Expander Grid.Column="2" ExpandDirection="Left" Style="{StaticResource ExpanderStyle}">
                 <controls:SettingsControl x:Name="SettingsPanel" Settings="{Binding ElementName=Ui, Path=Settings,
                             UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" Margin="0, 0, 5, 0"/>

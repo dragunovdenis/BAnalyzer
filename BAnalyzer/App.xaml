@@ -30,6 +30,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 <ResourceDictionary Source="Controls/Styles/ExpanderStyle.xaml"/>
                 <ResourceDictionary Source="Controls/Styles/ListBoxStyle.xaml"/>
                 <ResourceDictionary Source="Controls/Styles/MenuStyle.xaml"/>
+                <ResourceDictionary Source="Controls/Styles/RadioButtonStyle.xaml"/>
                 <ResourceDictionary Source="Controls/Styles/ScrollBarStyle.xaml"/>
                 <ResourceDictionary Source="Controls/Styles/SliderStyle.xaml"/>
                 <ResourceDictionary Source="Controls/Styles/TabItemStyle.xaml"/>

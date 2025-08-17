@@ -162,6 +162,23 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     private async void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e) =>
         await UpdateChartAsync(fundamentalUpdate: false);
 
+    private bool _showValueChart = true;
+
+    /// <summary>
+    /// Flag determining whether to show "value" or "profit" candle-sticks.
+    /// </summary>
+    public bool ShowValueChart
+    {
+        get => _showValueChart;
+        set => SetField(ref _showValueChart, value);
+    }
+
+    /// <summary>
+    /// Event handler.
+    /// </summary>
+    private async void RadioButton_OnChecked(object sender, RoutedEventArgs e) =>
+        await UpdateChartAsync(fundamentalUpdate: false);
+
     /// <summary>
     /// Constructor.
     /// </summary>
@@ -290,38 +307,37 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
 
     /// <summary>
     /// Returns the given <param name="valueStick"/> with the values
-    /// of its "open" and "close" fields incremented by the value of
-    /// the given <param name="asset"/> evaluated at the price suggested
-    /// by the given <param name="priceStick"/>.
+    /// of its fields incremented by the values of price-points from
+    /// <param name="priceStick"/> converted via given <param name="priceConverter"/>.
     /// </summary>
-    private static OHLC Add(OHLC valueStick, OHLC priceStick, AssetRecord asset)
+    private static OHLC Add(OHLC valueStick, OHLC priceStick, Func<double, double> priceConverter)
     {
         if (!TimeIsPracticallyTheSame(priceStick.DateTime, valueStick.DateTime))
             throw new InvalidOperationException("Sticks must correspond to the same time-frame.");
 
         return valueStick with
         {
-            Open = valueStick.Open + asset.Value(priceStick.Open),
-            Close = valueStick.Close + asset.Value(priceStick.Close),
-            Low = valueStick.Low + asset.Value(priceStick.Low),
-            High = valueStick.High + asset.Value(priceStick.High),
+            Open = valueStick.Open + priceConverter(priceStick.Open),
+            Close = valueStick.Close + priceConverter(priceStick.Close),
+            Low = valueStick.Low + priceConverter(priceStick.Low),
+            High = valueStick.High + priceConverter(priceStick.High),
         };
     }
 
     /// <summary>
-    /// Returns value of the given <param name="asset"/> evaluated
-    /// at the price suggested by the given <param name="priceStick"/>.
+    /// Converts given <paramref name="priceStick"/> into the corresponding
+    /// "value-stick" according to <paramref name="priceConverter"/>
     /// </summary>
-    private static OHLC ToValue(OHLC priceStick, AssetRecord asset)
+    private static OHLC ToValue(OHLC priceStick, Func<double, double> priceConverter)
     {
         return new OHLC()
         {
             DateTime = priceStick.DateTime,
             TimeSpan = priceStick.TimeSpan,
-            Open = asset.Value(priceStick.Open),
-            Close = asset.Value(priceStick.Close),
-            Low = asset.Value(priceStick.Low),
-            High = asset.Value(priceStick.High),
+            Open = priceConverter(priceStick.Open),
+            Close = priceConverter(priceStick.Close),
+            Low = priceConverter(priceStick.Low),
+            High = priceConverter(priceStick.High),
         };
     }
 
@@ -363,9 +379,11 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     }
 
     /// <summary>
-    /// Appends value of the given asset to the given collection of value sticks.
+    /// Appends price values from <paramref name="price"/> converted
+    /// via <paramref name="priceConverter"/> to the corresponding fields
+    /// of the "sticks" from <paramref name="value"/>.
     /// </summary>
-    private static OHLC[] Append(OHLC[] value, OHLC[] price, AssetRecord asset)
+    private static OHLC[] Append(OHLC[] value, OHLC[] price, Func<double, double> priceConverter)
     {
         var (offsetValue, offsetPrice) = FindCommonBeginOffset(value, price);
 
@@ -377,7 +395,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
         var result = new OHLC[resultLength];
 
         for (var itemId = 0; itemId < resultLength; itemId++)
-            result[itemId] = Add(value[itemId + offsetValue], price[itemId + offsetPrice], asset);
+            result[itemId] = Add(value[itemId + offsetValue], price[itemId + offsetPrice], priceConverter);
 
         return result;
     }
@@ -413,7 +431,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// <summary>
     /// Retrieves the "k-line" data for the given time interval.
     /// </summary>
-    private static async Task<ChartData> RetrieveKLines(UpdateRequest request, BAnalyzerCore.Binance client)
+    private static async Task<ChartData> RetrieveKLines(UpdateRequest request,
+        BAnalyzerCore.Binance client, bool calculateValue)
     {
         if (client == null) return null;// deactivated state
 
@@ -437,6 +456,9 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
 
         var valueSticks = Array.Empty<OHLC>();
 
+        double PriceToValueConverter(AssetRecord a, double p) => a.Value(p);
+        double PriceToProfitConverter(AssetRecord a, double p) => a.Profit(p);
+
         foreach (var asset in assets)
         {
             if (!asset.Selected)
@@ -455,8 +477,11 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
 
             var priceSticks = data.Select(x => x.ToScottPlotCandleStick()).Reverse().ToArray();
 
-            valueSticks = valueSticks.Length == 0 ? priceSticks.Select(x => ToValue(x, asset)).ToArray() :
-                Append(valueSticks, priceSticks, asset);
+            Func<double, double> priceConverter = calculateValue ? x => PriceToValueConverter(asset, x) :
+                x => PriceToProfitConverter(asset, x);
+
+            valueSticks = valueSticks.Length == 0 ? priceSticks.Select(x => ToValue(x, priceConverter)).ToArray() :
+                Append(valueSticks, priceSticks, priceConverter);
 
             if (valueSticks.IsNullOrEmpty())
                 return ChartData.CreateInvalid;
@@ -573,7 +598,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
             {
                 request = _kLineRequest;
 
-                var sticks = await Task.Run(async () => await RetrieveKLines(request, _client));
+                var sticks = await Task.Run(async () => await RetrieveKLines(request, _client, ShowValueChart));
 
                 if (sticks != null && !request.Cancelled) VisualizeSticks(sticks);
 

@@ -135,7 +135,7 @@ public class AssetRecord : INotifyPropertyChanged
     /// <summary>
     /// Returns profit of the asset given the <paramref name="price"/>.
     /// </summary>
-    public double Profit(double price) => Value(Price) - Investment;
+    public double Profit(double price) => Value(price) - Investment;
 
     /// <summary>
     /// Returns exchange symbol associated with the asset.
