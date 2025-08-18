@@ -38,6 +38,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <Grid Grid.Column="0" Grid.Row="0" HorizontalAlignment="Stretch">
             <Grid.Resources>
                 <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockStyle}"/>
+                <Style TargetType="RadioButton" BasedOn="{StaticResource RadioButtonStyle}">
+                    <Setter Property="Margin" Value="5, 0, 5, 5"/>
+                </Style>
             </Grid.Resources>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -49,14 +52,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                       Style="{StaticResource ComboBoxStyle}" HorizontalAlignment="Center">
             </ComboBox>
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock Margin="5" FontWeight="Bold" Text ="Value:"/>
+                <RadioButton GroupName="AssetValueProfitSwitch" Checked="RadioButton_OnChecked"
+                             IsChecked="{Binding ElementName=Ui, Path=ShowValueChart}">
+                    <TextBlock Margin="5" FontWeight="Bold" Text ="Value:"/>
+                </RadioButton>
                 <TextBlock Margin="5" FontWeight="Bold" Width="50"
                            Text ="{Binding ElementName = Ui, Path = Value, Mode=OneWay,
                     Converter={StaticResource FloatToCompactConverter}, ConverterParameter='\{0:0.###}'}"/>
                 <TextBlock Margin="5" FontWeight="Bold" Text ="USDT"/>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock Margin="5" FontWeight="Bold" Text ="Profit:"/>
+                <RadioButton GroupName="AssetValueProfitSwitch" Checked="RadioButton_OnChecked"
+                             IsChecked="{Binding ElementName=Ui, Path=ShowValueChart,
+                        Converter={StaticResource InverseBooleanConverter}}">
+                    <TextBlock Margin="5" FontWeight="Bold" Text ="Profit:"/>
+                </RadioButton>
                 <TextBlock Margin="5" FontWeight="Bold" Width="50"
                            Text ="{Binding ElementName = Ui, Path = Profit, Mode=OneWay,
                     Converter={StaticResource FloatToCompactConverter}, ConverterParameter='\{0:0.###}'}"
@@ -77,27 +87,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                     Converter={StaticResource SymbolToAssetConverter}}"
                                               Assets="{Binding ElementName=Ui, Path= Assets}"/>
             </Expander>
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
-                    <StackPanel.Resources>
-                        <Style TargetType="RadioButton" BasedOn="{StaticResource RadioButtonStyle}">
-                            <Setter Property="Margin" Value="5, 0, 5, 5"/>
-                        </Style>
-                    </StackPanel.Resources>
-                    <RadioButton GroupName="AssetValueProfitSwitch" Checked="RadioButton_OnChecked"
-                                 IsChecked="{Binding ElementName=Ui, Path=ShowValueChart}">Value</RadioButton>
-                    <RadioButton GroupName="AssetValueProfitSwitch" Checked="RadioButton_OnChecked"
-                                 IsChecked="{Binding ElementName=Ui, Path=ShowValueChart,
-                        Converter={StaticResource InverseBooleanConverter}}">Profit</RadioButton>
-                </StackPanel>
-                <controls:ExchangeChartControl Grid.Row="1" x:Name ="Chart" DarkMode = "{Binding ElementName= Ui, Path = DarkMode,
-                        UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" ShowFocusTimeMarker="{Binding ElementName=Ui,
-                        Path=Settings.ShowFocusTimeMarker}" ShowVolumePlot="False"/>
-            </Grid>
+            <controls:ExchangeChartControl Grid.Column="1" x:Name ="Chart" DarkMode = "{Binding ElementName= Ui, Path = DarkMode,
+                    UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" ShowFocusTimeMarker="{Binding ElementName=Ui,
+                    Path=Settings.ShowFocusTimeMarker}" ShowVolumePlot="False"/>
             <Expander Grid.Column="2" ExpandDirection="Left" Style="{StaticResource ExpanderStyle}">
                 <controls:SettingsControl x:Name="SettingsPanel" Settings="{Binding ElementName=Ui, Path=Settings,
                             UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" Margin="0, 0, 5, 0"/>
