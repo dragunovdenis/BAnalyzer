@@ -15,14 +15,15 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System.Collections.Concurrent;
-using Binance.Net.Clients;
-using Binance.Net.Enums;
-using Binance.Net.Objects.Models.Spot;
 using BAnalyzerCore.Cache;
 using BAnalyzerCore.DataStructures;
 using BAnalyzerCore.Utils;
+using Binance.Net.Clients;
+using Binance.Net.Enums;
 using Binance.Net.Interfaces;
+using Binance.Net.Objects.Models.Spot;
+using System.Collections.Concurrent;
+using static BAnalyzerCore.Cache.ProgressReportDelegates;
 
 namespace BAnalyzerCore;
 
@@ -240,20 +241,15 @@ public class Binance : IDisposable
     /// <summary>
     /// Saves the cache to the folder with the given <paramref name="folderPath"/>.
     /// </summary>
-    public async Task SaveCacheAsync(string folderPath) =>
-        await Task.Run(() => _cache.Save(folderPath));
+    public async Task SaveCacheAsync(string folderPath, GeneralProgressReportingDelegate progressReporter = null) =>
+        await Task.Run(() => _cache.Save(folderPath, progressReporter));
 
     /// <summary>
     /// Loads cache from the data in the given <paramref name="folderPath"/>
     /// saved there previously by <see cref="SaveCacheAsync"/>.
     /// </summary>
-    public async Task LoadCacheAsync(string folderPath) =>
-        _cache = await Task.Run(() => BinanceCache.Load(folderPath));
-
-    /// <summary>
-    /// Delegate to report progress when caching data.
-    /// </summary>
-    public delegate void CachingProgressReport(KlineInterval granularity, DateTime beginTime, DateTime endTime, long cachedBytes);
+    public async Task LoadCacheAsync(string folderPath, GeneralProgressReportingDelegate progressReporter = null) =>
+        _cache = await Task.Run(() => BinanceCache.Load(folderPath, progressReporter));
 
     /// <summary>
     /// Reads out all the "k-line" data that corresponds to the given <paramref name="symbol"/>

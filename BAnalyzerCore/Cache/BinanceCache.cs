@@ -16,6 +16,7 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using BAnalyzerCore.Utils;
+using static BAnalyzerCore.Cache.ProgressReportDelegates;
 
 namespace BAnalyzerCore.Cache;
 
@@ -59,15 +60,16 @@ public class BinanceCache
     /// <summary>
     /// Saves the cache into the given folder.
     /// </summary>
-    public void Save(string folderPath)
+    public void Save(string folderPath, GeneralProgressReportingDelegate progressReporter)
     {
         var dir = Directory.CreateDirectory(folderPath);
         dir.ClearDirectory();
 
-        foreach (var v in _data)
+        foreach (var (symbol, assetView) in _data)
         {
-            var subDir = Directory.CreateDirectory(Path.Combine(folderPath, v.Key));
-            v.Value.Save(subDir.FullName);
+            var subDir = Directory.CreateDirectory(Path.Combine(folderPath, symbol));
+            assetView.Save(subDir.FullName, (blocksSaved, bytesSaved) =>
+                progressReporter?.Invoke(symbol, blocksSaved, bytesSaved));
         }
     }
 
@@ -75,14 +77,15 @@ public class BinanceCache
     /// Loads an instance of cache from the data in the given
     /// folder (which was previously saved there by <see cref="Save"/>)
     /// </summary>
-    public static BinanceCache Load(string folderPath)
+    public static BinanceCache Load(string folderPath, GeneralProgressReportingDelegate progressReporter)
     {
         var result = new BinanceCache();
 
         foreach (var dir in Directory.GetDirectories(folderPath))
         {
             var symbol = Path.GetFileName(dir).ToUpper();
-            result[symbol] = AssetTimeView.Load(dir) ??
+            result[symbol] = AssetTimeView.Load(dir, (blocksLoaded, bytesLoaded) =>
+                                 progressReporter?.Invoke(symbol, blocksLoaded, bytesLoaded)) ??
                              throw new InvalidOperationException("Failed to load asset view data");
         }
 

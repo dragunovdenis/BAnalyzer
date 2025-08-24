@@ -183,10 +183,11 @@ public partial class CacheManagerControl :INotifyPropertyChanged
         var client = Client;
         Processing = true;
 
-        string ReportProgress(string symbol, KlineInterval granularity, DateTime begin, DateTime end, double dataRateKbSec)
+        string ReportProgress(string symbol, KlineInterval granularity, DateTime begin, DateTime end, double dataRateKbSec, TimeSpan elapsedTime)
         {
             return $"{symbol} / {granularity.ToString()} / " +
-                   $"[{begin.ToString(CultureInfo.InvariantCulture)} : {end.ToString(CultureInfo.InvariantCulture)}] / {dataRateKbSec} KB/Sec";
+                   $"[{begin.ToString(CultureInfo.InvariantCulture)} : {end.ToString(CultureInfo.InvariantCulture)}] / {dataRateKbSec} Kb/Sec / " +
+                   $@"Elapsed Time : {elapsedTime:hh\:mm\:ss}";
         }
 
         int updateCounter = 0;
@@ -215,7 +216,8 @@ public partial class CacheManagerControl :INotifyPropertyChanged
                         var dataRateKbPerSec = Math.Round(kBytesLoadedDiff / elapsedTimeSec, 2);
 
                         if (updateCounter++ % 3 == 0)
-                            Dispatcher.BeginInvoke(() => ProgressInfo.Text = ReportProgress(symbol, g, begin, end, dataRateKbPerSec));
+                            Dispatcher.BeginInvoke(() => ProgressInfo.Text =
+                                ReportProgress(symbol, g, begin, end, dataRateKbPerSec, sw.Elapsed));
                     });
 
                     await Dispatcher.BeginInvoke(() =>
@@ -251,7 +253,15 @@ public partial class CacheManagerControl :INotifyPropertyChanged
 
                 ProgressInfo.Text = "Loading...";
                 Processing = true;
-                _cache = await Task.Run(() => BinanceCache.Load(dialog.FolderName));
+                var reportCounter = 0;
+
+                _cache = await Task.Run(() => BinanceCache.Load(dialog.FolderName,
+                    (symbol, blockCount, byteCount) =>
+                    {
+                        if (reportCounter++ % 9 == 0)
+                            Dispatcher.BeginInvoke( () => ProgressInfo.Text =
+                                $"Loading... {symbol} : {blockCount} blocks / {byteCount / 1024} Kb");
+                    }));
                 VisualizeCachedData();
             }
             finally
@@ -280,7 +290,15 @@ public partial class CacheManagerControl :INotifyPropertyChanged
 
                 ProgressInfo.Text = "Saving...";
                 Processing = true;
-                await Task.Run(() => _cache.Save(dialog.FolderName));
+                var reportCounter = 0;
+
+                await Task.Run(() => _cache.Save(dialog.FolderName,
+                    (symbol, blockCount, byteCount) =>
+                    {
+                        if (reportCounter++ % 9 == 0)
+                            Dispatcher.BeginInvoke(() => ProgressInfo.Text =
+                                $"Saving... {symbol} : {blockCount} blocks / {byteCount / 1024} Kb");
+                    }));
             }
             finally
             {

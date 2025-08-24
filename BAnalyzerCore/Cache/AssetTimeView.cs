@@ -16,6 +16,7 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using Binance.Net.Enums;
+using static BAnalyzerCore.Cache.ProgressReportDelegates;
 
 namespace BAnalyzerCore.Cache;
 
@@ -61,12 +62,19 @@ public class AssetTimeView
     /// <summary>
     /// Saves the "view" into the given folder.
     /// </summary>
-    public void Save(string folderPath)
+    public void Save(string folderPath, BlockProgressReportingDelegate progressReporter)
     {
-        foreach (var g in _grid)
+        var totalBytesSaved = 0L;
+        var totalBlocksSaved = 0L;
+
+        foreach (var (granularity, grid) in _grid)
         {
-            var subDir = Directory.CreateDirectory(Path.Combine(folderPath, g.Key.ToString()));
-            g.Value.SaveThreadSafe(subDir.FullName);
+            var subDir = Directory.CreateDirectory(Path.Combine(folderPath, granularity.ToString()));
+            grid.SaveThreadSafe(subDir.FullName, (blocksSaved, bytesSaved) =>
+                progressReporter?.Invoke(totalBlocksSaved + blocksSaved, totalBytesSaved + bytesSaved));
+
+            totalBlocksSaved += grid.Blocks.Count;
+            totalBytesSaved += grid.SizeInBytes;
         }
     }
 
@@ -75,13 +83,24 @@ public class AssetTimeView
     /// data in the given <paramref name="folderPath"/>
     /// which was previously saved there by <see cref="Save"/>.
     /// </summary>
-    public static AssetTimeView Load(string folderPath)
+    public static AssetTimeView Load(string folderPath, BlockProgressReportingDelegate progressReporter)
     {
         var result = new AssetTimeView();
 
+        var totalBytesLoaded = 0L;
+        var totalBlocksLoaded = 0L;
+
         foreach (var dir in Directory.EnumerateDirectories(folderPath))
             if (Enum.TryParse(Path.GetFileName(dir), out KlineInterval granularity))
-                result[granularity] = BlockGrid.Load(granularity, dir);
+            {
+                result[granularity] = BlockGrid.Load(granularity, dir,
+                    (blocksLoaded, bytesLoaded) =>
+                        progressReporter?.Invoke(totalBlocksLoaded + blocksLoaded,
+                            totalBytesLoaded + bytesLoaded));
+
+                totalBlocksLoaded += result[granularity].Blocks.Count;
+                totalBytesLoaded += result[granularity].SizeInBytes;
+            }
 
         return result;
     }

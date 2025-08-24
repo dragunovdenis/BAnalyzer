@@ -20,6 +20,7 @@ using BAnalyzerCore.DataConversionUtils;
 using BAnalyzerCore.DataStructures;
 using BAnalyzerCore.Utils;
 using Binance.Net.Enums;
+using static BAnalyzerCore.Cache.ProgressReportDelegates;
 
 namespace BAnalyzerCore.Cache;
 
@@ -381,13 +382,13 @@ public class BlockGrid
     /// <summary>
     /// Thread-safe version of <see cref="Save"/> method.
     /// </summary>
-    public void SaveThreadSafe(string folderPath)
+    public void SaveThreadSafe(string folderPath, BlockProgressReportingDelegate progressReporter)
     {
         _lock.EnterReadLock();
 
         try
         {
-            Save(folderPath);
+            Save(folderPath, progressReporter);
         }
         finally
         {
@@ -398,19 +399,27 @@ public class BlockGrid
     /// <summary>
     /// Saves the "grid" into the given folder.
     /// </summary>
-    public void Save(string folderPath)
+    public void Save(string folderPath, BlockProgressReportingDelegate progressReporter)
     {
+        var totalBlocksSaved = 0L;
+        var totalBytesSaved = 0L;
+
         foreach (var b in _blocks)
+        {
             DataContractSerializationUtils.SaveToFile(Path.Combine(folderPath, EncodeTimeInterval(b)), b);
+            progressReporter?.Invoke(++totalBlocksSaved, totalBytesSaved += b.SizeInBytes);
+        }
     }
 
     /// <summary>
     /// Loads an instance of grid from the data in the given <paramref name="folderPath"/>
     /// which was saved there previously by <see cref="Save"/>.
     /// </summary>
-    public static BlockGrid Load(KlineInterval granularity, string folderPath)
+    public static BlockGrid Load(KlineInterval granularity, string folderPath,
+        BlockProgressReportingDelegate progressReporter)
     {
         var blocks = new List<KLineBlock>();
+        var totalBytesLoaded = 0L;
 
         foreach (var f in Directory.EnumerateFiles(folderPath))
         {
@@ -424,6 +433,8 @@ public class BlockGrid
                     throw new InvalidOperationException("Inconsistent data");
 
                 blocks.Add(block);
+
+                progressReporter?.Invoke(blocks.Count, totalBytesLoaded += block.SizeInBytes);
             } catch { /*ignore*/ }
         }
 
