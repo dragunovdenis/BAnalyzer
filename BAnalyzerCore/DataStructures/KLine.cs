@@ -18,6 +18,7 @@
 using BAnalyzerCore.Persistence.DataStructures;
 using Binance.Net.Interfaces;
 using System.Runtime.InteropServices;
+using Bybit.Net.Objects.Models.V5;
 
 namespace BAnalyzerCore.DataStructures;
 
@@ -42,6 +43,24 @@ public record KLine
         TakerBuyBaseVolume = (double)source.TakerBuyBaseVolume;
         TakerBuyQuoteVolume = (double)source.TakerBuyQuoteVolume;
         TradeCount = source.TradeCount;
+    }
+
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    public KLine(BybitKline source, TimeSpan span)
+    {
+        OpenTime = source.StartTime;
+        CloseTime = source.StartTime + span;
+        OpenPrice = (double)source.OpenPrice;
+        ClosePrice = (double)source.ClosePrice;
+        LowPrice = (double)source.LowPrice;
+        HighPrice = (double)source.HighPrice;
+        Volume = (double)source.Volume;
+        QuoteVolume = (double)source.QuoteVolume;
+        TakerBuyBaseVolume = double.NaN;
+        TakerBuyQuoteVolume = double.NaN;
+        TradeCount = -1;
     }
 
     /// <summary>

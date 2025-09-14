@@ -30,6 +30,7 @@ namespace BAnalyzerCore;
 public class ExchangeClient : IDisposable
 {
     private readonly IClient _client = new ClientBinance();
+    //private readonly IClient _client = new ClientByBit();
 
     /// <summary>
     /// Constructor.
