@@ -32,7 +32,7 @@ public partial class AssetAnalysisWindow
     /// State of the window.
     /// </summary>
     private record State(
-        BAnalyzerCore.Binance Client,
+        BAnalyzerCore.ExchangeClient Client,
         IList<string> ExchangeSymbols,
         ObservableCollection<AssetRecord> Assets,
         ExchangeSettings Settings,
@@ -43,7 +43,7 @@ public partial class AssetAnalysisWindow
     /// <summary>
     /// Constructor.
     /// </summary>
-    public AssetAnalysisWindow(BAnalyzerCore.Binance client, IList<string> exchangeSymbols,
+    public AssetAnalysisWindow(BAnalyzerCore.ExchangeClient client, IList<string> exchangeSymbols,
         ObservableCollection<AssetRecord> assets, ExchangeSettings settings,
         IChartSynchronizationController syncController)
     {

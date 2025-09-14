@@ -133,7 +133,7 @@ public class KLineBlockTest
     {
         var beginTime = new DateTime(2000, 1, 1);
         var granularity = KlineInterval.OneMinute;
-        var block0 = new KLineBlock(granularity);
+        var block0 = new KLineBlock(KLineGenerator.ToTimeGranularity(granularity));
         var block1 = KLineGenerator.GenerateBlock(beginTime, granularity, 100);
 
         return (block0, block1);
@@ -144,8 +144,7 @@ public class KLineBlockTest
     /// </summary>
     private static (KLineBlock Block0, KLineBlock Block1) CreateEmptyBlocks()
     {
-        var beginTime = new DateTime(2000, 1, 1);
-        var granularity = KlineInterval.OneMinute;
+        var granularity = KLineGenerator.ToTimeGranularity(KlineInterval.OneMinute);
         var block0 = new KLineBlock(granularity);
         var block1 = new KLineBlock(granularity);
 

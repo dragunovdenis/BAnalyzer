@@ -62,6 +62,12 @@ internal class KLineGenerator
             time = closeTime;
         }
 
-        return new KLineBlock(granularity, result);
+        return new KLineBlock(ToTimeGranularity(granularity), result);
     }
+
+    /// <summary>
+    /// Converter.
+    /// </summary>
+    public static ITimeGranularity ToTimeGranularity(KlineInterval g) =>
+        new TimeGranularity(g.ToString(), (int)g);
 }

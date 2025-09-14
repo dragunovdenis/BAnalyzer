@@ -19,7 +19,6 @@ using BAnalyzer.Utils;
 using BAnalyzerCore.DataConversionUtils;
 using BAnalyzerCore.DataStructures;
 using BAnalyzerCore.Utils;
-using Binance.Net.Enums;
 using static BAnalyzerCore.Cache.ProgressReportDelegates;
 
 namespace BAnalyzerCore.Cache;
@@ -29,17 +28,22 @@ namespace BAnalyzerCore.Cache;
 /// </summary>
 public class BlockGrid
 {
-    private readonly KlineInterval _granularity;
+    private readonly ITimeGranularity _granularity;
+
+    /// <summary>
+    /// Granularity of the grid.
+    /// </summary>
+    public ITimeGranularity Granularity => _granularity;
 
     /// <summary>
     /// Constructor.
     /// </summary>
-    public BlockGrid(KlineInterval granularity) => _granularity = granularity;
+    public BlockGrid(ITimeGranularity granularity) => _granularity = granularity;
 
     /// <summary>
     /// Constructor.
     /// </summary>
-    public BlockGrid(KlineInterval granularity, IList<KLineBlock> blocks) :
+    public BlockGrid(ITimeGranularity granularity, IList<KLineBlock> blocks) :
         this(granularity) => _blocks = blocks.ToList();
 
     private readonly List<KLineBlock> _blocks = new();
@@ -415,7 +419,7 @@ public class BlockGrid
     /// Loads an instance of grid from the data in the given <paramref name="folderPath"/>
     /// which was saved there previously by <see cref="Save"/>.
     /// </summary>
-    public static BlockGrid Load(KlineInterval granularity, string folderPath,
+    public static BlockGrid Load(ITimeGranularity granularity, string folderPath,
         BlockProgressReportingDelegate progressReporter)
     {
         var blocks = new List<KLineBlock>();

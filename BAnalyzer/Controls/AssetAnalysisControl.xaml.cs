@@ -20,7 +20,6 @@ using BAnalyzer.DataStructures;
 using BAnalyzer.Interfaces;
 using BAnalyzer.Utils;
 using BAnalyzerCore;
-using Binance.Net.Enums;
 using ScottPlot;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -28,6 +27,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Threading;
+using BAnalyzerCore.DataStructures;
 
 namespace BAnalyzer.Controls;
 
@@ -37,7 +37,7 @@ namespace BAnalyzer.Controls;
 public partial class AssetAnalysisControl : INotifyPropertyChanged,
     IDisposable, ISynchronizableExchangeControl
 {
-    private BAnalyzerCore.Binance _client = null;
+    private BAnalyzerCore.ExchangeClient _client = null;
 
     private DispatcherTimer _updateTimer;
 
@@ -63,12 +63,12 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
         private set => SetField(ref _assets, value);
     }
 
-    private ObservableCollection<KlineInterval> _availableTimeIntervals = null!;
+    private ObservableCollection<ITimeGranularity> _availableTimeIntervals = null!;
 
     /// <summary>
     /// Collection of available time intervals.
     /// </summary>
-    public ObservableCollection<KlineInterval> AvailableTimeIntervals
+    public ObservableCollection<ITimeGranularity> AvailableTimeIntervals
     {
         get => _availableTimeIntervals;
         private set => SetField(ref _availableTimeIntervals, value);
@@ -96,7 +96,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// <summary>
     /// Currently selected time interval.
     /// </summary>
-    public KlineInterval TimeDiscretization
+    public ITimeGranularity TimeDiscretization
     {
         get => _settings.TimeDiscretization;
         set => _settings.TimeDiscretization = value;
@@ -189,18 +189,15 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// <summary>
     /// Activates the control.
     /// </summary>
-    public void Activate(BAnalyzerCore.Binance client, IList<string> exchangeSymbols,
+    public void Activate(BAnalyzerCore.ExchangeClient client, IList<string> exchangeSymbols,
         ObservableCollection<AssetRecord> assets, ExchangeSettings settings, IChartSynchronizationController syncController)
     {
+        AvailableTimeIntervals = new ObservableCollection<ITimeGranularity>(client.Granularities);
         Settings = settings;
 
         _syncController?.UnRegister(this);
         _syncController = syncController;
         _syncController?.Register(this);
-
-        AvailableTimeIntervals =
-            new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
-                Where(x => x != KlineInterval.OneSecond));
 
         Assets = assets;
         Assets.CollectionChanged += Assets_CollectionChanged;
@@ -404,7 +401,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// Returns current total value of all selected assets and the corresponding profit.
     /// </summary>
     private static async Task<(double Value, double Profit)> RetrieveValueAndProfit(UpdateRequestMinimal request,
-        BAnalyzerCore.Binance client)
+        BAnalyzerCore.ExchangeClient client)
     {
         if (client == null) return new (double.NaN, double.NaN);// deactivated state
 
@@ -432,14 +429,14 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// Retrieves the "k-line" data for the given time interval.
     /// </summary>
     private static async Task<ChartData> RetrieveKLines(UpdateRequest request,
-        BAnalyzerCore.Binance client, bool calculateValue)
+        BAnalyzerCore.ExchangeClient client, bool calculateValue)
     {
         if (client == null) return null;// deactivated state
 
         var timeFrame = request.TimeFrame;
         var assets = request.Assets.Select(x => x.Copy()).ToList();
 
-        if (timeFrame == null || timeFrame.Discretization == default ||
+        if (timeFrame?.Discretization == null ||
             assets.Count == 0 || request.Cancelled)
             return null;
 
@@ -447,7 +444,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
         // This, apparently, is a problem if we want to add them over different assets.
         // The current solution is just skip the evaluation if we have more
         // than one asset to process.
-        if (timeFrame.Discretization == KlineInterval.ThreeDay && assets.Count(x => x.Selected) > 1)
+        if (timeFrame.Discretization.Span.TotalDays.Equals(3) && assets.Count(x => x.Selected) > 1)
             return ChartData.CreateInvalid;
 
         var frameExtension = 0.25 * timeFrame.Duration;

@@ -15,54 +15,50 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using BAnalyzer.DataStructures;
 using BAnalyzerCore.DataStructures;
-using System.ComponentModel;
 
-namespace BAnalyzer.Interfaces;
+namespace BAnalyzerCore.Clients;
 
 /// <summary>
-/// Interface for exchange settings.
+/// General interface of exchange clients.
 /// </summary>
-public interface IExchangeSettings : INotifyPropertyChanged
+public interface IClient : IDisposable
 {
     /// <summary>
-    /// Descriptor of the crypto-currency pair.
+    /// Returns all the exchange symbols.
     /// </summary>
-    string ExchangeDescriptor { get; }
+    Task<IList<string>> GetSymbolsAsync();
 
     /// <summary>
-    /// Time discretization to use when displaying charts.
+    /// Returns collection of supported granularities ordered in
+    /// ascending order with respect to the time-spans they represent.
     /// </summary>
-    ITimeGranularity TimeDiscretization { get; }
+    IReadOnlyList<ITimeGranularity> Granularities { get; }
 
     /// <summary>
-    /// Current analysis indicator to visualize.
+    /// Returns ordered collection of k-lines retrieved from
+    /// the client according to the given set of parameters.
     /// </summary>
-    AnalysisIndicatorType CurrentAnalysisIndicator { get; }
+    Task<(IList<KLine> KLines, bool Success)> GetKLinesAsync(string symbol, ITimeGranularity granularity,
+        DateTime? startTime, DateTime? endTime, int? limit);
 
     /// <summary>
-    /// Size of the main analysis window to use.
+    /// Returns current spot-price and the related information for the given <paramref name="symbol"/>.
     /// </summary>
-    int MainAnalysisWindow { get; }
+    Task<IPriceData> GetPriceAsync(string symbol);
 
     /// <summary>
-    /// Number of sticks to display on the chart.
+    /// Returns the current order-book for the given <paramref name="symbol"/>.
     /// </summary>
-    int StickRange { get; }
+    Task<IOrderBook> GetOrderBookAsync(string symbol);
 
     /// <summary>
-    /// Determines whether the focus time marker should be shown.
+    /// Minimal time (UTC) that the given client can process.
     /// </summary>
-    bool ShowFocusTimeMarker { get; }
+    DateTime MinTime { get; }
 
     /// <summary>
-    /// Assigns current instance with the given one.
+    /// Maximal number of k-lines the client can retrieve in a single request.
     /// </summary>
-    void Assign(IExchangeSettings source, bool excludeExchangeDescriptor = false);
-
-    /// <summary>
-    /// Returns "true" if the instance is valid.
-    /// </summary>
-    bool IsValid();
+    int MaxKLinesPerTime { get; }
 }

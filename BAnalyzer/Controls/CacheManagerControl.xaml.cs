@@ -16,7 +16,6 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using BAnalyzerCore.Cache;
-using Binance.Net.Enums;
 using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -26,6 +25,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using BAnalyzerCore.DataStructures;
 
 namespace BAnalyzer.Controls;
 
@@ -47,7 +47,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     /// <summary>
     /// Essential information about cache interval of a certain exchange symbol.
     /// </summary>
-    public record CachedTimeIntervalInfo(KlineInterval Granularity, DateTime Begin, DateTime End, double SizeBytes);
+    public record CachedTimeIntervalInfo(ITimeGranularity Granularity, DateTime Begin, DateTime End, double SizeBytes);
 
     /// <summary>
     /// Essential information about a cached symbol.
@@ -83,7 +83,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
             }
 
             CachedSymbols.Add(new CachedSymbolInfo(symbol,
-                new ObservableCollection<CachedTimeIntervalInfo>(granularityItems.OrderBy(x => (int)x.Granularity))));
+                new ObservableCollection<CachedTimeIntervalInfo>(granularityItems.OrderBy(x => x.Granularity.Seconds))));
         }
     }
 
@@ -102,7 +102,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     /// The corresponding dependency property.
     /// </summary>
     public static readonly DependencyProperty ClientProperty = DependencyProperty.
-        Register(name: nameof(Client), propertyType: typeof(BAnalyzerCore.Binance), ownerType: typeof(CacheManagerControl),
+        Register(name: nameof(Client), propertyType: typeof(BAnalyzerCore.ExchangeClient), ownerType: typeof(CacheManagerControl),
             typeMetadata: new FrameworkPropertyMetadata(defaultValue: null, OnClientChange));
 
     /// <summary>
@@ -114,7 +114,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
         {
             cacheManager.AvailableSymbols.Clear();
 
-            if (args.NewValue is BAnalyzerCore.Binance client)
+            if (args.NewValue is BAnalyzerCore.ExchangeClient client)
             {
                 var selectedSymbolIdx = 0;
                 var symbols = client.GetSymbols();
@@ -134,9 +134,9 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     /// <summary>
     /// Binance client object.
     /// </summary>
-    public BAnalyzerCore.Binance Client
+    public BAnalyzerCore.ExchangeClient Client
     {
-        get => (BAnalyzerCore.Binance)GetValue(ClientProperty);
+        get => (BAnalyzerCore.ExchangeClient)GetValue(ClientProperty);
         set => SetValue(ClientProperty, value);
     }
 
@@ -183,7 +183,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
         var client = Client;
         Processing = true;
 
-        string ReportProgress(string symbol, KlineInterval granularity, DateTime begin, DateTime end, double dataRateKbSec, TimeSpan elapsedTime)
+        string ReportProgress(string symbol, ITimeGranularity granularity, DateTime begin, DateTime end, double dataRateKbSec, TimeSpan elapsedTime)
         {
             return $"{symbol} / {granularity.ToString()} / " +
                    $"[{begin.ToString(CultureInfo.InvariantCulture)} : {end.ToString(CultureInfo.InvariantCulture)}] / {dataRateKbSec} Kb/Sec / " +

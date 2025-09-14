@@ -99,7 +99,7 @@ public partial class AssetManagerControl : INotifyPropertyChanged
             foreach (var a in Assets)
             {
                 var cachedPrice = BinanceClientController.Client.GetCachedPrice(a.Symbol, 2000 /*ms*/);
-                a.Price = cachedPrice == null ? double.NaN : (double)cachedPrice.Price;
+                a.Price = cachedPrice?.Price ?? double.NaN;
             }
         };
         _updateTimer.Start();

@@ -17,7 +17,6 @@
 
 using System.Runtime.Serialization;
 using BAnalyzerCore.Utils;
-using Binance.Net.Enums;
 using BAnalyzerCore.DataStructures;
 
 namespace BAnalyzerCore.Cache;
@@ -30,7 +29,7 @@ public interface IKLineBlockReadOnly
     /// <summary>
     /// Duration of a time-interval covered by a single data item in the block.
     /// </summary>
-    KlineInterval Granularity { get; }
+    ITimeGranularity Granularity { get; }
 
     /// <summary>
     /// Read-only access to the data.
@@ -123,16 +122,17 @@ public interface IKLineBlockReadOnly
 /// A continuous (with respect to time) block of trading information.
 /// </summary>
 [DataContract]
+[KnownType(typeof(TimeGranularity))]
 public class KLineBlock : IKLineBlockReadOnly
 {
     /// <summary>
     /// Do not make the field below "readonly" in order to make deserialization possible.
     /// </summary>
     [DataMember]
-    private KlineInterval _granularity;
+    private ITimeGranularity _granularity;
 
     /// <inheritdoc/>
-    public KlineInterval Granularity => _granularity;
+    public ITimeGranularity Granularity => _granularity;
 
     /// <summary>
     /// Do not make the field below "readonly" in order to make deserialization possible.
@@ -156,7 +156,7 @@ public class KLineBlock : IKLineBlockReadOnly
     /// </summary>
     public bool IsEqualTo(KLineBlock block)
     {
-        return block != null && _granularity == block._granularity &&
+        return block != null && _granularity.Equals(block._granularity) &&
                _data.SequenceEqual(block._data);
     }
 
@@ -225,36 +225,22 @@ public class KLineBlock : IKLineBlockReadOnly
     public bool IsValid() => CheckChronologicalIntegrity(_data, _granularity);
 
     /// <summary>
-    /// Returns maximal acceptable deviation of a "k-line" with the given <param name="granularity"/>
-    /// from a "canonical" time span assumed for <param name="granularity"/>.
-    /// </summary>
-    private static TimeSpan GetMaximalAcceptableKlineDeviationFromCanonicalTimeSpan(KlineInterval granularity)
-    {
-        switch (granularity)
-        {
-            case KlineInterval.OneMonth: return TimeSpan.FromDays(2);
-            default: return TimeSpan.Zero;
-        }
-    }
-
-    /// <summary>
     /// Returns "true" if the given collection of "k-lines"
     /// satisfies chronological integrity requirements
     /// (i.e., same granularity, no gaps).
     /// </summary>
-    public static bool CheckChronologicalIntegrity(IReadOnlyList<KLine> data, KlineInterval granularity)
+    public static bool CheckChronologicalIntegrity(IReadOnlyList<KLine> data, ITimeGranularity granularity)
     {
         if (data.Count == 0) return true;
 
         var prevItem = data[0];
-        var granularityTimeSpan = granularity.ToTimeSpan();
-        var acceptableSpanDeviation = GetMaximalAcceptableKlineDeviationFromCanonicalTimeSpan(granularity);
+        var granularityTimeSpan = granularity.Span;
         for (var itemId = 1; itemId < data.Count; itemId++)
         {
             var nextItem = data[itemId];
 
             if (prevItem.CloseTime.AddSeconds(BinanceConstants.KLineTimeGapSec) != nextItem.OpenTime
-                || (granularityTimeSpan - GetSpan(nextItem)).Duration() > acceptableSpanDeviation)
+                || (!granularity.IsMonth && (granularityTimeSpan - GetSpan(nextItem)).Duration() > TimeSpan.Zero))
                 return false;
 
             prevItem = nextItem;
@@ -266,14 +252,14 @@ public class KLineBlock : IKLineBlockReadOnly
     /// <summary>
     /// Constructor.
     /// </summary>
-    public KLineBlock(KlineInterval granularity) => _granularity = granularity;
+    public KLineBlock(ITimeGranularity granularity) => _granularity = granularity;
 
     /// <summary>
     /// Constructor.
     /// </summary>
     /// <param name="granularity">Chronological granularity of the data.</param>
     /// <param name="data">Chronologically ordered data.</param>
-    public KLineBlock(KlineInterval granularity, IReadOnlyList<KLine> data)
+    public KLineBlock(ITimeGranularity granularity, IReadOnlyList<KLine> data)
     {
         if (data.Count == 0)
             throw new ArgumentException("An empty block is not supposed to be created");

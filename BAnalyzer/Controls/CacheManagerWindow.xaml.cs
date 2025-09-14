@@ -26,7 +26,7 @@ namespace BAnalyzer.Controls;
 /// </summary>
 public partial class CacheManagerWindow
 {
-    public CacheManagerWindow(BAnalyzerCore.Binance viewModel)
+    public CacheManagerWindow(BAnalyzerCore.ExchangeClient viewModel)
     {
         DataContext = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();

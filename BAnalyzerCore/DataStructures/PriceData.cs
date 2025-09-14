@@ -15,15 +15,30 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-namespace BAnalyzer.DataStructures;
+namespace BAnalyzerCore.DataStructures;
 
 /// <summary>
-/// The of price retrieved from Binance server.
+/// Read-only interface of price-data.
 /// </summary>
-internal class PriceData(double price)
+public interface IPriceData
 {
     /// <summary>
     /// Price.
     /// </summary>
-    public double Price { get; } = price;
+    double Price { get; }
+
+    /// <summary>
+    /// Symbol the price corresponds to.
+    /// </summary>
+    string Symbol { get; }
+
+    /// <summary>
+    /// Time stamp of the price.
+    /// </summary>
+    DateTime TimeStamp { get; }
 }
+
+/// <summary>
+/// Implementation of the corresponding interface.
+/// </summary>
+internal record PriceData(double Price, string Symbol, DateTime TimeStamp) : IPriceData;

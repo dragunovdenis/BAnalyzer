@@ -15,7 +15,7 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using Binance.Net.Enums;
+using BAnalyzerCore.DataStructures;
 using static BAnalyzerCore.Cache.ProgressReportDelegates;
 
 namespace BAnalyzerCore.Cache;
@@ -28,33 +28,33 @@ public class AssetTimeView
     /// <summary>
     /// Grid data.
     /// </summary>
-    private readonly Dictionary<KlineInterval, BlockGrid> _grid = new();
+    private readonly Dictionary<int, BlockGrid> _grid = new();
 
     /// <summary>
     /// Collection of all the time granularities present in the view.
     /// </summary>
-    public IReadOnlyCollection<KlineInterval> Granularities => _grid.Keys;
+    public IEnumerable<ITimeGranularity> Granularities => _grid.Values.Select(x =>x.Granularity);
 
     /// <summary>
     /// Subscript operator.
     /// </summary>
-    private BlockGrid this[KlineInterval granularity]
+    private BlockGrid this[ITimeGranularity granularity]
     {
         get
         {
-            if (_grid.TryGetValue(granularity, out var block))
+            if (_grid.TryGetValue(granularity.Seconds, out var block))
                 return block;
 
-            return _grid[granularity] = new BlockGrid(granularity);
+            return _grid[granularity.Seconds] = new BlockGrid(granularity);
         }
 
-        set => _grid[granularity] = value;
+        set => _grid[granularity.Seconds] = value;
     }
 
     /// <summary>
     /// Returns an instance of block-grid for the given <paramref name="granularity"/>.
     /// </summary>
-    public BlockGrid GetGridThreadSafe(KlineInterval granularity)
+    public BlockGrid GetGridThreadSafe(ITimeGranularity granularity)
     {
         lock(this) { return this[granularity]; }
     }
@@ -67,9 +67,9 @@ public class AssetTimeView
         var totalBytesSaved = 0L;
         var totalBlocksSaved = 0L;
 
-        foreach (var (granularity, grid) in _grid)
+        foreach (var (_, grid) in _grid)
         {
-            var subDir = Directory.CreateDirectory(Path.Combine(folderPath, granularity.ToString()));
+            var subDir = Directory.CreateDirectory(Path.Combine(folderPath, grid.Granularity.Encode()));
             grid.SaveThreadSafe(subDir.FullName, (blocksSaved, bytesSaved) =>
                 progressReporter?.Invoke(totalBlocksSaved + blocksSaved, totalBytesSaved + bytesSaved));
 
@@ -91,16 +91,20 @@ public class AssetTimeView
         var totalBlocksLoaded = 0L;
 
         foreach (var dir in Directory.EnumerateDirectories(folderPath))
-            if (Enum.TryParse(Path.GetFileName(dir), out KlineInterval granularity))
-            {
-                result[granularity] = BlockGrid.Load(granularity, dir,
-                    (blocksLoaded, bytesLoaded) =>
-                        progressReporter?.Invoke(totalBlocksLoaded + blocksLoaded,
-                            totalBytesLoaded + bytesLoaded));
+        {
+            var granularity = TimeGranularity.Decode(Path.GetFileName(dir));
 
-                totalBlocksLoaded += result[granularity].Blocks.Count;
-                totalBytesLoaded += result[granularity].SizeInBytes;
-            }
+            if (granularity == null)
+                continue;
+
+            result[granularity] = BlockGrid.Load(granularity, dir,
+                (blocksLoaded, bytesLoaded) =>
+                    progressReporter?.Invoke(totalBlocksLoaded + blocksLoaded,
+                        totalBytesLoaded + bytesLoaded));
+
+            totalBlocksLoaded += result[granularity].Blocks.Count;
+            totalBytesLoaded += result[granularity].SizeInBytes;
+        }
 
         return result;
     }

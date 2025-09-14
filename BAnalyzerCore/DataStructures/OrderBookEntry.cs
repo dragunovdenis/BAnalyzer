@@ -15,44 +15,25 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using BAnalyzerCore.DataStructures;
-
-namespace BAnalyzer.DataStructures;
+namespace BAnalyzerCore.DataStructures;
 
 /// <summary>
-/// Representation of a time frame.
+/// Read-only interface for the order-book entry.
 /// </summary>
-internal class TimeFrame
+public interface IOrderBookEntry
 {
     /// <summary>
-    /// Duration of the timeframe.
+    /// Price of the order.
     /// </summary>
-    public TimeSpan Duration { get; init; }
+    double Price { get; }
 
     /// <summary>
-    /// Begin point.
+    /// Quantity of the order.
     /// </summary>
-    public DateTime Begin { get; init; }
-
-    /// <summary>
-    /// End point.
-    /// </summary>
-    public DateTime End { get; init; }
-
-    /// <summary>
-    /// Discretization of measurements (in time).
-    /// </summary>
-    public ITimeGranularity Discretization { get; init; }
-
-    /// <summary>
-    /// Constructor.
-    /// </summary>
-    public TimeFrame(ITimeGranularity discretization, int sticksPerChart, double timeFrameEndOad)
-    {
-        Discretization = discretization;
-        Duration = Discretization.Span.Multiply(sticksPerChart);
-        End = timeFrameEndOad > DateTime.UtcNow.ToOADate() ?
-            DateTime.UtcNow : DateTime.FromOADate(timeFrameEndOad);
-        Begin = End.Subtract(Duration);
-    }
+    double Quantity { get; }
 }
+
+/// <summary>
+/// Implementation of the corresponding interface.
+/// </summary>
+internal record OrderBookEntry(double Price, double Quantity) : IOrderBookEntry;

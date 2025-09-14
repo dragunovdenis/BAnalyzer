@@ -15,54 +15,30 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using BAnalyzer.DataStructures;
-using BAnalyzerCore.DataStructures;
-using System.ComponentModel;
-
-namespace BAnalyzer.Interfaces;
+namespace BAnalyzerCore.DataStructures;
 
 /// <summary>
-/// Interface for exchange settings.
+/// Read-only interface for the order-book.
 /// </summary>
-public interface IExchangeSettings : INotifyPropertyChanged
+public interface IOrderBook
 {
     /// <summary>
-    /// Descriptor of the crypto-currency pair.
+    /// The symbol of the order book.
     /// </summary>
-    string ExchangeDescriptor { get; }
+    string Symbol { get; }
 
     /// <summary>
-    /// Time discretization to use when displaying charts.
+    /// The list of bids.
     /// </summary>
-    ITimeGranularity TimeDiscretization { get; }
+    IOrderBookEntry[] Bids { get; }
 
     /// <summary>
-    /// Current analysis indicator to visualize.
+    /// The list of asks.
     /// </summary>
-    AnalysisIndicatorType CurrentAnalysisIndicator { get; }
-
-    /// <summary>
-    /// Size of the main analysis window to use.
-    /// </summary>
-    int MainAnalysisWindow { get; }
-
-    /// <summary>
-    /// Number of sticks to display on the chart.
-    /// </summary>
-    int StickRange { get; }
-
-    /// <summary>
-    /// Determines whether the focus time marker should be shown.
-    /// </summary>
-    bool ShowFocusTimeMarker { get; }
-
-    /// <summary>
-    /// Assigns current instance with the given one.
-    /// </summary>
-    void Assign(IExchangeSettings source, bool excludeExchangeDescriptor = false);
-
-    /// <summary>
-    /// Returns "true" if the instance is valid.
-    /// </summary>
-    bool IsValid();
+    IOrderBookEntry[] Asks { get; }
 }
+
+/// <summary>
+/// Implementation of the order book.
+/// </summary>
+internal record OrderBook(string Symbol, IOrderBookEntry[] Bids, IOrderBookEntry[] Asks) : IOrderBook;

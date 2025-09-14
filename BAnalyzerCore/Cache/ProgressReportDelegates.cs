@@ -16,7 +16,7 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-using Binance.Net.Enums;
+using BAnalyzerCore.DataStructures;
 
 namespace BAnalyzerCore.Cache;
 
@@ -35,5 +35,5 @@ public class ProgressReportDelegates
     /// <summary>
     /// Delegate to report progress when caching data.
     /// </summary>
-    public delegate void CachingProgressReport(KlineInterval granularity, DateTime beginTime, DateTime endTime, long cachedBytes);
+    public delegate void CachingProgressReport(ITimeGranularity granularity, DateTime beginTime, DateTime endTime, long cachedBytes);
 }

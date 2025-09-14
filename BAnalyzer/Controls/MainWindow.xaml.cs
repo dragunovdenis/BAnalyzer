@@ -21,7 +21,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
-using Binance.Net.Enums;
 using Microsoft.Win32;
 
 namespace BAnalyzer.Controls;
@@ -125,7 +124,8 @@ public partial class MainWindow
             CurrentAnalysisIndicator = AnalysisIndicatorType.None,
             MainAnalysisWindow = 10,
             StickRange = 75,
-            TimeDiscretization = KlineInterval.FifteenMinutes,
+            TimeDiscretization = BinanceClientController.Client.Granularities.
+                FirstOrDefault(x => x.Span.TotalMinutes.Equals(15)),
         };
 
     /// <summary>
@@ -155,8 +155,8 @@ public partial class MainWindow
         {
             var settingsId = $"ExchangeControl_{rowId}:{colId}";
 
-            if (!settings.ContainsKey(settingsId)) 
-                settings.Add(settingsId, SetupExchangeSettings(_defaultExchangeStockNames[result.Count]));
+            if (!settings.ContainsKey(settingsId) || !settings[settingsId].IsValid()) 
+                settings[settingsId] = SetupExchangeSettings(_defaultExchangeStockNames[result.Count]);
 
             var exSettings = settings[settingsId];
 

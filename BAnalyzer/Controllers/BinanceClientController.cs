@@ -24,12 +24,12 @@ namespace BAnalyzer.Controllers;
 /// </summary>
 static class BinanceClientController
 {
-    private static BAnalyzerCore.Binance _client = new();
+    private static BAnalyzerCore.ExchangeClient _client = new();
 
     /// <summary>
     /// Access to the client.
     /// </summary>
-    public static BAnalyzerCore.Binance Client => _client;
+    public static BAnalyzerCore.ExchangeClient Client => _client;
 
     /// <summary>
     /// Access to the exchange symbols.

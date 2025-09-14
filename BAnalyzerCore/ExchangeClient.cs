@@ -16,23 +16,20 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using BAnalyzerCore.Cache;
+using BAnalyzerCore.Clients;
 using BAnalyzerCore.DataStructures;
 using BAnalyzerCore.Utils;
-using Binance.Net.Clients;
-using Binance.Net.Enums;
-using Binance.Net.Interfaces;
-using Binance.Net.Objects.Models.Spot;
 using System.Collections.Concurrent;
 using static BAnalyzerCore.Cache.ProgressReportDelegates;
 
 namespace BAnalyzerCore;
 
 /// <summary>
-/// Wrapper of the Binance client.
+/// Wrapper of an <see cref="IClient"/>.
 /// </summary>
-public class Binance : IDisposable
+public class ExchangeClient : IDisposable
 {
-    private readonly BinanceRestClient _client = new();
+    private readonly IClient _client = new ClientBinance();
 
     /// <summary>
     /// Constructor.
@@ -42,14 +39,7 @@ public class Binance : IDisposable
     /// <summary>
     /// Returns all the available coin pairs (in form of strings, called symbols)
     /// </summary>
-    public async Task<IList<string>> GetSymbolsAsync()
-    {
-        var exchangeInfo = await _client.SpotApi.ExchangeData.GetExchangeInfoAsync();
-        if (!exchangeInfo.Success)
-            throw new Exception("Failed to get exchange info");
-
-        return exchangeInfo.Data.Symbols.Select(x => x.Name).ToArray();
-    }
+    public async Task<IList<string>> GetSymbolsAsync() => await _client.GetSymbolsAsync();
 
     /// <summary>
     /// Returns all the available coin pairs (in form of strings, called symbols)
@@ -57,10 +47,10 @@ public class Binance : IDisposable
     public IList<string> GetSymbols() => Task.Run(async () => await GetSymbolsAsync()).Result;
 
     /// <summary>
-    /// Maximal number of "k-lines" that Binance client can retrieve per time.
+    /// Returns collection of supported granularities ordered in
+    /// ascending order with respect to the time-spans they represent.
     /// </summary>
-    private const int MaxKLinesPerTime = 1000;
-    private static readonly DateTime MinTime = new(2016, 1, 1);
+    public IReadOnlyList<ITimeGranularity> Granularities => _client.Granularities;
 
     /// <summary>
     /// Returns boundaries of the maximal possible time interval
@@ -68,15 +58,15 @@ public class Binance : IDisposable
     /// represented with its begin-end points and which can be
     /// retrieved via a single call from Binance server.
     /// </summary>
-    private static TimeInterval GetDefaultInterval(DateTime timeBegin,
-        DateTime timeEnd, DateTime localNow, KlineInterval granularity)
+    private TimeInterval GetDefaultInterval(DateTime timeBegin,
+        DateTime timeEnd, DateTime localNow, ITimeGranularity granularity)
     {
-        var kLineSpan = granularity.ToTimeSpan();
+        var kLineSpan = granularity.Span;
 
         var requestedSpan = timeEnd - timeBegin;
         var kLinesRequested = (int)(requestedSpan / kLineSpan) + 1;
 
-        var kLinesSpare = MaxKLinesPerTime - kLinesRequested;
+        var kLinesSpare = _client.MaxKLinesPerTime - kLinesRequested;
 
         if (kLinesSpare < 0)
             throw new InvalidOperationException("Too large time interval requested");
@@ -84,13 +74,13 @@ public class Binance : IDisposable
         var kLinesToAddToTheEnd = Math.Min((int)((localNow - timeEnd).Duration() / kLineSpan), kLinesSpare / 2);
         var kLinesToAddToTheBegin = kLinesSpare - kLinesToAddToTheEnd;
 
-        if (kLinesRequested + kLinesToAddToTheEnd + kLinesToAddToTheBegin > MaxKLinesPerTime)
+        if (kLinesRequested + kLinesToAddToTheEnd + kLinesToAddToTheBegin > _client.MaxKLinesPerTime)
             throw new InvalidOperationException("Something went wrong!");
 
         var timeBeginExtended = timeBegin.Subtract(kLineSpan * kLinesToAddToTheBegin);
         var timeEndExtended = timeEnd.Add(kLineSpan * kLinesToAddToTheEnd);
 
-        return new TimeInterval(timeBeginExtended.Max(MinTime), timeEndExtended);
+        return new TimeInterval(timeBeginExtended.Max(_client.MinTime), timeEndExtended);
     }
 
     /// <summary>
@@ -100,21 +90,21 @@ public class Binance : IDisposable
     /// optimized with respect to <param name="cacheGapInterval"/>
     /// which tells us about the boundaries of the data missing in the cache.
     /// </summary>
-    private static TimeInterval GetTimeIntervalToRetrieveFromServer(DateTime timeBegin, DateTime timeEnd,
-        KlineInterval granularity, TimeInterval cacheGapInterval, DateTime localNow)
+    private TimeInterval GetTimeIntervalToRetrieveFromServer(DateTime timeBegin, DateTime timeEnd,
+        ITimeGranularity granularity, TimeInterval cacheGapInterval, DateTime localNow)
     {
         if (cacheGapInterval.IsBothSideOpen())
             return GetDefaultInterval(timeBegin, timeEnd, localNow, granularity);
 
-        var kLineSpan = granularity.ToTimeSpan();
+        var kLineSpan = granularity.Span;
 
         if (!cacheGapInterval.IsOpen()) return cacheGapInterval.Copy();
 
-        var span = kLineSpan * (MaxKLinesPerTime - 1);
+        var span = kLineSpan * (_client.MaxKLinesPerTime - 1);
 
         return !cacheGapInterval.IsOpenToTheLeft() ?
             new TimeInterval(cacheGapInterval.Begin, cacheGapInterval.Begin.Add(span).Min(localNow)) :
-            new TimeInterval(cacheGapInterval.End.Subtract(span), cacheGapInterval.End);
+            new TimeInterval(cacheGapInterval.End.Subtract(span).Max(_client.MinTime), cacheGapInterval.End);
     }
 
     private BinanceCache _cache = new();
@@ -123,7 +113,7 @@ public class Binance : IDisposable
     /// Returns "k-line" data.
     /// </summary>
     public async Task<(IList<KLine> Data, bool Success)> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
-        KlineInterval granularity, string symbol, bool ensureLatestData)
+        ITimeGranularity granularity, string symbol, bool ensureLatestData)
     {
         // Binance client usually has troubles retrieving
         // k-lines that are less than a few seconds "old".
@@ -131,6 +121,7 @@ public class Binance : IDisposable
         // time to lag for 1 second.
         var localNow = DateTime.UtcNow.RoundToSeconds(1);
         timeEnd = timeEnd.Min(localNow);
+        timeBegin = timeBegin.Max(_client.MinTime);
 
         if (timeBegin >= timeEnd)
             return (new List<KLine>(), true);
@@ -146,15 +137,13 @@ public class Binance : IDisposable
                 var lastKline = cachedResult.Last();
                 // We need to update the last "k-line"
 
-                var binanceResult = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
-                    startTime: lastKline.OpenTime, endTime: lastKline.CloseTime);
+                var binanceResult = await _client.GetKLinesAsync(symbol, granularity,
+                    startTime: lastKline.OpenTime, endTime: lastKline.CloseTime, limit: null);
 
                 if (!binanceResult.Success)
                     return (new List<KLine>(), false); 
 
-                var latestKline = binanceResult.Data.ToArray();
-
-                var updatedKline = new KLine(latestKline[^1]);
+                var updatedKline = binanceResult.KLines[^1];
                 cachedResult[^1] = updatedKline;
 
                 cacheGrid.AppendThreadSafe([updatedKline]);
@@ -165,14 +154,14 @@ public class Binance : IDisposable
 
         var interval = GetTimeIntervalToRetrieveFromServer(timeBegin, timeEnd, granularity, cacheGapInterval, localNow);
 
-        var kLines = await _client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
+        var kLines = await _client.GetKLinesAsync(symbol, granularity,
             startTime: interval.Begin, endTime: interval.End, limit: 1500);
 
         if (!kLines.Success)
             return (new List<KLine>(), false);
 
-        var kLinesArray = FillGapsGeneral(kLines.Data, granularity);
-
+        var kLinesArray = FillGapsGeneral(kLines.KLines, granularity, _client.MinTime);
+        
         if (kLinesArray.Length > 0)
         {
             cacheGrid.AppendThreadSafe(kLinesArray);
@@ -196,34 +185,30 @@ public class Binance : IDisposable
     /// <summary>
     /// Returns an order book for the given exchange symbol.
     /// </summary>
-    public async Task<BinanceOrderBook> GetOrders(string symbol)
-    {
-        var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(symbol);
-        return result.Data;
-    }
+    public async Task<IOrderBook> GetOrders(string symbol) => await _client.GetOrderBookAsync(symbol);
 
     /// <summary>
     /// Cache of a spot-price data.
     /// </summary>
-    private readonly ConcurrentDictionary<string, BinancePrice> _priceCache = new();
+    private readonly ConcurrentDictionary<string, IPriceData> _priceCache = new();
 
     /// <summary>
     /// Returns cached spot-price object for the given <paramref name="symbol"/>
     /// if it exists in the cache or null, otherwise.
     /// </summary>
-    public BinancePrice GetCachedPrice(string symbol, int acceptableStalenessMs)
+    public IPriceData GetCachedPrice(string symbol, int acceptableStalenessMs)
     {
         if (!_priceCache.TryGetValue(symbol, out var priceCached) ||
-            priceCached == null || !priceCached.Timestamp.HasValue) return null;
+            priceCached == null) return null;
 
-        return DateTime.UtcNow.Subtract(priceCached.Timestamp.Value).
+        return DateTime.UtcNow.Subtract(priceCached.TimeStamp).
             Duration().TotalMilliseconds < acceptableStalenessMs ? priceCached : null;
     }
 
     /// <summary>
     /// Returns current price for the given symbol.
     /// </summary>
-    public async Task<BinancePrice> GetCurrentPrice(string symbol, int acceptableStalenessMs = 500)
+    public async Task<IPriceData> GetCurrentPrice(string symbol, int acceptableStalenessMs = 500)
     {
         if (symbol is null or "")
             return null;
@@ -233,9 +218,9 @@ public class Binance : IDisposable
         if (priceCached != null)
             return priceCached;
 
-        var price = await _client.SpotApi.ExchangeData.GetPriceAsync(symbol);
+        var price = await _client.GetPriceAsync(symbol);
 
-        return _priceCache[symbol] = price.Success ? price.Data with {Timestamp = DateTime.UtcNow} : null;
+        return _priceCache[symbol] = price;
     }
 
     /// <summary>
@@ -258,13 +243,7 @@ public class Binance : IDisposable
     /// </summary>
     public async Task ReadOutData(string symbol, BinanceCache storage, CachingProgressReport progressReportCallback)
     {
-        var excludedIntervals = new[]
-        {
-            KlineInterval.OneSecond,
-        }.ToHashSet();
-
-        foreach (var granularity in Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>()
-                     .Where(x => !excludedIntervals.Contains(x)))
+        foreach (var granularity in _client.Granularities)
             await ReadOutData(symbol, granularity, storage, _client, progressReportCallback);
     }
 
@@ -278,24 +257,24 @@ public class Binance : IDisposable
     /// Returns boundaries of chronologically contiguous blocks of k-lines
     /// in the given collection <paramref name="kLines"/>.
     /// </summary>
-    private static IList<(int BeginIdInclusive, int EndIdExclusive)> FindBlockBoundaries(IBinanceKline[] kLines,
-        Func<IBinanceKline, bool> validityPredicate)
+    private static IList<(int BeginIdInclusive, int EndIdExclusive)> FindBlockBoundaries(IList<KLine> kLines,
+        Func<KLine, bool> validityPredicate)
     {
         var result = new List<(int, int)>();
 
         var currentItemId = 0;
 
-        while (currentItemId < kLines.Length)
+        while (currentItemId < kLines.Count)
         {
             // skip invalid items if there are any
-            while (currentItemId < kLines.Length && !validityPredicate(kLines[currentItemId]))
+            while (currentItemId < kLines.Count && !validityPredicate(kLines[currentItemId]))
                 currentItemId++;
 
             var blockStart = currentItemId;
 
             var blockItemCount = 0;
 
-            while (currentItemId < kLines.Length && validityPredicate(kLines[currentItemId]) &&
+            while (currentItemId < kLines.Count && validityPredicate(kLines[currentItemId]) &&
                    (blockItemCount == 0 || kLines[currentItemId - 1].CloseTime.Add(GapSpan) ==
                        kLines[currentItemId].OpenTime))
             {
@@ -314,7 +293,7 @@ public class Binance : IDisposable
     /// Returns "true" if the given <paramref name="kLine"/>,
     /// corresponding to a "one-month" granularity, is valid.
     /// </summary>
-    private static bool IsValidMonth(IBinanceKline kLine)
+    private static bool IsValidMonth(KLine kLine)
     {
         if (kLine.OpenTime.Month != kLine.CloseTime.Month) return false;
 
@@ -328,7 +307,7 @@ public class Binance : IDisposable
     /// Fills chronological gaps in the given collection <paramref name="kLines"/>
     /// caused by invalid and/or missing k-lines of "one-month" granularity.
     /// </summary>
-    private static KLine[] FillMonthGaps(IBinanceKline[] kLines)
+    private static KLine[] FillMonthGaps(IList<KLine> kLines, DateTime minTime)
     {
         var validSubBlocks = FindBlockBoundaries(kLines, IsValidMonth);
 
@@ -346,7 +325,7 @@ public class Binance : IDisposable
         var result = new KLine[resultSize];
 
         var currentKlineIndex = 0;
-        DateTime prevSubBlockCloseTime = MinTime;
+        DateTime prevSubBlockCloseTime = minTime;
 
         foreach (var subBlock in validSubBlocks)
         {
@@ -360,7 +339,7 @@ public class Binance : IDisposable
             }
 
             for (var originalId = subBlock.BeginIdInclusive; originalId < subBlock.EndIdExclusive; originalId++)
-                result[currentKlineIndex++] = new KLine(kLines[originalId]);
+                result[currentKlineIndex++] = kLines[originalId];
 
             prevSubBlockCloseTime = kLines[subBlock.EndIdExclusive - 1].CloseTime;
         }
@@ -373,13 +352,13 @@ public class Binance : IDisposable
     /// caused by invalid and/or missing k-lines of the given <paramref name="granularity"/>.
     /// Can't handle a "one-month" granularity.
     /// </summary>
-    private static KLine[] FillGaps(IBinanceKline[] kLines, KlineInterval granularity)
+    private static KLine[] FillGaps(IList<KLine> kLines, ITimeGranularity granularity, DateTime minTime)
     {
-        if (granularity == KlineInterval.OneMonth)
+        if (granularity.IsMonth)
             throw new InvalidOperationException("Can't handle \"one-month\" granularity");
 
-        var span = granularity.ToTimeSpan();
-        bool IsValid(IBinanceKline kLine) => kLine.CloseTime.Subtract(kLine.OpenTime).Add(GapSpan) == span;
+        var span = granularity.Span;
+        bool IsValid(KLine kLine) => kLine.CloseTime.Subtract(kLine.OpenTime).Add(GapSpan) == span;
 
         var validSubBlocks = FindBlockBoundaries(kLines, IsValid);
 
@@ -395,7 +374,7 @@ public class Binance : IDisposable
         var result = new KLine[resultSize];
 
         var currentKlineIndex = 0;
-        DateTime prevSubBlockCloseTime = MinTime;
+        DateTime prevSubBlockCloseTime = minTime;
 
         foreach (var subBlock in validSubBlocks)
         {
@@ -409,7 +388,7 @@ public class Binance : IDisposable
             }
 
             for (var originalId = subBlock.BeginIdInclusive; originalId < subBlock.EndIdExclusive; originalId++)
-                result[currentKlineIndex++] = new KLine(kLines[originalId]);
+                result[currentKlineIndex++] = kLines[originalId];
 
             prevSubBlockCloseTime = kLines[subBlock.EndIdExclusive - 1].CloseTime;
         }
@@ -421,19 +400,19 @@ public class Binance : IDisposable
     /// Fills chronological gaps in the given collection <paramref name="kLines"/>
     /// caused by invalid and/or missing k-lines of the given <paramref name="granularity"/>.
     /// </summary>
-    private static KLine[] FillGapsGeneral(IBinanceKline[] kLines, KlineInterval granularity) =>
-        granularity != KlineInterval.OneMonth ? FillGaps(kLines, granularity) : FillMonthGaps(kLines);
+    private static KLine[] FillGapsGeneral(IList<KLine> kLines, ITimeGranularity granularity, DateTime minTime) =>
+        granularity.IsMonth ? FillMonthGaps(kLines, minTime) : FillGaps(kLines, granularity, minTime);
 
     /// <summary>
     /// Reads out all the "k-line" data that corresponds to the given <paramref name="symbol"/>
     /// and given <paramref name="granularity"/> starting from "now" back to the "first placement"
     /// moment and puts the data into the given <paramref name="storage"/> provided by the caller.
     /// </summary>
-    public static async Task ReadOutData(string symbol, KlineInterval granularity, BinanceCache storage,
-        BinanceRestClient client, CachingProgressReport progressReportCallback)
+    public static async Task ReadOutData(string symbol, ITimeGranularity granularity, BinanceCache storage,
+        IClient client, CachingProgressReport progressReportCallback)
     {
         var end = DateTime.UtcNow;
-        var granularitySpan = granularity.ToTimeSpan();
+        var granularitySpan = granularity.Span;
 
         var container = storage.GetAssetViewThreadSafe(symbol).GetGridThreadSafe(granularity);
 
@@ -441,17 +420,17 @@ public class Binance : IDisposable
 
         do
         {
-            var begin = end.Subtract(MaxKLinesPerTime * granularitySpan).Max(MinTime);
-            var kLines = await client.SpotApi.ExchangeData.GetUiKlinesAsync(symbol, granularity,
+            var begin = end.Subtract(client.MaxKLinesPerTime * granularitySpan).Max(client.MinTime);
+            var kLines = await client.GetKLinesAsync(symbol, granularity,
                 startTime: begin, endTime: end, limit: 1500);
 
             if (!kLines.Success)
-                throw new Exception($"Failed to get exchange info: {kLines.Error}");
+                throw new Exception("Failed to get exchange info");
 
-            if (kLines.Data.Length == 0)
+            if (kLines.KLines.Count == 0)
                 break;
 
-            var kLinesArray = FillGapsGeneral(kLines.Data, granularity);
+            var kLinesArray = FillGapsGeneral(kLines.KLines, granularity, client.MinTime);
 
             totalCachedSize += kLinesArray.Length * KLine.SizeInBytes;
 

@@ -21,7 +21,6 @@ using BAnalyzer.Interfaces;
 using BAnalyzer.Utils;
 using BAnalyzerCore;
 using BAnalyzerCore.DataStructures;
-using Binance.Net.Enums;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -36,11 +35,11 @@ namespace BAnalyzer.Controls;
 public partial class CryptoExchangeControl : INotifyPropertyChanged,
     IDisposable, ISynchronizableExchangeControl
 {
-    private readonly BAnalyzerCore.Binance _client = null;
+    private readonly BAnalyzerCore.ExchangeClient _client = null;
 
-    private DispatcherTimer _updateTimer;
+    private readonly DispatcherTimer _updateTimer;
 
-    private ObservableCollection<string> _symbols = null!;
+    private readonly ObservableCollection<string> _symbols = null!;
 
     /// <summary>
     /// Collection of available symbols
@@ -63,7 +62,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Currently selected time interval.
     /// </summary>
-    public KlineInterval TimeDiscretization
+    public ITimeGranularity TimeDiscretization
     {
         get => _settings.TimeDiscretization;
         set => _settings.TimeDiscretization = value;
@@ -80,12 +79,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
         private set => SetField(ref _price, value);
     }
     
-    private readonly ObservableCollection<KlineInterval> _availableTimeIntervals = null!;
+    private readonly ObservableCollection<ITimeGranularity> _availableTimeIntervals = null!;
 
     /// <summary>
     /// Collection of available time intervals.
     /// </summary>
-    public ObservableCollection<KlineInterval> AvailableTimeIntervals
+    public ObservableCollection<ITimeGranularity> AvailableTimeIntervals
     {
         get => _availableTimeIntervals;
         private init => SetField(ref _availableTimeIntervals, value);
@@ -151,12 +150,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// Retrieves the sticks-and-price data for the given time interval.
     /// </summary>
     private static async Task<ChartData> RetrieveSticks(UpdateRequest request,
-        BAnalyzerCore.Binance client)
+        BAnalyzerCore.ExchangeClient client)
     {
         var timeFrame = request.TimeFrame;
         var exchangeDescriptor = request.ExchangeDescriptor;
 
-        if (timeFrame == null || timeFrame.Discretization == default ||
+        if (timeFrame?.Discretization == null ||
             exchangeDescriptor is null or "" || client == null || request.Cancelled)
             return null;
 
@@ -180,11 +179,11 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Retrieves order data for the current symbol.
     /// </summary>
-    private static async Task<OrderBook> RetrieveOrderBook(UpdateRequestMinimal request, BAnalyzerCore.Binance client)
+    private static async Task<IOrderBook> RetrieveOrderBook(UpdateRequestMinimal request, BAnalyzerCore.ExchangeClient client)
     {
         if (request.ExchangeDescriptor is null or "" || client == null) return null;
             
-        return new OrderBook(await client.GetOrders(request.ExchangeDescriptor));
+        return await client.GetOrders(request.ExchangeDescriptor);
     }
 
     /// <summary>
@@ -207,7 +206,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Updates order book control with the given content.
     /// </summary>
-    private void VisualizeOrders(OrderBook orderBook) => Orders.Update(orderBook?.Book);
+    private void VisualizeOrders(IOrderBook orderBook) => Orders.Update(orderBook);
 
     /// <summary>
     /// Returns "true" if the thread in which this function is called is the UI one.
@@ -369,7 +368,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
                 var price = await Task.Run(async () => await _client.GetCurrentPrice(request.ExchangeDescriptor));
 
                 if (price != null)
-                    VisualizePrice((double)price.Price);
+                    VisualizePrice(price.Price);
 
             } while (_priceRequest != null);
         }
@@ -464,18 +463,16 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Constructor.
     /// </summary>
-    public CryptoExchangeControl(BAnalyzerCore.Binance client, IList<string> exchangeSymbols,
+    public CryptoExchangeControl(BAnalyzerCore.ExchangeClient client, IList<string> exchangeSymbols,
         ExchangeSettings settings, IChartSynchronizationController syncController)
     {
         Settings = settings;
         _client = client;
+        AvailableTimeIntervals = new ObservableCollection<ITimeGranularity>(client.Granularities);
+
         InitializeComponent();
 
         syncController?.Register(this);
-
-        AvailableTimeIntervals =
-            new ObservableCollection<KlineInterval>(Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>().
-                Where(x => x != KlineInterval.OneSecond));
 
         Chart.PropertyChanged += Chart_PropertyChanged;
         Symbols = new ObservableCollection<string>(exchangeSymbols);

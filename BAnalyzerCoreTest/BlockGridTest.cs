@@ -51,7 +51,7 @@ public class BlockGridTest
     private static void RunExtensiveDataRetrievalTest(IKLineBlockReadOnly[] composingBlocks, BlockGrid grid)
     {
         var granularity = composingBlocks[0].Granularity;
-        var granularitySpan = granularity.ToTimeSpan();
+        var granularitySpan = granularity.Span;
 
         var minTimePoint = composingBlocks.MinBy(x => x.Begin).Begin.Subtract(10 * granularitySpan);
         var maxTimePoint = composingBlocks.MaxBy(x => x.Begin).End.Add(10 * granularitySpan);
@@ -117,7 +117,7 @@ public class BlockGridTest
         block0.Intersects(block1).Should().BeFalse("because this is how the blocks are designed");
         block0.CanBeMergedWith(block1).Should().BeFalse("because this is how the blocks are designed");
 
-        var grid = new BlockGrid(granularity);
+        var grid = new BlockGrid(KLineGenerator.ToTimeGranularity(granularity));
         grid.Append(block0.Data);
         grid.Append(block1.Data);
 
@@ -152,7 +152,7 @@ public class BlockGridTest
         var separateStandingBlockToTheRight = KLineGenerator.
             GenerateBlock(adjacentBlock2.End.Add(10 * granularity.ToTimeSpan()), granularity, 10);
 
-        var grid = new BlockGrid(granularity);
+        var grid = new BlockGrid(KLineGenerator.ToTimeGranularity(granularity));
         grid.Append(separateStandingBlockToTheLeft.Data);
         grid.Append(adjacentBlock1.Data);
         grid.Append(adjacentBlock2.Data);
@@ -181,7 +181,7 @@ public class BlockGridTest
         var block1 = KLineGenerator.GenerateBlock(block0.End.Add(-5 * granularity.ToTimeSpan()), granularity, 15);
         var block2 = KLineGenerator.GenerateBlock(block1.End.Add(-5 * granularity.ToTimeSpan()), granularity, 10);
 
-        var grid = new BlockGrid(granularity);
+        var grid = new BlockGrid(KLineGenerator.ToTimeGranularity(granularity));
         grid.Append(block0.Data);
         grid.Append(block1.Data);
         grid.Append(block2.Data);
@@ -260,7 +260,7 @@ public class BlockGridTest
         var (grid, block0, block1) = CreateStandardGridWithTwoDistinctBlocks();
         grid.Refine(3);
         grid.Blocks.Should().HaveCount(12, "because this is how many blocks we should get after the refinement");
-        var step = block0.Granularity.ToTimeSpan();
+        var step = block0.Granularity.Span;
         var pointBetweenBlocks = block0.End.Add(0.5 * (block1.Begin - block0.End));
 
         // Act/Assert

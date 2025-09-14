@@ -19,8 +19,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using BAnalyzer.DataStructures;
 using BAnalyzer.Utils;
-using Binance.Net.Objects.Models;
-using Binance.Net.Objects.Models.Spot;
+using BAnalyzerCore.DataStructures;
 
 namespace BAnalyzer.Controls;
 
@@ -41,7 +40,7 @@ public partial class ExchangeOrdersControl : INotifyPropertyChanged
     /// Updates target collection with the elements from the source collection.
     /// </summary>
     private static void UpdateCollectionItemWise(OrderSheetControl control,
-        IList<BinanceOrderBookEntry> source)
+        IList<IOrderBookEntry> source)
     {
         if (control.Orders.Count != source.Count)
         {
@@ -50,8 +49,8 @@ public partial class ExchangeOrdersControl : INotifyPropertyChanged
             foreach (var item in source)
                 control.Orders.Add(new OrderItem
                 {
-                    Price = (double)item.Price,
-                    Quantity = (double)item.Quantity,
+                    Price = item.Price,
+                    Quantity = item.Quantity,
                 });
 
             return;
@@ -59,8 +58,8 @@ public partial class ExchangeOrdersControl : INotifyPropertyChanged
 
         for (var itemId = 0; itemId < source.Count; itemId++)
         {
-            control.Orders[itemId].Price = (double)source[itemId].Price;
-            control.Orders[itemId].Quantity = (double)source[itemId].Quantity;
+            control.Orders[itemId].Price = source[itemId].Price;
+            control.Orders[itemId].Quantity = source[itemId].Quantity;
         }
     }
 
@@ -69,7 +68,7 @@ public partial class ExchangeOrdersControl : INotifyPropertyChanged
     /// <summary>
     /// Updates visualization according to the content of the given order book.
     /// </summary>
-    public void Update(BinanceOrderBook book)
+    public void Update(IOrderBook book)
     {
         if (book != null)
         {

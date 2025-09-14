@@ -85,7 +85,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                         <DataGrid Style="{StaticResource DataGridStyle}" BorderThickness="0"
                                   ItemsSource="{Binding Items}" VerticalScrollBarVisibility="Disabled">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Granularity" Binding="{Binding Granularity, Mode=OneWay}" Width="80" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Granularity" Binding="{Binding Granularity.Name, Mode=OneWay}" Width="80" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Begin" Binding="{Binding Begin, Mode=OneWay}" Width="137" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="End" Binding="{Binding End, Mode=OneWay}" Width="137" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Size, B" Binding="{Binding SizeBytes, Mode=OneWay,

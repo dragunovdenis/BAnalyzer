@@ -15,11 +15,12 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzer.Interfaces;
+using BAnalyzerCore.DataStructures;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
-using BAnalyzer.Interfaces;
-using Binance.Net.Enums;
+using BAnalyzer.Utils;
 
 namespace BAnalyzer.DataStructures;
 
@@ -27,6 +28,7 @@ namespace BAnalyzer.DataStructures;
 /// Setting of the crypto exchange control.
 /// </summary>
 [DataContract]
+[KnownType(typeof(TimeGranularity))]
 public class ExchangeSettings : IExchangeSettings
 {
     [DataMember]
@@ -40,10 +42,10 @@ public class ExchangeSettings : IExchangeSettings
     }
 
     [DataMember]
-    private KlineInterval _timeDiscretization;
+    private ITimeGranularity _timeDiscretization;
 
     /// <inheritdoc/>
-    public KlineInterval TimeDiscretization
+    public ITimeGranularity TimeDiscretization
     {
         get => _timeDiscretization;
         set => SetField(ref _timeDiscretization, value);
@@ -105,6 +107,9 @@ public class ExchangeSettings : IExchangeSettings
         StickRange = source.StickRange;
         ShowFocusTimeMarker = source.ShowFocusTimeMarker;
     }
+
+    /// <inheritdoc/>
+    public bool IsValid() => TimeDiscretization is { Seconds: > 0 } && !ExchangeDescriptor.IsNullOrEmpty();
 
     /// <summary>
     /// Event to listen to the changes in the properties of the data struct.
