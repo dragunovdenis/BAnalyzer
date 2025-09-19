@@ -68,6 +68,5 @@ internal class KLineGenerator
     /// <summary>
     /// Converter.
     /// </summary>
-    public static ITimeGranularity ToTimeGranularity(KlineInterval g) =>
-        new TimeGranularity(g.ToString(), (int)g);
+    public static TimeGranularity ToTimeGranularity(KlineInterval g) => new(g.ToString(), (int)g);
 }

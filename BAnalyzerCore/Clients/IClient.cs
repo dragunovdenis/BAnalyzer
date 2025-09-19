@@ -33,13 +33,13 @@ public interface IClient : IDisposable
     /// Returns collection of supported granularities ordered in
     /// ascending order with respect to the time-spans they represent.
     /// </summary>
-    IReadOnlyList<ITimeGranularity> Granularities { get; }
+    IReadOnlyList<TimeGranularity> Granularities { get; }
 
     /// <summary>
     /// Returns ordered collection of k-lines retrieved from
     /// the client according to the given set of parameters.
     /// </summary>
-    Task<(IList<KLine> KLines, bool Success)> GetKLinesAsync(string symbol, ITimeGranularity granularity,
+    Task<(IList<KLine> KLines, bool Success)> GetKLinesAsync(string symbol, TimeGranularity granularity,
         DateTime? startTime, DateTime? endTime, int? limit);
 
     /// <summary>

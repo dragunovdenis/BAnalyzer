@@ -17,67 +17,36 @@
 
 using BAnalyzerCore.DataConversionUtils;
 using System.Runtime.Serialization;
+using BAnalyzer.Utils;
 
 namespace BAnalyzerCore.DataStructures;
-
-/// <summary>
-/// General interface to represent time granularity of k-line charts.
-/// </summary>
-public interface ITimeGranularity
-{
-    /// <summary>
-    /// Human-readable string representation that can be used to display the granularity.
-    /// </summary>
-    string ToString();
-
-    /// <summary>
-    /// Name of the current instance.
-    /// </summary>
-    string Name { get; }
-
-    /// <summary>
-    /// Nominal time-span the granularity amounts to.
-    /// </summary>
-    TimeSpan Span { get; }
-
-    /// <summary>
-    /// Ordering number (which is assumed to be equal to the amount of seconds in the time interval)
-    /// </summary>
-    int Seconds { get; }
-
-    /// <summary>
-    /// If "true" indicates that the instance represents the "month"
-    /// time interval whose actual span can deviate from the nominal
-    /// one for up to 2 days.
-    /// </summary>
-    bool IsMonth { get; }
-
-    /// <summary>
-    /// Encodes the current instance into its string representation.
-    /// </summary>
-    string Encode();
-}
 
 /// <summary>
 /// Implementation of the corresponding interface.
 /// </summary>
 [DataContract]
-public class TimeGranularity : ITimeGranularity
+public record struct TimeGranularity
 {
     /// <summary>
     /// Human-readable string representation that can be used to display the granularity.
     /// </summary>
     public override string ToString() => Name;
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Human-readable name.
+    /// </summary>
     [DataMember]
     public string Name { get; private set; }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Representation of the time granularity in seconds.
+    /// </summary>
     [DataMember]
     public int Seconds { get; private set; }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// TimeSpan representation.
+    /// </summary>
     public TimeSpan Span => TimeSpan.FromSeconds(Seconds);
 
     /// <summary>
@@ -91,11 +60,26 @@ public class TimeGranularity : ITimeGranularity
 
     private const int SecondsInMonth = 60 * 60 * 24 * 30;
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns "true" if the current instance represents a "month" granularity.
+    /// </summary>
     public bool IsMonth => Seconds == SecondsInMonth;
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns base-64 string representation of the current instance.
+    /// </summary>
+    /// <returns></returns>
     public string Encode() => $"{Name}_{Seconds.ToBase64String()}";
+
+    /// <summary>
+    /// Returns "true" if the current instance is valid.
+    /// </summary>
+    public bool IsValid => Seconds > 0 && !Name.IsNullOrEmpty();
+
+    /// <summary>
+    /// Returns an invalid instance.
+    /// </summary>
+    public static TimeGranularity Invalid => new(null, -1);
 
     /// <summary>
     /// Decodes the given string representation <paramref name="s"/> into a "granularity" instance.
@@ -105,7 +89,7 @@ public class TimeGranularity : ITimeGranularity
         var pieces = s.Split('_');
 
         if (pieces.Length != 2)
-            return null;
+            return Invalid;
 
         try
         {
@@ -113,19 +97,7 @@ public class TimeGranularity : ITimeGranularity
         }
         catch (Exception)
         {
-            return null;
+            return Invalid;
         }
     }
-
-    /// <inheritdoc/>
-    public override bool Equals(object other)
-    {
-        if (other is not TimeGranularity otherGranularity)
-            return false;
-
-        return Name == otherGranularity.Name && Seconds == otherGranularity.Seconds;
-    }
-
-    /// <inheritdoc/>
-    public override int GetHashCode() => HashCode.Combine(Name, Seconds);
 }

@@ -28,7 +28,6 @@ namespace BAnalyzer.DataStructures;
 /// Setting of the crypto exchange control.
 /// </summary>
 [DataContract]
-[KnownType(typeof(TimeGranularity))]
 public class ExchangeSettings : IExchangeSettings
 {
     [DataMember]
@@ -42,10 +41,10 @@ public class ExchangeSettings : IExchangeSettings
     }
 
     [DataMember]
-    private ITimeGranularity _timeDiscretization;
+    private TimeGranularity _timeDiscretization;
 
     /// <inheritdoc/>
-    public ITimeGranularity TimeDiscretization
+    public TimeGranularity TimeDiscretization
     {
         get => _timeDiscretization;
         set => SetField(ref _timeDiscretization, value);
@@ -109,7 +108,7 @@ public class ExchangeSettings : IExchangeSettings
     }
 
     /// <inheritdoc/>
-    public bool IsValid() => TimeDiscretization is { Seconds: > 0 } && !ExchangeDescriptor.IsNullOrEmpty();
+    public bool IsValid() => TimeDiscretization is { IsValid: true } && !ExchangeDescriptor.IsNullOrEmpty();
 
     /// <summary>
     /// Event to listen to the changes in the properties of the data struct.

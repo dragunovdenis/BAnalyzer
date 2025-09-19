@@ -42,12 +42,12 @@ internal class TimeFrame
     /// <summary>
     /// Discretization of measurements (in time).
     /// </summary>
-    public ITimeGranularity Discretization { get; init; }
+    public TimeGranularity Discretization { get; init; }
 
     /// <summary>
     /// Constructor.
     /// </summary>
-    public TimeFrame(ITimeGranularity discretization, int sticksPerChart, double timeFrameEndOad)
+    public TimeFrame(TimeGranularity discretization, int sticksPerChart, double timeFrameEndOad)
     {
         Discretization = discretization;
         Duration = Discretization.Span.Multiply(sticksPerChart);

@@ -35,5 +35,5 @@ public class ProgressReportDelegates
     /// <summary>
     /// Delegate to report progress when caching data.
     /// </summary>
-    public delegate void CachingProgressReport(ITimeGranularity granularity, DateTime beginTime, DateTime endTime, long cachedBytes);
+    public delegate void CachingProgressReport(TimeGranularity granularity, DateTime beginTime, DateTime endTime, long cachedBytes);
 }

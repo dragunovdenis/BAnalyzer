@@ -35,7 +35,7 @@ public class ExchangeClient : IDisposable
     /// <summary>
     /// Constructor.
     /// </summary>
-    public void Dispose() => _client.Dispose();
+    public virtual void Dispose() => _client.Dispose();
 
     /// <summary>
     /// Returns all the available coin pairs (in form of strings, called symbols)
@@ -51,7 +51,7 @@ public class ExchangeClient : IDisposable
     /// Returns collection of supported granularities ordered in
     /// ascending order with respect to the time-spans they represent.
     /// </summary>
-    public IReadOnlyList<ITimeGranularity> Granularities => _client.Granularities;
+    public IReadOnlyList<TimeGranularity> Granularities => _client.Granularities;
 
     /// <summary>
     /// Returns boundaries of the maximal possible time interval
@@ -60,7 +60,7 @@ public class ExchangeClient : IDisposable
     /// retrieved via a single call from Binance server.
     /// </summary>
     private TimeInterval GetDefaultInterval(DateTime timeBegin,
-        DateTime timeEnd, DateTime localNow, ITimeGranularity granularity)
+        DateTime timeEnd, DateTime localNow, TimeGranularity granularity)
     {
         var kLineSpan = granularity.Span;
 
@@ -92,7 +92,7 @@ public class ExchangeClient : IDisposable
     /// which tells us about the boundaries of the data missing in the cache.
     /// </summary>
     private TimeInterval GetTimeIntervalToRetrieveFromServer(DateTime timeBegin, DateTime timeEnd,
-        ITimeGranularity granularity, TimeInterval cacheGapInterval, DateTime localNow)
+        TimeGranularity granularity, TimeInterval cacheGapInterval, DateTime localNow)
     {
         if (cacheGapInterval.IsBothSideOpen())
             return GetDefaultInterval(timeBegin, timeEnd, localNow, granularity);
@@ -114,7 +114,7 @@ public class ExchangeClient : IDisposable
     /// Returns "k-line" data.
     /// </summary>
     public async Task<(IList<KLine> Data, bool Success)> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
-        ITimeGranularity granularity, string symbol, bool ensureLatestData)
+        TimeGranularity granularity, string symbol, bool ensureLatestData)
     {
         // Binance client usually has troubles retrieving
         // k-lines that are less than a few seconds "old".
@@ -353,7 +353,7 @@ public class ExchangeClient : IDisposable
     /// caused by invalid and/or missing k-lines of the given <paramref name="granularity"/>.
     /// Can't handle a "one-month" granularity.
     /// </summary>
-    private static KLine[] FillGaps(IList<KLine> kLines, ITimeGranularity granularity, DateTime minTime)
+    private static KLine[] FillGaps(IList<KLine> kLines, TimeGranularity granularity, DateTime minTime)
     {
         if (granularity.IsMonth)
             throw new InvalidOperationException("Can't handle \"one-month\" granularity");
@@ -401,7 +401,7 @@ public class ExchangeClient : IDisposable
     /// Fills chronological gaps in the given collection <paramref name="kLines"/>
     /// caused by invalid and/or missing k-lines of the given <paramref name="granularity"/>.
     /// </summary>
-    private static KLine[] FillGapsGeneral(IList<KLine> kLines, ITimeGranularity granularity, DateTime minTime) =>
+    private static KLine[] FillGapsGeneral(IList<KLine> kLines, TimeGranularity granularity, DateTime minTime) =>
         granularity.IsMonth ? FillMonthGaps(kLines, minTime) : FillGaps(kLines, granularity, minTime);
 
     /// <summary>
@@ -409,7 +409,7 @@ public class ExchangeClient : IDisposable
     /// and given <paramref name="granularity"/> starting from "now" back to the "first placement"
     /// moment and puts the data into the given <paramref name="storage"/> provided by the caller.
     /// </summary>
-    public static async Task ReadOutData(string symbol, ITimeGranularity granularity, BinanceCache storage,
+    public static async Task ReadOutData(string symbol, TimeGranularity granularity, BinanceCache storage,
         IClient client, CachingProgressReport progressReportCallback)
     {
         var end = DateTime.UtcNow;

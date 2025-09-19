@@ -34,7 +34,7 @@ public interface IExchangeSettings : INotifyPropertyChanged
     /// <summary>
     /// Time discretization to use when displaying charts.
     /// </summary>
-    ITimeGranularity TimeDiscretization { get; }
+    TimeGranularity TimeDiscretization { get; }
 
     /// <summary>
     /// Current analysis indicator to visualize.

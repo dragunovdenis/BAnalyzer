@@ -29,7 +29,7 @@ public interface IKLineBlockReadOnly
     /// <summary>
     /// Duration of a time-interval covered by a single data item in the block.
     /// </summary>
-    ITimeGranularity Granularity { get; }
+    TimeGranularity Granularity { get; }
 
     /// <summary>
     /// Read-only access to the data.
@@ -122,17 +122,16 @@ public interface IKLineBlockReadOnly
 /// A continuous (with respect to time) block of trading information.
 /// </summary>
 [DataContract]
-[KnownType(typeof(TimeGranularity))]
 public class KLineBlock : IKLineBlockReadOnly
 {
     /// <summary>
     /// Do not make the field below "readonly" in order to make deserialization possible.
     /// </summary>
     [DataMember]
-    private ITimeGranularity _granularity;
+    private TimeGranularity _granularity;
 
     /// <inheritdoc/>
-    public ITimeGranularity Granularity => _granularity;
+    public TimeGranularity Granularity => _granularity;
 
     /// <summary>
     /// Do not make the field below "readonly" in order to make deserialization possible.
@@ -229,7 +228,7 @@ public class KLineBlock : IKLineBlockReadOnly
     /// satisfies chronological integrity requirements
     /// (i.e., same granularity, no gaps).
     /// </summary>
-    public static bool CheckChronologicalIntegrity(IReadOnlyList<KLine> data, ITimeGranularity granularity)
+    public static bool CheckChronologicalIntegrity(IReadOnlyList<KLine> data, TimeGranularity granularity)
     {
         if (data.Count == 0) return true;
 
@@ -252,14 +251,14 @@ public class KLineBlock : IKLineBlockReadOnly
     /// <summary>
     /// Constructor.
     /// </summary>
-    public KLineBlock(ITimeGranularity granularity) => _granularity = granularity;
+    public KLineBlock(TimeGranularity granularity) => _granularity = granularity;
 
     /// <summary>
     /// Constructor.
     /// </summary>
     /// <param name="granularity">Chronological granularity of the data.</param>
     /// <param name="data">Chronologically ordered data.</param>
-    public KLineBlock(ITimeGranularity granularity, IReadOnlyList<KLine> data)
+    public KLineBlock(TimeGranularity granularity, IReadOnlyList<KLine> data)
     {
         if (data.Count == 0)
             throw new ArgumentException("An empty block is not supposed to be created");

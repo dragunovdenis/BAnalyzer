@@ -47,13 +47,13 @@ internal class ClientByBit : IClient
         Enum.GetValues(typeof(KlineInterval)).Cast<KlineInterval>();
 
     /// <inheritdoc/>
-    public IReadOnlyList<ITimeGranularity> Granularities { get; } = GetAllIntervals().Where(x => (int)x >= 60).
+    public IReadOnlyList<TimeGranularity> Granularities { get; } = GetAllIntervals().Where(x => (int)x >= 60).
         Select(x => new TimeGranularity(x.ToString(), (int)x)).ToArray();
 
     private readonly IDictionary<int, KlineInterval> _lookup = GetAllIntervals().ToDictionary(x => (int)x, x => x);
 
     /// <inheritdoc/>
-    public async Task<(IList<KLine> KLines, bool Success)> GetKLinesAsync(string symbol, ITimeGranularity granularity,
+    public async Task<(IList<KLine> KLines, bool Success)> GetKLinesAsync(string symbol, TimeGranularity granularity,
         DateTime? startTime, DateTime? endTime, int? limit)
     {
         var binanceResult = await _client.V5Api.ExchangeData.GetKlinesAsync(Category.Spot, symbol,

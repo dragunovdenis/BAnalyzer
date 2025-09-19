@@ -37,7 +37,7 @@ namespace BAnalyzer.Controls;
 public partial class AssetAnalysisControl : INotifyPropertyChanged,
     IDisposable, ISynchronizableExchangeControl
 {
-    private BAnalyzerCore.ExchangeClient _client = null;
+    private ExchangeClient _client = null;
 
     private DispatcherTimer _updateTimer;
 
@@ -63,12 +63,12 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
         private set => SetField(ref _assets, value);
     }
 
-    private ObservableCollection<ITimeGranularity> _availableTimeIntervals = null!;
+    private ObservableCollection<TimeGranularity> _availableTimeIntervals = null!;
 
     /// <summary>
     /// Collection of available time intervals.
     /// </summary>
-    public ObservableCollection<ITimeGranularity> AvailableTimeIntervals
+    public ObservableCollection<TimeGranularity> AvailableTimeIntervals
     {
         get => _availableTimeIntervals;
         private set => SetField(ref _availableTimeIntervals, value);
@@ -96,7 +96,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// <summary>
     /// Currently selected time interval.
     /// </summary>
-    public ITimeGranularity TimeDiscretization
+    public TimeGranularity TimeDiscretization
     {
         get => _settings.TimeDiscretization;
         set => _settings.TimeDiscretization = value;
@@ -189,10 +189,10 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// <summary>
     /// Activates the control.
     /// </summary>
-    public void Activate(BAnalyzerCore.ExchangeClient client, IList<string> exchangeSymbols,
+    public void Activate(ExchangeClient client, IList<string> exchangeSymbols,
         ObservableCollection<AssetRecord> assets, ExchangeSettings settings, IChartSynchronizationController syncController)
     {
-        AvailableTimeIntervals = new ObservableCollection<ITimeGranularity>(client.Granularities);
+        AvailableTimeIntervals = new ObservableCollection<TimeGranularity>(client.Granularities);
         Settings = settings;
 
         _syncController?.UnRegister(this);
@@ -401,7 +401,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// Returns current total value of all selected assets and the corresponding profit.
     /// </summary>
     private static async Task<(double Value, double Profit)> RetrieveValueAndProfit(UpdateRequestMinimal request,
-        BAnalyzerCore.ExchangeClient client)
+        ExchangeClient client)
     {
         if (client == null) return new (double.NaN, double.NaN);// deactivated state
 
@@ -429,15 +429,14 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// Retrieves the "k-line" data for the given time interval.
     /// </summary>
     private static async Task<ChartData> RetrieveKLines(UpdateRequest request,
-        BAnalyzerCore.ExchangeClient client, bool calculateValue)
+        ExchangeClient client, bool calculateValue)
     {
         if (client == null) return null;// deactivated state
 
         var timeFrame = request.TimeFrame;
         var assets = request.Assets.Select(x => x.Copy()).ToList();
 
-        if (timeFrame?.Discretization == null ||
-            assets.Count == 0 || request.Cancelled)
+        if (!timeFrame.Discretization.IsValid || assets.Count == 0 || request.Cancelled)
             return null;
 
         // In case of "three days" granularity k-lines can be misaligned for entire day or two.

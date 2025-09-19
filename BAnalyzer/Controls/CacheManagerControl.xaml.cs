@@ -47,7 +47,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     /// <summary>
     /// Essential information about cache interval of a certain exchange symbol.
     /// </summary>
-    public record CachedTimeIntervalInfo(ITimeGranularity Granularity, DateTime Begin, DateTime End, double SizeBytes);
+    public record CachedTimeIntervalInfo(TimeGranularity Granularity, DateTime Begin, DateTime End, double SizeBytes);
 
     /// <summary>
     /// Essential information about a cached symbol.
@@ -183,7 +183,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
         var client = Client;
         Processing = true;
 
-        string ReportProgress(string symbol, ITimeGranularity granularity, DateTime begin, DateTime end, double dataRateKbSec, TimeSpan elapsedTime)
+        string ReportProgress(string symbol, TimeGranularity granularity, DateTime begin, DateTime end, double dataRateKbSec, TimeSpan elapsedTime)
         {
             return $"{symbol} / {granularity.ToString()} / " +
                    $"[{begin.ToString(CultureInfo.InvariantCulture)} : {end.ToString(CultureInfo.InvariantCulture)}] / {dataRateKbSec} Kb/Sec / " +

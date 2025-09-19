@@ -33,12 +33,12 @@ public class AssetTimeView
     /// <summary>
     /// Collection of all the time granularities present in the view.
     /// </summary>
-    public IEnumerable<ITimeGranularity> Granularities => _grid.Values.Select(x =>x.Granularity);
+    public IEnumerable<TimeGranularity> Granularities => _grid.Values.Select(x =>x.Granularity);
 
     /// <summary>
     /// Subscript operator.
     /// </summary>
-    private BlockGrid this[ITimeGranularity granularity]
+    private BlockGrid this[TimeGranularity granularity]
     {
         get
         {
@@ -54,7 +54,7 @@ public class AssetTimeView
     /// <summary>
     /// Returns an instance of block-grid for the given <paramref name="granularity"/>.
     /// </summary>
-    public BlockGrid GetGridThreadSafe(ITimeGranularity granularity)
+    public BlockGrid GetGridThreadSafe(TimeGranularity granularity)
     {
         lock(this) { return this[granularity]; }
     }
@@ -94,7 +94,7 @@ public class AssetTimeView
         {
             var granularity = TimeGranularity.Decode(Path.GetFileName(dir));
 
-            if (granularity == null)
+            if (!granularity.IsValid)
                 continue;
 
             result[granularity] = BlockGrid.Load(granularity, dir,

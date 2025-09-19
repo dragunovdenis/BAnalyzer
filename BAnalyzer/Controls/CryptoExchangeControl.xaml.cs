@@ -35,7 +35,7 @@ namespace BAnalyzer.Controls;
 public partial class CryptoExchangeControl : INotifyPropertyChanged,
     IDisposable, ISynchronizableExchangeControl
 {
-    private readonly BAnalyzerCore.ExchangeClient _client = null;
+    private readonly ExchangeClient _client = null;
 
     private readonly DispatcherTimer _updateTimer;
 
@@ -62,7 +62,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Currently selected time interval.
     /// </summary>
-    public ITimeGranularity TimeDiscretization
+    public TimeGranularity TimeDiscretization
     {
         get => _settings.TimeDiscretization;
         set => _settings.TimeDiscretization = value;
@@ -79,12 +79,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
         private set => SetField(ref _price, value);
     }
     
-    private readonly ObservableCollection<ITimeGranularity> _availableTimeIntervals = null!;
+    private readonly ObservableCollection<TimeGranularity> _availableTimeIntervals = null!;
 
     /// <summary>
     /// Collection of available time intervals.
     /// </summary>
-    public ObservableCollection<ITimeGranularity> AvailableTimeIntervals
+    public ObservableCollection<TimeGranularity> AvailableTimeIntervals
     {
         get => _availableTimeIntervals;
         private init => SetField(ref _availableTimeIntervals, value);
@@ -149,13 +149,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Retrieves the sticks-and-price data for the given time interval.
     /// </summary>
-    private static async Task<ChartData> RetrieveSticks(UpdateRequest request,
-        BAnalyzerCore.ExchangeClient client)
+    private static async Task<ChartData> RetrieveSticks(UpdateRequest request, ExchangeClient client)
     {
         var timeFrame = request.TimeFrame;
         var exchangeDescriptor = request.ExchangeDescriptor;
 
-        if (timeFrame?.Discretization == null ||
+        if (!timeFrame.Discretization.IsValid ||
             exchangeDescriptor is null or "" || client == null || request.Cancelled)
             return null;
 
@@ -179,7 +178,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Retrieves order data for the current symbol.
     /// </summary>
-    private static async Task<IOrderBook> RetrieveOrderBook(UpdateRequestMinimal request, BAnalyzerCore.ExchangeClient client)
+    private static async Task<IOrderBook> RetrieveOrderBook(UpdateRequestMinimal request, ExchangeClient client)
     {
         if (request.ExchangeDescriptor is null or "" || client == null) return null;
             
@@ -463,12 +462,12 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Constructor.
     /// </summary>
-    public CryptoExchangeControl(BAnalyzerCore.ExchangeClient client, IList<string> exchangeSymbols,
+    public CryptoExchangeControl(ExchangeClient client, IList<string> exchangeSymbols,
         ExchangeSettings settings, IChartSynchronizationController syncController)
     {
         Settings = settings;
         _client = client;
-        AvailableTimeIntervals = new ObservableCollection<ITimeGranularity>(client.Granularities);
+        AvailableTimeIntervals = new ObservableCollection<TimeGranularity>(client.Granularities);
 
         InitializeComponent();
 
