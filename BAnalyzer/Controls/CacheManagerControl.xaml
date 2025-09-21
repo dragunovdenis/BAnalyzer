@@ -57,16 +57,27 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         <Grid Grid.Row="1" Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <ComboBox Grid.Row="0" Grid.Column="0" Name="AvailableSymbolsBox"
-                      ItemsSource= "{Binding ElementName= Ui, Path = AvailableSymbols}"
-                      Margin="5" Width="110" Style="{StaticResource ComboBoxStyle}"
-                      HorizontalAlignment="Center" IsTextSearchEnabled="True" IsEditable="True"
-                      KeyDown="AvailableSymbolsBox_OnKeyDown" IsEnabled="{Binding ElementName=Ui,
-                Path=Processing, Converter={StaticResource InverseBooleanConverter}}">
+            <Grid.Resources>
+                <Style TargetType="ComboBox" BasedOn="{StaticResource ComboBoxStyle}">
+                    <Setter Property="IsTextSearchEnabled" Value="True"/>
+                    <Setter Property="IsEditable" Value="True"/>
+                    <Setter Property="Width" Value="110"/>
+                    <Setter Property="Margin" Value="5"/>
+                    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                    <Setter Property="IsEnabled" Value="{Binding ElementName=Ui,
+                Path=Processing, Converter={StaticResource InverseBooleanConverter}}"/>
+                </Style>
+            </Grid.Resources>
+            <ComboBox Grid.Row="0" Grid.Column="0" Name="AvailableExchangesBox" SelectedIndex="0"
+                      ItemsSource= "{Binding ElementName= Ui, Path = Exchanges}">
             </ComboBox>
-            <StackPanel Grid.Row="1" Grid.Column="0" VerticalAlignment="Bottom">
+            <ComboBox Grid.Row="1" Grid.Column="0" Name="AvailableSymbolsBox"
+                      ItemsSource= "{Binding ElementName= Ui, Path = AvailableSymbols}"
+                      KeyDown="AvailableSymbolsBox_OnKeyDown"/>
+            <StackPanel Grid.Row="2" Grid.Column="0" VerticalAlignment="Bottom">
                 <Button Content="Add to Pending List" Click="AddPendingSymbolButton_OnClick"/>
                 <Button Content="Download" Click="DownloadButton_OnClick"/>
                 <Button Content="Load Cache" Click="LoadCacheButton_OnClick"/>

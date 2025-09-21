@@ -27,6 +27,11 @@ namespace BAnalyzer.Interfaces;
 public interface IExchangeSettings : INotifyPropertyChanged
 {
     /// <summary>
+    /// ID of the "current" crypto-exchange.
+    /// </summary>
+    ExchangeId ExchangeId { get; }
+
+    /// <summary>
     /// Descriptor of the crypto-currency pair.
     /// </summary>
     string ExchangeDescriptor { get; }

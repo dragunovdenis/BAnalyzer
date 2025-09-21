@@ -30,6 +30,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
     <Style x:Key="ComboBoxStyle" TargetType="{x:Type ComboBox}">
         <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
         <Setter Property="Background" Value="{DynamicResource BackgroundAltColor}"/>
+        <Setter Property="ItemTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" />
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBox">

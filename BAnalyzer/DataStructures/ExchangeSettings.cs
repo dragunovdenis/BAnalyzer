@@ -31,6 +31,16 @@ namespace BAnalyzer.DataStructures;
 public class ExchangeSettings : IExchangeSettings
 {
     [DataMember]
+    private ExchangeId _exchangeId = ExchangeId.Binance;
+
+    /// <inheritdoc/>
+    public ExchangeId ExchangeId
+    {
+        get => _exchangeId;
+        set => SetField(ref _exchangeId, value);
+    }
+
+    [DataMember]
     private string _exchangeDescriptor;
 
     /// <inheritdoc/>
@@ -100,6 +110,7 @@ public class ExchangeSettings : IExchangeSettings
         if (!excludeExchangeDescriptor)
             ExchangeDescriptor = source.ExchangeDescriptor;
 
+        ExchangeId = source.ExchangeId;
         TimeDiscretization = source.TimeDiscretization;
         CurrentAnalysisIndicator = source.CurrentAnalysisIndicator;
         MainAnalysisWindow = source.MainAnalysisWindow;
@@ -109,6 +120,16 @@ public class ExchangeSettings : IExchangeSettings
 
     /// <inheritdoc/>
     public bool IsValid() => TimeDiscretization is { IsValid: true } && !ExchangeDescriptor.IsNullOrEmpty();
+
+    /// <summary>
+    /// To ensure backward compatibility with the "old" serialized settings.
+    /// </summary>
+    [OnDeserialized] // Executed after deserialization
+    void OnDeserialized(StreamingContext context)
+    {
+        if (_exchangeId == ExchangeId.None)
+            _exchangeId = ExchangeId.Binance;
+    }
 
     /// <summary>
     /// Event to listen to the changes in the properties of the data struct.

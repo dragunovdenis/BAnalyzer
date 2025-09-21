@@ -41,17 +41,25 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 <Style TargetType="RadioButton" BasedOn="{StaticResource RadioButtonStyle}">
                     <Setter Property="Margin" Value="5, 0, 5, 5"/>
                 </Style>
+                <Style TargetType="ComboBox" BasedOn="{StaticResource ComboBoxStyle}">
+                    <Setter Property="HorizontalAlignment" Value="Center"/>
+                    <Setter Property="Margin" Value="5"/>
+                    <Setter Property="Width" Value="110"/>
+                </Style>
             </Grid.Resources>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <ComboBox Grid.Column="0" ItemsSource= "{Binding ElementName= Ui, Path = AvailableTimeIntervals, UpdateSourceTrigger=PropertyChanged}"
-                      SelectedItem="{Binding ElementName= Ui, Path = Settings.TimeDiscretization}" Margin="5" Width="110"
-                      Style="{StaticResource ComboBoxStyle}" HorizontalAlignment="Center">
+            <ComboBox Grid.Column="0" ItemsSource= "{Binding ElementName= Ui, Path = Exchanges}"
+                      SelectedItem="{Binding ElementName= Ui, Path = Settings.ExchangeId}">
             </ComboBox>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+            <ComboBox Grid.Column="1" ItemsSource= "{Binding ElementName= Ui, Path = AvailableTimeIntervals}"
+                      SelectedItem="{Binding ElementName= Ui, Path = Settings.TimeDiscretization}">
+            </ComboBox>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
                 <RadioButton GroupName="AssetValueProfitSwitch" Checked="RadioButton_OnChecked"
                              IsChecked="{Binding ElementName=Ui, Path=ShowValueChart}">
                     <TextBlock Margin="5" FontWeight="Bold" Text ="Value:"/>
@@ -61,7 +69,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                     Converter={StaticResource FloatToCompactConverter}, ConverterParameter='\{0:0.###}'}"/>
                 <TextBlock Margin="5" FontWeight="Bold" Text ="USDT"/>
             </StackPanel>
-            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
+            <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center">
                 <RadioButton GroupName="AssetValueProfitSwitch" Checked="RadioButton_OnChecked"
                              IsChecked="{Binding ElementName=Ui, Path=ShowValueChart,
                         Converter={StaticResource InverseBooleanConverter}}">
@@ -85,7 +93,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 <controls:AssetManagerControl x:Name="AssetManager" Margin="0, 0, 5, 0"
                                               Symbols="{Binding ElementName= Ui, Path=Symbols,
                     Converter={StaticResource SymbolToAssetConverter}}"
-                                              Assets="{Binding ElementName=Ui, Path= Assets}"/>
+                                              Assets="{Binding ElementName=Ui, Path= Assets}"
+                                              ExchangeId="{Binding ElementName= Ui, Path=Settings.ExchangeId}"/>
             </Expander>
             <controls:ExchangeChartControl Grid.Column="1" x:Name ="Chart" DarkMode = "{Binding ElementName= Ui, Path = DarkMode,
                     UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" ShowFocusTimeMarker="{Binding ElementName=Ui,

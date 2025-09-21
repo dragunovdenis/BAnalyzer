@@ -27,6 +27,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Threading;
+using BAnalyzerCore.Clients;
 using BAnalyzerCore.DataStructures;
 
 namespace BAnalyzer.Controls;
@@ -37,7 +38,7 @@ namespace BAnalyzer.Controls;
 public partial class AssetAnalysisControl : INotifyPropertyChanged,
     IDisposable, ISynchronizableExchangeControl
 {
-    private ExchangeClient _client = null;
+    private IMultiExchange _client = null;
 
     private DispatcherTimer _updateTimer;
 
@@ -186,13 +187,26 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
 
     private IChartSynchronizationController _syncController;
 
+    private ObservableCollection<ExchangeId> _exchanges;
+
+    /// <summary>
+    /// IDs of available exchanges.
+    /// </summary>
+    public ObservableCollection<ExchangeId> Exchanges
+    {
+        get => _exchanges;
+        private set => SetField(ref _exchanges, value);
+    }
+
     /// <summary>
     /// Activates the control.
     /// </summary>
-    public void Activate(ExchangeClient client, IList<string> exchangeSymbols,
-        ObservableCollection<AssetRecord> assets, ExchangeSettings settings, IChartSynchronizationController syncController)
+    public void Activate(IMultiExchange client, ObservableCollection<AssetRecord> assets,
+        ExchangeSettings settings, IChartSynchronizationController syncController)
     {
         AvailableTimeIntervals = new ObservableCollection<TimeGranularity>(client.Granularities);
+        Exchanges = new ObservableCollection<ExchangeId>(client.Exchanges);
+
         Settings = settings;
 
         _syncController?.UnRegister(this);
@@ -205,7 +219,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
         AssetManager.Activate();
         AssetManager.PropertyChanged += AssetManager_PropertyChanged;
 
-        Symbols = new ObservableCollection<string>(exchangeSymbols);
+        Symbols = new ObservableCollection<string>(client.Symbols);
         Chart.PropertyChanged += ChartOnPropertyChanged;
 
         _client = client;
@@ -230,7 +244,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// <summary>
     /// Indicates whether the control is activated or not.
     /// </summary>
-    private bool IsActivated => _client != null;
+    private bool IsActivated => _client != null && Settings != null;
 
     /// <summary>
     /// Does opposite to what <see cref="Activate"/> does.
@@ -401,7 +415,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// Returns current total value of all selected assets and the corresponding profit.
     /// </summary>
     private static async Task<(double Value, double Profit)> RetrieveValueAndProfit(UpdateRequestMinimal request,
-        ExchangeClient client)
+        IClientCached client)
     {
         if (client == null) return new (double.NaN, double.NaN);// deactivated state
 
@@ -414,9 +428,9 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
             if (!asset.Selected)
                 return Task.CompletedTask;
 
-            var price = await client.GetCurrentPrice(asset.Symbol);
+            var price = await client.GetPriceAsync(asset.Symbol, 500);
 
-            var priceExpanded = price != null ? (double)price.Price : double.NaN;
+            var priceExpanded = price?.Price ?? double.NaN;
             values[assetId] = asset.Value(priceExpanded);
             profits[assetId] = asset.Profit(priceExpanded);
             return Task.CompletedTask;
@@ -429,7 +443,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// Retrieves the "k-line" data for the given time interval.
     /// </summary>
     private static async Task<ChartData> RetrieveKLines(UpdateRequest request,
-        ExchangeClient client, bool calculateValue)
+        IClientCached client, bool calculateValue)
     {
         if (client == null) return null;// deactivated state
 
@@ -462,8 +476,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
 
             var symbol = asset.Symbol;
 
-            var (data, success) = await client.GetCandleSticksAsync(frameBegin, frameEnd,
-                timeFrame.Discretization, symbol, request.FundamentalUpdate);
+            var (data, success) = await client.GetKLinesAsync(symbol,
+                timeFrame.Discretization, frameBegin, frameEnd, request.FundamentalUpdate);
 
             if (!success || request.Cancelled)
                 return null;
@@ -492,12 +506,17 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// <summary>
     /// The input needed to request current price of selected "assets".
     /// </summary>
-    private class UpdateRequestMinimal(IList<AssetRecord> assets)
+    private class UpdateRequestMinimal(IList<AssetRecord> assets, ExchangeId exchangeId)
     {
         /// <summary>
         /// Collection of assets to process.
         /// </summary>
         public IList<AssetRecord> Assets { get; } = assets;
+
+        /// <summary>
+        /// ID of the exchange to retrieve data from.
+        /// </summary>
+        public ExchangeId ExchangeId { get; } = exchangeId;
     }
 
     /// <summary>
@@ -520,8 +539,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
         /// <summary>
         /// Constructor.
         /// </summary>
-        public UpdateRequest(TimeFrame timeFrame, IList<AssetRecord> assets,
-            bool fundamentalUpdate) : base(assets)
+        public UpdateRequest(TimeFrame timeFrame, IList<AssetRecord> assets, ExchangeId exchangeId,
+            bool fundamentalUpdate) : base(assets, exchangeId)
         {
             TimeFrame = timeFrame;
             FundamentalUpdate = fundamentalUpdate;
@@ -549,7 +568,7 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     private UpdateRequest BuildKLineRequest(bool force)
     {
         return IsActivated ? new UpdateRequest(new TimeFrame(TimeDiscretization, Settings.StickRange,
-                DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)), Assets.ToArray(), force) : null;
+                DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)), Assets.ToArray(), Settings.ExchangeId, force) : null;
     }
 
     /// <summary>
@@ -594,7 +613,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
             {
                 request = _kLineRequest;
 
-                var sticks = await Task.Run(async () => await RetrieveKLines(request, _client, ShowValueChart));
+                var sticks = await Task.Run(async () =>
+                    await RetrieveKLines(request, _client[request.ExchangeId], ShowValueChart));
 
                 if (sticks != null && !request.Cancelled) VisualizeSticks(sticks);
 
@@ -613,7 +633,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
     /// <summary>
     /// Builds update request for "price" data according to the current state of the system.
     /// </summary>
-    private UpdateRequestMinimal BuildPriceRequest() => IsActivated ? new UpdateRequestMinimal(Assets.ToArray()) : null;
+    private UpdateRequestMinimal BuildPriceRequest() => IsActivated ?
+        new UpdateRequestMinimal(Assets.ToArray(), Settings.ExchangeId) : null;
 
     /// <summary>
     /// Method to update price label.
@@ -637,7 +658,8 @@ public partial class AssetAnalysisControl : INotifyPropertyChanged,
                 var request = _priceRequest;
                 _priceRequest = null;
 
-                var (value, profit) = await Task.Run(async () => await RetrieveValueAndProfit(request, _client));
+                var (value, profit) = await Task.Run(async () =>
+                    await RetrieveValueAndProfit(request, _client[request.ExchangeId]));
 
                 VisualizeValueAndProfit(value, profit);
 

@@ -72,6 +72,21 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         set => SetValue(SymbolsProperty, value);
     }
 
+    /// <summary>
+    /// Dependency property.
+    /// </summary>
+    public static readonly DependencyProperty ExchangeIdProperty =
+        InitProperty(nameof(ExchangeId), DataStructures.ExchangeId.Binance);
+
+    /// <summary>
+    /// Collection of th managed assets.
+    /// </summary>
+    public ExchangeId ExchangeId
+    {
+        get => (ExchangeId)GetValue(ExchangeIdProperty);
+        set => SetValue(ExchangeIdProperty, value);
+    }
+
     private DispatcherTimer _updateTimer;
 
     /// <summary>
@@ -98,7 +113,8 @@ public partial class AssetManagerControl : INotifyPropertyChanged
 
             foreach (var a in Assets)
             {
-                var cachedPrice = BinanceClientController.Client.GetCachedPrice(a.Symbol, 2000 /*ms*/);
+                var cachedPrice = BinanceClientController.Client[ExchangeId].
+                    GetCachedPrice(a.Symbol, 3000 /*ms*/);
                 a.Price = cachedPrice?.Price ?? double.NaN;
             }
         };

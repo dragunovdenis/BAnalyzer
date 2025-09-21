@@ -25,7 +25,7 @@ namespace BAnalyzerCore.Clients;
 /// <summary>
 /// Implementation of <see cref="IClient"/> for <see cref="BinanceRestClient"/>.
 /// </summary>
-internal class ClientBinance : IClient
+public class ClientBinance : IClient
 {
     private readonly BinanceRestClient _client = new();
 
@@ -75,7 +75,7 @@ internal class ClientBinance : IClient
     /// <inheritdoc/>
     public async Task<IOrderBook> GetOrderBookAsync(string symbol)
     {
-        var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(symbol);
+        var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(symbol, limit: 50);
 
         if (!result.Success)
             return null;

@@ -72,17 +72,14 @@ public partial class MainWindow
         if (_assetAnalysisWindow != null)
             return _assetAnalysisWindow;
 
-        var exchangeSymbols = GetExchangeSymbols();
         var settings = Settings.ExchangeSettings;
 
         var settingsId = "AssetAnalysisWindow";
         if (!settings.ContainsKey(settingsId))
-        {
             settings[settingsId] = SetupExchangeSettings("");
-        }
 
         return _assetAnalysisWindow = new AssetAnalysisWindow(BinanceClientController.Client,
-            exchangeSymbols, Settings.Assets, settings[settingsId], _chartSyncController)
+            Settings.Assets, settings[settingsId], _chartSyncController)
         {
             Owner = Application.Current.MainWindow
         };
@@ -128,12 +125,6 @@ public partial class MainWindow
                 FirstOrDefault(x => x.Span.TotalMinutes.Equals(15)),
         };
 
-    /// <summary>
-    /// Returns collection of exchange symbols.
-    /// </summary>
-    private static string[] GetExchangeSymbols() => BinanceClientController.
-        ExchangeSymbols.Where(x => x.EndsWith("USDT")).ToArray();
-
     private readonly ChartSynchronizationController _chartSyncController = new();
 
     /// <summary>
@@ -145,8 +136,6 @@ public partial class MainWindow
             throw new InvalidOperationException("Unexpected number of stock names");
             
         var result = new List<CryptoExchangeControl>();
-
-        var exchangeSymbols = GetExchangeSymbols();
 
         var settings = ApplicationController.Instance.ApplicationSettings.ExchangeSettings;
 
@@ -160,8 +149,7 @@ public partial class MainWindow
 
             var exSettings = settings[settingsId];
 
-            var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client,
-                exchangeSymbols, exSettings, _chartSyncController)
+            var exchangeControl = new CryptoExchangeControl(BinanceClientController.Client, exSettings, _chartSyncController)
             {
                 BorderThickness = new Thickness(2, 2, colId == 1 ? 2 : 0, rowId == 1 ? 2 : 0),
             };
@@ -231,36 +219,6 @@ public partial class MainWindow
     /// On click event handler of the corresponding menu item.
     /// </summary>
     private void ShowAssetAnalysisMenuItem_OnClick(object sender, RoutedEventArgs e) => AssetAnalysisWindowInstance.Show();
-
-    /// <summary>
-    /// Handles click of the "save cache" menu item.
-    /// </summary>
-    private async void SaveCacheMenuItem_OnClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var folder = new OpenFolderDialog();
-
-            if (folder.ShowDialog(this) == true)
-                await BinanceClientController.Client.SaveCacheAsync(folder.FolderName);
-        }
-        catch (Exception) { /*ignored*/ }
-    }
-
-    /// <summary>
-    /// Handles click of the "load cache" menu item.
-    /// </summary>
-    private async void LoadCacheMenuItem_OnClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var folder = new OpenFolderDialog();
-
-            if (folder.ShowDialog(this) == true)
-                await BinanceClientController.Client.LoadCacheAsync(folder.FolderName);
-        }
-        catch (Exception) { /*ignored*/ }
-    }
 
     private CacheManagerWindow _cacheManagerWindow;
 

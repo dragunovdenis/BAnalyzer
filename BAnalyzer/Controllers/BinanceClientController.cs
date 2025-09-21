@@ -15,7 +15,7 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System.Collections.Immutable;
+using BAnalyzer.DataStructures;
 
 namespace BAnalyzer.Controllers;
 
@@ -24,20 +24,8 @@ namespace BAnalyzer.Controllers;
 /// </summary>
 static class BinanceClientController
 {
-    private static BAnalyzerCore.ExchangeClient _client = new();
-
     /// <summary>
     /// Access to the client.
     /// </summary>
-    public static BAnalyzerCore.ExchangeClient Client => _client;
-
-    /// <summary>
-    /// Access to the exchange symbols.
-    /// </summary>
-    public static IImmutableList<string> ExchangeSymbols { get; }
-
-    /// <summary>
-    /// Constructor.
-    /// </summary>
-    static BinanceClientController() => ExchangeSymbols = _client.GetSymbols().ToImmutableList();
+    public static IMultiExchange Client { get; } = new MultiExchange();
 }

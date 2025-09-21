@@ -31,23 +31,18 @@ public partial class AssetAnalysisWindow
     /// <summary>
     /// State of the window.
     /// </summary>
-    private record State(
-        BAnalyzerCore.ExchangeClient Client,
-        IList<string> ExchangeSymbols,
-        ObservableCollection<AssetRecord> Assets,
-        ExchangeSettings Settings,
-        IChartSynchronizationController SyncController);
+    private record State(IMultiExchange Client, ObservableCollection<AssetRecord> Assets,
+        ExchangeSettings Settings, IChartSynchronizationController SyncController);
 
     private readonly State _sate;
 
     /// <summary>
     /// Constructor.
     /// </summary>
-    public AssetAnalysisWindow(BAnalyzerCore.ExchangeClient client, IList<string> exchangeSymbols,
-        ObservableCollection<AssetRecord> assets, ExchangeSettings settings,
-        IChartSynchronizationController syncController)
+    public AssetAnalysisWindow(IMultiExchange client, ObservableCollection<AssetRecord> assets,
+        ExchangeSettings settings, IChartSynchronizationController syncController)
     {
-        _sate = new State(client, exchangeSymbols, assets, settings, syncController);
+        _sate = new State(client, assets, settings, syncController);
 
         InitializeComponent();
     }
@@ -55,8 +50,8 @@ public partial class AssetAnalysisWindow
     /// <summary>
     /// Activates the analysis control.
     /// </summary>
-    private void ActivateAnalysisControl() => AnalysisControl.Activate(_sate.Client, _sate.ExchangeSymbols,
-        _sate.Assets, _sate.Settings, _sate.SyncController);
+    private void ActivateAnalysisControl() => AnalysisControl.Activate(_sate.Client, _sate.Assets,
+        _sate.Settings, _sate.SyncController);
 
     /// <summary>
     /// Deactivates the analysis control.

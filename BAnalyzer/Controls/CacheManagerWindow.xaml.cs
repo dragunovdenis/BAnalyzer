@@ -18,6 +18,7 @@
 
 using System.Windows;
 using System.Windows.Input;
+using BAnalyzer.DataStructures;
 
 namespace BAnalyzer.Controls;
 
@@ -26,7 +27,7 @@ namespace BAnalyzer.Controls;
 /// </summary>
 public partial class CacheManagerWindow
 {
-    public CacheManagerWindow(BAnalyzerCore.ExchangeClient viewModel)
+    public CacheManagerWindow(IMultiExchange viewModel)
     {
         DataContext = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();

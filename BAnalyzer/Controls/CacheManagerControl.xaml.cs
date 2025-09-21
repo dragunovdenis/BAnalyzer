@@ -25,6 +25,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using BAnalyzer.DataStructures;
 using BAnalyzerCore.DataStructures;
 
 namespace BAnalyzer.Controls;
@@ -98,11 +99,22 @@ public partial class CacheManagerControl :INotifyPropertyChanged
         set => SetField(ref _processing, value);
     }
 
+    private ObservableCollection<ExchangeId> _exchanges;
+
+    /// <summary>
+    /// IDs of available exchanges.
+    /// </summary>
+    public ObservableCollection<ExchangeId> Exchanges
+    {
+        get => _exchanges;
+        private set => SetField(ref _exchanges, value);
+    }
+
     /// <summary>
     /// The corresponding dependency property.
     /// </summary>
     public static readonly DependencyProperty ClientProperty = DependencyProperty.
-        Register(name: nameof(Client), propertyType: typeof(BAnalyzerCore.ExchangeClient), ownerType: typeof(CacheManagerControl),
+        Register(name: nameof(Client), propertyType: typeof(IMultiExchange), ownerType: typeof(CacheManagerControl),
             typeMetadata: new FrameworkPropertyMetadata(defaultValue: null, OnClientChange));
 
     /// <summary>
@@ -114,10 +126,10 @@ public partial class CacheManagerControl :INotifyPropertyChanged
         {
             cacheManager.AvailableSymbols.Clear();
 
-            if (args.NewValue is BAnalyzerCore.ExchangeClient client)
+            if (args.NewValue is IMultiExchange client)
             {
                 var selectedSymbolIdx = 0;
-                var symbols = client.GetSymbols();
+                var symbols = client.Symbols;
                 for (var sIdx = 0; sIdx < symbols.Count; sIdx++)
                 {
                     var symbol = symbols[sIdx];
@@ -126,6 +138,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
                         selectedSymbolIdx = sIdx;
                 }
 
+                cacheManager.Exchanges = new ObservableCollection<ExchangeId>(client.Exchanges);
                 cacheManager.AvailableSymbolsBox.SelectedIndex = selectedSymbolIdx;
             }
         }
@@ -134,9 +147,9 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     /// <summary>
     /// Binance client object.
     /// </summary>
-    public BAnalyzerCore.ExchangeClient Client
+    public IMultiExchange Client
     {
-        get => (BAnalyzerCore.ExchangeClient)GetValue(ClientProperty);
+        get => (IMultiExchange)GetValue(ClientProperty);
         set => SetValue(ClientProperty, value);
     }
 
@@ -190,6 +203,8 @@ public partial class CacheManagerControl :INotifyPropertyChanged
                    $@"Elapsed Time : {elapsedTime:hh\:mm\:ss}";
         }
 
+        var exchangeId = (ExchangeId)AvailableExchangesBox.SelectedValue;
+
         int updateCounter = 0;
 
         try
@@ -204,7 +219,8 @@ public partial class CacheManagerControl :INotifyPropertyChanged
                     long bytesLoadedPrev = 0;
 
                     var symbol = PendingSymbols[symbolId];
-                    await client.ReadOutData(symbol, _cache, (g, begin, end, bytesLoaded) =>
+                    await client[exchangeId].ReadOutData(symbol, _cache,
+                        (g, begin, end, bytesLoaded) =>
                     {
                         var kBytesLoadedDiff = (bytesLoaded - bytesLoadedPrev) / 1024.0;
                         bytesLoadedPrev = bytesLoaded;

@@ -27,10 +27,10 @@ namespace BAnalyzerCore;
 /// <summary>
 /// Wrapper of an <see cref="IClient"/>.
 /// </summary>
-public class ExchangeClient : IDisposable
+public class ExchangeClient<C> : IClientCached
+    where C : IClient, new()
 {
-    private readonly IClient _client = new ClientBinance();
-    //private readonly IClient _client = new ClientByBit();
+    private readonly IClient _client = new C();
 
     /// <summary>
     /// Constructor.
@@ -113,8 +113,9 @@ public class ExchangeClient : IDisposable
     /// <summary>
     /// Returns "k-line" data.
     /// </summary>
-    public async Task<(IList<KLine> Data, bool Success)> GetCandleSticksAsync(DateTime timeBegin, DateTime timeEnd,
-        TimeGranularity granularity, string symbol, bool ensureLatestData)
+    public async Task<(IList<KLine> Data, bool Success)> GetKLinesAsync(string symbol,
+        TimeGranularity granularity, DateTime timeBegin, DateTime timeEnd,
+        bool ensureLatestData)
     {
         // Binance client usually has troubles retrieving
         // k-lines that are less than a few seconds "old".
@@ -186,7 +187,7 @@ public class ExchangeClient : IDisposable
     /// <summary>
     /// Returns an order book for the given exchange symbol.
     /// </summary>
-    public async Task<IOrderBook> GetOrders(string symbol) => await _client.GetOrderBookAsync(symbol);
+    public async Task<IOrderBook> GetOrderBookAsync(string symbol) => await _client.GetOrderBookAsync(symbol);
 
     /// <summary>
     /// Cache of a spot-price data.
@@ -209,7 +210,7 @@ public class ExchangeClient : IDisposable
     /// <summary>
     /// Returns current price for the given symbol.
     /// </summary>
-    public async Task<IPriceData> GetCurrentPrice(string symbol, int acceptableStalenessMs = 500)
+    public async Task<IPriceData> GetPriceAsync(string symbol, int acceptableStalenessMs = 500)
     {
         if (symbol is null or "")
             return null;
@@ -409,7 +410,7 @@ public class ExchangeClient : IDisposable
     /// and given <paramref name="granularity"/> starting from "now" back to the "first placement"
     /// moment and puts the data into the given <paramref name="storage"/> provided by the caller.
     /// </summary>
-    public static async Task ReadOutData(string symbol, TimeGranularity granularity, BinanceCache storage,
+    private static async Task ReadOutData(string symbol, TimeGranularity granularity, BinanceCache storage,
         IClient client, CachingProgressReport progressReportCallback)
     {
         var end = DateTime.UtcNow;

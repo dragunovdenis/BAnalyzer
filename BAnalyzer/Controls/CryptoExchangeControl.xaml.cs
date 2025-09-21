@@ -26,6 +26,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using BAnalyzerCore.Clients;
 
 namespace BAnalyzer.Controls;
 
@@ -35,7 +36,7 @@ namespace BAnalyzer.Controls;
 public partial class CryptoExchangeControl : INotifyPropertyChanged,
     IDisposable, ISynchronizableExchangeControl
 {
-    private readonly ExchangeClient _client = null;
+    private readonly IMultiExchange _client = null;
 
     private readonly DispatcherTimer _updateTimer;
 
@@ -149,7 +150,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Retrieves the sticks-and-price data for the given time interval.
     /// </summary>
-    private static async Task<ChartData> RetrieveSticks(UpdateRequest request, ExchangeClient client)
+    private static async Task<ChartData> RetrieveSticks(UpdateRequest request, IClientCached client)
     {
         var timeFrame = request.TimeFrame;
         var exchangeDescriptor = request.ExchangeDescriptor;
@@ -159,8 +160,9 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
             return null;
 
         var frameExtension = 0.25 * timeFrame.Duration;
-        var (sticks, success) = await client.GetCandleSticksAsync(timeFrame.Begin.Subtract(frameExtension),
-            timeFrame.End.Add(frameExtension), timeFrame.Discretization, exchangeDescriptor, request.FundamentalUpdate);
+        var (sticks, success) = await client.GetKLinesAsync(exchangeDescriptor,
+            timeFrame.Discretization, timeFrame.Begin.Subtract(frameExtension),
+            timeFrame.End.Add(frameExtension), request.FundamentalUpdate);
 
         if (!success || request.Cancelled)
             return null;
@@ -178,11 +180,11 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Retrieves order data for the current symbol.
     /// </summary>
-    private static async Task<IOrderBook> RetrieveOrderBook(UpdateRequestMinimal request, ExchangeClient client)
+    private static async Task<IOrderBook> RetrieveOrderBook(UpdateRequestMinimal request, IClientCached client)
     {
         if (request.ExchangeDescriptor is null or "" || client == null) return null;
             
-        return await client.GetOrders(request.ExchangeDescriptor);
+        return await client.GetOrderBookAsync(request.ExchangeDescriptor);
     }
 
     /// <summary>
@@ -215,12 +217,18 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// The minimal input data needed to request something from Binance server.
     /// </summary>
-    private class UpdateRequestMinimal(string exchangeDescriptor)
+    private class UpdateRequestMinimal(string exchangeDescriptor, ExchangeId exchangeId)
     {
         /// <summary>
         /// Descriptor of the exchange (also known as "symbol").
         /// </summary>
         public string ExchangeDescriptor { get; } = exchangeDescriptor;
+
+        /// <summary>
+        /// ID of the exchange to retrieve data from.
+        /// </summary>
+        public ExchangeId ExchangeId { get; } = exchangeId;
+
     }
 
     /// <summary>
@@ -243,8 +251,9 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
         /// <summary>
         /// Constructor.
         /// </summary>
-        public UpdateRequest(TimeFrame timeFrame, string exchangeDescriptor, bool fundamentalUpdate, AnalysisSettings settings) :
-            base(exchangeDescriptor)
+        public UpdateRequest(TimeFrame timeFrame, string exchangeDescriptor,
+            ExchangeId exchangeId, bool fundamentalUpdate, AnalysisSettings settings) :
+            base(exchangeDescriptor, exchangeId)
         {
             TimeFrame = timeFrame;
             FundamentalUpdate = fundamentalUpdate;
@@ -276,7 +285,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// Builds "k-line" update request according to the current state of the system.
     /// </summary>
     private UpdateRequest BuildKLineRequest(bool force) => new (new TimeFrame(TimeDiscretization, Settings.StickRange,
-            DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)), ExchangeDescriptor, force,
+            DateTimeUtils.LocalToUtcOad(Chart.TimeFrameEndLocalTime)), ExchangeDescriptor, Settings.ExchangeId, force,
         new AnalysisSettings(Settings.CurrentAnalysisIndicator, Settings.MainAnalysisWindow));
 
     /// <summary>
@@ -316,7 +325,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
             {
                 request = _kLineRequest;
 
-                var sticks = await Task.Run(async () => await RetrieveSticks(request, _client));
+                var sticks = await Task.Run(async () =>
+                    await RetrieveSticks(request, _client[request.ExchangeId]));
 
                 if (sticks != null && !request.Cancelled)
                 {
@@ -341,7 +351,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Builds price update request according to the current state of the system.
     /// </summary>
-    private UpdateRequestMinimal BuildPriceRequest() => new (ExchangeDescriptor);
+    private UpdateRequestMinimal BuildPriceRequest() => new (ExchangeDescriptor, Settings.ExchangeId);
 
     /// <summary>
     /// Updates "price" label.
@@ -364,7 +374,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
                 var request = _priceRequest;
                 _priceRequest = null;
 
-                var price = await Task.Run(async () => await _client.GetCurrentPrice(request.ExchangeDescriptor));
+                var price = await Task.Run(async () => await _client[request.ExchangeId].
+                    GetPriceAsync(request.ExchangeDescriptor, 500));
 
                 if (price != null)
                     VisualizePrice(price.Price);
@@ -384,7 +395,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Builds order update request according to the current state of the system.
     /// </summary>
-    private UpdateRequestMinimal BuildOrderRequest() => new (ExchangeDescriptor);
+    private UpdateRequestMinimal BuildOrderRequest() => new (ExchangeDescriptor, Settings.ExchangeId);
 
     /// <summary>
     /// Updates orders.
@@ -410,7 +421,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
                 var request = _orderBookRequest;
                 _orderBookRequest = null;
 
-                var orderBook = await Task.Run(async () => await RetrieveOrderBook(request, _client));
+                var orderBook = await Task.Run(async () =>
+                    await RetrieveOrderBook(request, _client[request.ExchangeId]));
 
                 if (orderBook != null)
                     VisualizeOrders(orderBook);
@@ -459,22 +471,34 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     private async void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e) =>
         await UpdateChartAsync(force: false);
 
+    private ObservableCollection<ExchangeId> _exchanges;
+
+    /// <summary>
+    /// IDs of available exchanges.
+    /// </summary>
+    public ObservableCollection<ExchangeId> Exchanges
+    {
+        get => _exchanges;
+        private set => SetField(ref _exchanges, value);
+    }
+
     /// <summary>
     /// Constructor.
     /// </summary>
-    public CryptoExchangeControl(ExchangeClient client, IList<string> exchangeSymbols,
-        ExchangeSettings settings, IChartSynchronizationController syncController)
+    public CryptoExchangeControl(IMultiExchange client, ExchangeSettings settings,
+        IChartSynchronizationController syncController)
     {
         Settings = settings;
         _client = client;
         AvailableTimeIntervals = new ObservableCollection<TimeGranularity>(client.Granularities);
+        Exchanges = new ObservableCollection<ExchangeId>(client.Exchanges);
+        Symbols = new ObservableCollection<string>(client.Symbols);
 
         InitializeComponent();
 
         syncController?.Register(this);
 
         Chart.PropertyChanged += Chart_PropertyChanged;
-        Symbols = new ObservableCollection<string>(exchangeSymbols);
 
         _updateTimer = new DispatcherTimer()
         {

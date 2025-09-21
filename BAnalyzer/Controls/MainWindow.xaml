@@ -48,10 +48,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 <Menu.Resources>
                     <Style TargetType="MenuItem" BasedOn="{StaticResource MenuItemStyle}"/>
                 </Menu.Resources>
-                <MenuItem Header="_File">
-                    <MenuItem Click="SaveCacheMenuItem_OnClick" Header="_Save Cache"/>
-                    <MenuItem Click="LoadCacheMenuItem_OnClick"  Header="_Load Cache"/>
-                </MenuItem>
                 <MenuItem Header="_Edit">
                     <MenuItem IsCheckable="true" IsChecked="{Binding ElementName=Ui, Path=Settings.ControlSynchronization}"
                               Header="_Synchronize intervals" StaysOpenOnClick="True"/>
