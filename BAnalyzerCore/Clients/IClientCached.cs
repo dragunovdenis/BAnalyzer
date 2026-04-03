@@ -81,5 +81,5 @@ public interface IClientCached : IDisposable
     /// starting from "now" back to the "first placement" moment and puts the data into the
     /// given <paramref name="storage"/> provided by the caller.
     /// </summary>
-    Task ReadOutData(string symbol, BinanceCache storage, CachingProgressReport progressReportCallback);
+    Task ReadOutData(string symbol, Cache.Cache storage, CachingProgressReport progressReportCallback);
 }

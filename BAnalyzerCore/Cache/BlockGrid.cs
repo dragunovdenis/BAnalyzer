@@ -24,9 +24,28 @@ using static BAnalyzerCore.Cache.ProgressReportDelegates;
 namespace BAnalyzerCore.Cache;
 
 /// <summary>
+/// Read-only interface for <see cref="BlockGrid"/>.
+/// </summary>
+public interface IBlockGridReadOnly
+{
+    /// <summary>
+    /// Granularity of the grid.
+    /// </summary>
+    TimeGranularity Granularity { get; }
+
+    /// <summary>
+    /// Returns a collection of "k-lines" that covers the given time interval
+    /// or null if the data in the grid do not (fully) cover the interval.
+    /// In the latter case <paramref name="gapIndicator"/> indicates the part
+    /// of the requested interval which is missing in the grid.
+    /// </summary>
+    IList<KLine> Retrieve(DateTime timeBegin, DateTime timeEnd, out TimeInterval gapIndicator);
+}
+
+/// <summary>
 /// A collection of blocks aligned along certain time-grid.
 /// </summary>
-public class BlockGrid
+public class BlockGrid : IBlockGridReadOnly
 {
     private readonly TimeGranularity _granularity;
 

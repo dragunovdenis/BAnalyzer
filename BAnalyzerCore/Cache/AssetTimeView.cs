@@ -21,9 +21,26 @@ using static BAnalyzerCore.Cache.ProgressReportDelegates;
 namespace BAnalyzerCore.Cache;
 
 /// <summary>
+/// Read-only interface for <see cref="AssetTimeView"/>.
+/// </summary>
+public interface IAssetTimeViewReadOnly
+{
+    /// <summary>
+    /// Collection of all the time granularities present in the view.
+    /// </summary>
+    IEnumerable<TimeGranularity> Granularities { get; }
+
+    /// <summary>
+    /// Returns a read-only instance of block-grid for the given <paramref name="granularity"/>.
+    /// Returns null if there is no grid associated with the given <paramref name="granularity"/>.
+    /// </summary>
+    IBlockGridReadOnly GetGrid(TimeGranularity granularity);
+}
+
+/// <summary>
 /// Binance exchange data of a certain granularity related to a certain asset.
 /// </summary>
-public class AssetTimeView
+public class AssetTimeView : IAssetTimeViewReadOnly
 {
     /// <summary>
     /// Grid data.
@@ -34,6 +51,9 @@ public class AssetTimeView
     /// Collection of all the time granularities present in the view.
     /// </summary>
     public IEnumerable<TimeGranularity> Granularities => _grid.Values.Select(x =>x.Granularity);
+
+    /// <inheritdoc/>
+    public IBlockGridReadOnly GetGrid(TimeGranularity granularity) => _grid.GetValueOrDefault(granularity.Seconds);
 
     /// <summary>
     /// Subscript operator.

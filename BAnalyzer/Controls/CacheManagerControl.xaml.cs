@@ -63,7 +63,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
     /// <summary>
     /// The cache.
     /// </summary>
-    private BinanceCache _cache = new();
+    private Cache _cache = new();
 
     /// <summary>
     /// Visualizes cached data in UI.
@@ -271,7 +271,7 @@ public partial class CacheManagerControl :INotifyPropertyChanged
                 Processing = true;
                 var reportCounter = 0;
 
-                _cache = await Task.Run(() => BinanceCache.Load(dialog.FolderName,
+                _cache = await Task.Run(() => Cache.Load(dialog.FolderName,
                     (symbol, blockCount, byteCount) =>
                     {
                         if (reportCounter++ % 9 == 0)

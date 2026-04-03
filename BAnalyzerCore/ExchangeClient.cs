@@ -108,7 +108,7 @@ public class ExchangeClient<C> : IClientCached
             new TimeInterval(cacheGapInterval.End.Subtract(span).Max(_client.MinTime), cacheGapInterval.End);
     }
 
-    private BinanceCache _cache = new();
+    private Cache.Cache _cache = new();
 
     /// <summary>
     /// Returns "k-line" data.
@@ -236,14 +236,14 @@ public class ExchangeClient<C> : IClientCached
     /// saved there previously by <see cref="SaveCacheAsync"/>.
     /// </summary>
     public async Task LoadCacheAsync(string folderPath, GeneralProgressReportingDelegate progressReporter = null) =>
-        _cache = await Task.Run(() => BinanceCache.Load(folderPath, progressReporter));
+        _cache = await Task.Run(() => Cache.Cache.Load(folderPath, progressReporter));
 
     /// <summary>
     /// Reads out all the "k-line" data that corresponds to the given <paramref name="symbol"/>
     /// starting from "now" back to the "first placement" moment and puts the data into the
     /// given <paramref name="storage"/> provided by the caller.
     /// </summary>
-    public async Task ReadOutData(string symbol, BinanceCache storage, CachingProgressReport progressReportCallback)
+    public async Task ReadOutData(string symbol, Cache.Cache storage, CachingProgressReport progressReportCallback)
     {
         foreach (var granularity in _client.Granularities)
             await ReadOutData(symbol, granularity, storage, _client, progressReportCallback);
@@ -410,7 +410,7 @@ public class ExchangeClient<C> : IClientCached
     /// and given <paramref name="granularity"/> starting from "now" back to the "first placement"
     /// moment and puts the data into the given <paramref name="storage"/> provided by the caller.
     /// </summary>
-    private static async Task ReadOutData(string symbol, TimeGranularity granularity, BinanceCache storage,
+    private static async Task ReadOutData(string symbol, TimeGranularity granularity, Cache.Cache storage,
         IClient client, CachingProgressReport progressReportCallback)
     {
         var end = DateTime.UtcNow;

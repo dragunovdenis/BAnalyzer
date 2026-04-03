@@ -21,11 +21,31 @@ using static BAnalyzerCore.Cache.ProgressReportDelegates;
 namespace BAnalyzerCore.Cache;
 
 /// <summary>
+/// Read-only interface for <see cref="Cache"/>
+/// </summary>
+public interface ICacheReadOnly
+{
+    /// <summary>
+    /// Returns read-only instance of "asset time view" associated with the given <paramref name="symbol"/>.
+    /// Returns null if the given <paramref name="symbol"/> has no "asset time view" associated with it.
+    /// </summary>
+    IAssetTimeViewReadOnly Get(string symbol);
+
+    /// <summary>
+    /// Collection of all the symbols present in teh cache.
+    /// </summary>
+    public IReadOnlyCollection<string> CachedSymbols { get; }
+}
+
+/// <summary>
 /// Functionality allowing to cache "k-line" series.
 /// </summary>
-public class BinanceCache
+public class Cache : ICacheReadOnly
 {
     private readonly Dictionary<string, AssetTimeView> _data = new();
+
+    /// <inheritdoc/>
+    public IAssetTimeViewReadOnly Get(string symbol) => _data.GetValueOrDefault(symbol);
 
     /// <summary>
     /// Returns an existing asset-view object associated with the given pair of keys
@@ -44,9 +64,7 @@ public class BinanceCache
         set => _data[symbol] = value;
     }
 
-    /// <summary>
-    /// Collection of all the symbols present in teh cache.
-    /// </summary>
+    /// <inheritdoc/>
     public IReadOnlyCollection<string> CachedSymbols => _data.Keys;
 
     /// <summary>
@@ -77,9 +95,9 @@ public class BinanceCache
     /// Loads an instance of cache from the data in the given
     /// folder (which was previously saved there by <see cref="Save"/>)
     /// </summary>
-    public static BinanceCache Load(string folderPath, GeneralProgressReportingDelegate progressReporter)
+    public static Cache Load(string folderPath, GeneralProgressReportingDelegate progressReporter)
     {
-        var result = new BinanceCache();
+        var result = new Cache();
 
         foreach (var dir in Directory.GetDirectories(folderPath))
         {
