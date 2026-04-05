@@ -101,8 +101,19 @@ namespace BAnalyzerNative
 			raw_reference_begin += _plain_output_size;
 		}
 
-		_net.learn(input_lazy, reference_lazy, CostFunction<CpuDC::tensor_t>(CostFunctionId::CROSS_ENTROPY),
-			static_cast<Real>(learning_rate), _context);
+		thread_local LazyVector<std::span<const CpuDC::tensor_t>> input_spans{};
+		input_spans.resize(training_pair_count);
+		thread_local LazyVector<std::span<const CpuDC::tensor_t>> reference_spans{};
+		reference_spans.resize(training_pair_count);
+
+		for (auto pair_id = 0; pair_id < training_pair_count; ++pair_id)
+		{
+			input_spans[pair_id] = input_lazy[pair_id].to_span_read_only();
+			reference_spans[pair_id] = reference_lazy[pair_id].to_span_read_only();
+		}
+
+		_net.learn(input_spans, reference_spans, CostFunction<CpuDC::tensor_t>(CostFunctionId::CROSS_ENTROPY),
+			static_cast<Real>(learning_rate), static_cast<Real>(0), _context);
 	}
 
 	Index4d RNN::in_size() const
