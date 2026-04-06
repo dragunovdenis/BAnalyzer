@@ -502,7 +502,7 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
 
         _updateTimer = new DispatcherTimer()
         {
-            Interval = TimeSpan.FromSeconds(1)
+            Interval = TimeSpan.FromSeconds(1.0)
         };
 
         _updateTimer.Tick += TimerTickEventHandler;

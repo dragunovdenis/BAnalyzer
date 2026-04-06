@@ -62,7 +62,7 @@ public class ClientByBit : IClient
         if (!binanceResult.Success)
             return (new List<KLine>(), false);
 
-        var span = granularity.Span.Subtract(TimeSpan.FromSeconds(BinanceConstants.KLineTimeGapSec));
+        var span = granularity.Span.Subtract(TimeSpan.FromSeconds((double)BinanceConstants.KLineTimeGapSec));
 
         return (binanceResult.Data.List.Reverse().Select(x => new KLine(x, span)).ToArray(), true);
     }

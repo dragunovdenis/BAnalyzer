@@ -47,7 +47,7 @@ public record struct TimeGranularity
     /// <summary>
     /// TimeSpan representation.
     /// </summary>
-    public TimeSpan Span => TimeSpan.FromSeconds(Seconds);
+    public TimeSpan Span => TimeSpan.FromSeconds((double)Seconds);
 
     /// <summary>
     /// Constructor.

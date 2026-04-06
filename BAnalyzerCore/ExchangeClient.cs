@@ -300,7 +300,7 @@ public class ExchangeClient<C> : IClientCached
         if (kLine.OpenTime.Month != kLine.CloseTime.Month) return false;
 
         var daysInMonth = DateTime.DaysInMonth(kLine.OpenTime.Year, kLine.OpenTime.Month);
-        var expectedMonthSpan = TimeSpan.FromDays(daysInMonth);
+        var expectedMonthSpan = TimeSpan.FromDays((double)daysInMonth);
 
         return kLine.CloseTime.Subtract(kLine.OpenTime).Add(GapSpan) == expectedMonthSpan;
     }
@@ -336,7 +336,7 @@ public class ExchangeClient<C> : IClientCached
             while (currentKlineIndex < subBlockBeginId)
             {
                 var opeTime = prevSubBlockCloseTime + GapSpan;
-                prevSubBlockCloseTime += TimeSpan.FromDays(DateTime.DaysInMonth(opeTime.Year, opeTime.Month));
+                prevSubBlockCloseTime += TimeSpan.FromDays((double)DateTime.DaysInMonth(opeTime.Year, opeTime.Month));
                 result[currentKlineIndex++] = KLine.Invalid(opeTime, prevSubBlockCloseTime);
             }
 

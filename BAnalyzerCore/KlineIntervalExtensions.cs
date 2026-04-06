@@ -29,6 +29,6 @@ public static class KLineIntervalExtensions
     /// </summary>
     public static TimeSpan ToTimeSpan(this KlineInterval interval)
     {
-        return TimeSpan.FromSeconds((int)interval);
+        return TimeSpan.FromSeconds((double)interval);
     }
 }
