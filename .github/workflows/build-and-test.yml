@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
 
     steps:
     - name: Checkout with submodules
@@ -31,15 +31,7 @@ jobs:
       run: nuget restore BAnalyzer.sln
 
     - name: Build solution (Release|x64)
-      # Override PlatformToolset to v143 (VS 2022) since the GitHub-hosted runner
-      # does not include the v145 (VS 2025) toolset used by the local dev environment.
-      run: >
-        msbuild BAnalyzer.sln
-        /p:Configuration=Release
-        /p:Platform=x64
-        /p:PlatformToolset=v143
-        /m
-        /verbosity:minimal
+      run: msbuild BAnalyzer.sln /p:Configuration=Release /p:Platform=x64 /m
 
     - name: Run tests
       run: dotnet test x64/Release/BAnalyzerCoreTest.dll --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
