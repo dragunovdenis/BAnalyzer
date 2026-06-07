@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.8.34511.84
+# Visual Studio Version 18
+VisualStudioVersion = 18.6.11822.322 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BAnalyzer", "BAnalyzer\BAnalyzer.csproj", "{32FB9778-0FFB-4AA5-B792-AE306C8B05FC}"
 EndProject
@@ -11,8 +11,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BAnalyzerCore", "BAnalyzerC
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BAnalyzerNativeDll", "BAnalyzerNativeDll\BAnalyzerNativeDll.vcxproj", "{42873170-F371-47BE-B758-C5CE07F63185}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DeepLearning", "DeepLearning\DeepLearning\DeepLearning.vcxproj", "{50160B3B-7FF2-43C0-B650-54332EF4FA75}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BAnalyzerNative", "BAnalyzerNative\BAnalyzerNative.vcxproj", "{55E2099A-EDA0-4697-B2EA-BCA895AA047E}"
 EndProject
@@ -64,18 +62,6 @@ Global
 		{42873170-F371-47BE-B758-C5CE07F63185}.Release|x64.Build.0 = Release|x64
 		{42873170-F371-47BE-B758-C5CE07F63185}.ReleaseSingle|x64.ActiveCfg = ReleaseSingle|x64
 		{42873170-F371-47BE-B758-C5CE07F63185}.ReleaseSingle|x64.Build.0 = ReleaseSingle|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.Debug|x64.ActiveCfg = Debug|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.Debug|x64.Build.0 = Debug|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.DebugSingle|x64.ActiveCfg = DebugSingle|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.DebugSingle|x64.Build.0 = DebugSingle|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.IntelCompiler2022|x64.ActiveCfg = IntelCompiler2022|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.IntelCompiler2022|x64.Build.0 = IntelCompiler2022|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.IntelCompiler2022Single|x64.ActiveCfg = IntelCompiler2022Single|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.IntelCompiler2022Single|x64.Build.0 = IntelCompiler2022Single|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.Release|x64.ActiveCfg = Release|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.Release|x64.Build.0 = Release|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.ReleaseSingle|x64.ActiveCfg = ReleaseSingle|x64
-		{50160B3B-7FF2-43C0-B650-54332EF4FA75}.ReleaseSingle|x64.Build.0 = ReleaseSingle|x64
 		{55E2099A-EDA0-4697-B2EA-BCA895AA047E}.Debug|x64.ActiveCfg = Debug|x64
 		{55E2099A-EDA0-4697-B2EA-BCA895AA047E}.Debug|x64.Build.0 = Debug|x64
 		{55E2099A-EDA0-4697-B2EA-BCA895AA047E}.DebugSingle|x64.ActiveCfg = DebugSingle|x64
