@@ -321,7 +321,7 @@ public class KLineBlockTest
     [DataRow(MergeDataType.ContainingBlocks)]
     [DataRow(MergeDataType.EmptyAndNonEmptyBlocks)]
     [DataRow(MergeDataType.TwoEmptyBlocks)]
-    [DataTestMethod]
+    [TestMethod]
     public void MergeOverwriteTest(MergeDataType dataType)
     {
         // Arrange
@@ -378,7 +378,7 @@ public class KLineBlockTest
     [DataRow(MergeDataType.ContainingBlocks)]
     [DataRow(MergeDataType.EmptyAndNonEmptyBlocks)]
     [DataRow(MergeDataType.TwoEmptyBlocks)]
-    [DataTestMethod]
+    [TestMethod]
     public void MergePreserveTest(MergeDataType dataType)
     {
         // Arrange
@@ -501,7 +501,7 @@ public class KLineBlockTest
     [DataRow(MergeDataType.DistinctBlocks)]
     [DataRow(MergeDataType.EmptyAndNonEmptyBlocks)]
     [DataRow(MergeDataType.TwoEmptyBlocks)]
-    [DataTestMethod]
+    [TestMethod]
     public void BlockSubtractionTest(MergeDataType dataType)
     {
         // Arrange

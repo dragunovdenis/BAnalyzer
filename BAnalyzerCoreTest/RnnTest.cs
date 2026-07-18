@@ -35,12 +35,12 @@ public class RnnTest
         var rnn = ConstructStandardRnn();
 
         // Assert
-        Assert.AreEqual(rnn.Depth, Depth, "Unexpected depth of the instantiated RNN");
-        Assert.AreEqual(_itemSizes.Length - 1, rnn.LayerCount,
+        Assert.AreEqual(expected: Depth, actual: rnn.Depth, "Unexpected depth of the instantiated RNN");
+        Assert.AreEqual(expected: _itemSizes.Length - 1, actual: rnn.LayerCount,
             "Unexpected number of layers in the instantiated RNN");
-        Assert.AreEqual(_itemSizes.First(), rnn.InputItemSize,
+        Assert.AreEqual(expected: _itemSizes.First(), actual: rnn.InputItemSize,
             "Unexpected size of the input item of the instantiated RNN");
-        Assert.AreEqual(_itemSizes.Last(), rnn.OutputItemSize,
+        Assert.AreEqual(expected: _itemSizes.Last(), actual: rnn.OutputItemSize,
             "Unexpected size of the output item of the instantiated RNN");
     }
 
