@@ -140,7 +140,6 @@ public class RnnTest
 
         var (_, finalDeviationMax) = CalcAverageAndMaxAbsDeviation(net, inputControl, outputControl);
 
-
         Console.WriteLine($"Final deviation max: {finalDeviationMax}");
         Assert.IsTrue(finalDeviationMax < (net.SinglePrecision ? 1e-7 : 2e-10),
             "Too high final deviation from reference.");
