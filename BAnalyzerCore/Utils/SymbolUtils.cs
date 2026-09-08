@@ -20,7 +20,7 @@ namespace BAnalyzer.Utils
     /// <summary>
     /// Utility methods to work with "symbols" (aka "exchange descriptors").
     /// </summary>
-    internal static class SymbolUtils
+    public static class SymbolUtils
     {
         private static readonly string Usdt = "USDT";
 

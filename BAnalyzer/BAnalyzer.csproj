@@ -5,9 +5,9 @@
     <TargetFramework>net10.0-windows10.0.19041</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Copyright>Copyright © 2025 Denys Dragunov, dragunovdenis@gmail.com</Copyright>
-    <AssemblyVersion>3.1.0.0</AssemblyVersion>
-    <FileVersion>3.1.0.0</FileVersion>
+    <Copyright>Copyright © 2026 Denys Dragunov, dragunovdenis@gmail.com</Copyright>
+    <AssemblyVersion>4.0.0.0</AssemblyVersion>
+    <FileVersion>4.0.0.0</FileVersion>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>$(SolutionDir)\$(Platform)\$(Configuration)\</OutputPath>
@@ -15,6 +15,7 @@
     <Configurations>Debug;Release;DebugSingle;ReleaseSingle;IntelCompiler;IntelCompilerSingle</Configurations>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Markdig.Wpf" Version="0.5.0.1" />
     <PackageReference Include="ScottPlot.WPF" Version="5.1.59" />
   </ItemGroup>
   <ItemGroup>

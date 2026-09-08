@@ -1,0 +1,212 @@
+﻿<!-- Copyright (c) 2026 Denys Dragunov, dragunovdenis@gmail.com
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files(the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+copies of the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions :
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
+
+<Window x:Class="BAnalyzer.Controls.AiHelperWindow" x:Name="Ui"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:BAnalyzer.Controls.Converters"
+        xmlns:controls="clr-namespace:BAnalyzer.Controls"
+        xmlns:utils="clr-namespace:BAnalyzer.Utils"
+        mc:Ignorable="d" WindowStyle="None"
+        Title="AI Helper" Width="700" Height="600" MinWidth="450" MinHeight="350"
+        Loaded="AiHelperWindow_OnLoaded">
+    <Window.Resources>
+        <converters:BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        <converters:EmptyStringToVisibilityConverter x:Key="EmptyStringToVisibility"/>
+        <Style TargetType="{x:Type Grid}">
+            <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
+        </Style>
+        <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ScrollBarStyle}"/>
+    </Window.Resources>
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"/>
+    </WindowChrome.WindowChrome>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="AI Helper" Style="{StaticResource TextBlockStyle}"
+                       FontSize="15" Margin="20,2,2,2"/>
+            <StackPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal">
+                <StackPanel.Resources>
+                    <Style TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
+                        <Setter Property="Width" Value="20"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                    </Style>
+                </StackPanel.Resources>
+                <Button Content="X" Click="Close_OnClick" ToolTip="Close"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Model selector -->
+        <Grid Grid.Row="1" Margin="20,4,8,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Model:" VerticalAlignment="Center"
+                       Style="{StaticResource TextBlockStyle}" Margin="0,0,6,0"/>
+            <ComboBox Grid.Column="1" x:Name="ModelSelector" Style="{StaticResource ComboBoxStyle}"
+                      ItemsSource="{Binding ElementName=Ui, Path=Models}"
+                      SelectedValuePath="Name"
+                      SelectedValue="{Binding ElementName=Ui, Path=SelectedModel, Mode=TwoWay}"
+                      IsEnabled="{Binding ElementName=Ui, Path=CanInteract}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource TextBlockStyle}"/>
+                            <TextBlock Text="{Binding Description, StringFormat=' ({0})'}"
+                                       Style="{StaticResource TextBlockStyle}"
+                                       Opacity="0.6" FontSize="10" VerticalAlignment="Center"
+                                       Visibility="{Binding Description, Converter={StaticResource EmptyStringToVisibility}}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Grid.Column="2" Content="Retry" Margin="6,0,0,0" Padding="8,0,8,0"
+                    Style="{StaticResource ButtonStyle}" Click="Retry_OnClick"
+                    Visibility="{Binding ElementName=Ui, Path=CanRetry, Converter={StaticResource BoolToVisibility}}"/>
+            <Button Grid.Column="3" Content="Clear context" Margin="6,0,0,0" Padding="8,0,8,0"
+                    Style="{StaticResource ButtonStyle}" Click="ClearContext_OnClick"
+                    ToolTip="Forget the conversation and start over"
+                    IsEnabled="{Binding ElementName=Ui, Path=HasTranscript}"/>
+        </Grid>
+
+        <!-- Warning banner -->
+        <Border Grid.Row="2" Margin="20,0,8,4" Padding="8" BorderThickness="1"
+                BorderBrush="{DynamicResource ForegroundColor}"
+                Background="{DynamicResource BackgroundAltColor}"
+                Visibility="{Binding ElementName=Ui, Path=HasBanner, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding ElementName=Ui, Path=BannerText}" TextWrapping="Wrap"
+                       Style="{StaticResource TextBlockStyle}"/>
+        </Border>
+
+        <!-- Transcript -->
+        <Border Grid.Row="3" Margin="20,0,8,4" BorderThickness="1"
+                BorderBrush="{DynamicResource ForegroundColor}">
+            <ScrollViewer x:Name="TranscriptScroll" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" Padding="4">
+                <ItemsControl ItemsSource="{Binding ElementName=Ui, Path=Transcript}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="4" Padding="8" CornerRadius="6"
+                                    HorizontalAlignment="{Binding Alignment}"
+                                    MaxWidth="{Binding MaxWidth}"
+                                    Background="{DynamicResource BackgroundAltColor}"
+                                    BorderThickness="1" BorderBrush="{DynamicResource ForegroundColor}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="11"
+                                               Style="{StaticResource TextBlockStyle}"/>
+                                    <Expander Margin="0,3,0,0" Header="Reasoning" FontSize="11"
+                                              IsExpanded="{Binding IsReasoningExpanded, Mode=TwoWay}"
+                                              Visibility="{Binding HasThinking, Converter={StaticResource BoolToVisibility}}"
+                                              Style="{StaticResource ExpanderStyle}">
+                                        <TextBlock Text="{Binding Thinking}" TextWrapping="Wrap"
+                                                   Style="{StaticResource TextBlockStyle}"
+                                                   FontSize="11" Opacity="0.7" Margin="6,3,0,0"/>
+                                    </Expander>
+                                    <ItemsControl ItemsSource="{Binding ToolCalls}" Margin="0,3,0,0"
+                                                  Visibility="{Binding HasToolCalls, Converter={StaticResource BoolToVisibility}}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.7"
+                                                           Style="{StaticResource TextBlockStyle}">
+                                                    <Run Text="Market data:"/>
+                                                    <Run Text="{Binding Description, Mode=OneWay}"/>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <!-- While the answer is being streamed its markdown is
+                                         still incomplete, so it is shown as a plain text and
+                                         gets formatted once the answer is over. -->
+                                    <TextBlock Text="{Binding Content}" TextWrapping="Wrap"
+                                               Style="{StaticResource TextBlockStyle}" Margin="0,3,0,0"
+                                               Visibility="{Binding IsPlainText, Converter={StaticResource BoolToVisibility}}"/>
+                                    <RichTextBox IsReadOnly="True" IsDocumentEnabled="True"
+                                                 Margin="0,3,0,0" Padding="0" BorderThickness="0"
+                                                 Background="Transparent"
+                                                 Foreground="{DynamicResource ForegroundColor}"
+                                                 HorizontalScrollBarVisibility="Auto"
+                                                 VerticalScrollBarVisibility="Disabled"
+                                                 utils:MarkdownPresenter.Markdown="{Binding Content}"
+                                                 Visibility="{Binding IsFormatted, Converter={StaticResource BoolToVisibility}}"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                                Visibility="{Binding CanSave, Converter={StaticResource BoolToVisibility}}">
+                                        <Button Content="Copy" Margin="0,6,6,0" Padding="8,0,8,0"
+                                                FontSize="11" Style="{StaticResource ButtonStyle}"
+                                                Click="CopyResponse_OnClick"/>
+                                        <Button Content="Save as text..." Margin="0,6,0,0"
+                                                Padding="8,0,8,0" FontSize="11"
+                                                Style="{StaticResource ButtonStyle}"
+                                                Click="SaveResponse_OnClick"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Busy indicator -->
+        <StackPanel Grid.Row="4" Margin="20,0,8,4"
+                    Visibility="{Binding ElementName=Ui, Path=IsBusy, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding ElementName=Ui, Path=StatusText}" TextWrapping="Wrap"
+                       Style="{StaticResource TextBlockStyle}" FontSize="11"/>
+            <ProgressBar IsIndeterminate="True" Height="6" Margin="0,3,0,0"
+                         Foreground="{DynamicResource ForegroundColor}"
+                         Background="{DynamicResource BackgroundAltColor}"/>
+        </StackPanel>
+
+        <!-- Input -->
+        <Grid Grid.Row="5" Margin="20,0,8,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0" x:Name="InputBox" Style="{StaticResource TextBoxStyle}"
+                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="50" MaxHeight="120"
+                     VerticalScrollBarVisibility="Auto"
+                     IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
+                     PreviewKeyDown="InputBox_OnPreviewKeyDown"/>
+            <Button Grid.Column="1" Content="Send" Margin="6,0,0,0" Padding="12,0,12,0"
+                    Style="{StaticResource ButtonStyle}" Click="Send_OnClick"
+                    IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"/>
+            <Button Grid.Column="2" Content="Terminate" Margin="6,0,0,0" Padding="12,0,12,0"
+                    Style="{StaticResource ButtonStyle}" Click="Terminate_OnClick"
+                    IsEnabled="{Binding ElementName=Ui, Path=CanTerminate}"/>
+        </Grid>
+    </Grid>
+</Window>

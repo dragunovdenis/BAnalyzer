@@ -21,7 +21,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
-using Microsoft.Win32;
 
 namespace BAnalyzer.Controls;
 
@@ -185,6 +184,7 @@ public partial class MainWindow
 
         _exchangeControls.Clear();
         _assetAnalysisWindow?.Close();
+        _aiHelperWindow?.Close();
     }
 
     /// <summary>
@@ -221,6 +221,22 @@ public partial class MainWindow
     private void ShowAssetAnalysisMenuItem_OnClick(object sender, RoutedEventArgs e) => AssetAnalysisWindowInstance.Show();
 
     private CacheManagerWindow _cacheManagerWindow;
+
+    private AiHelperWindow _aiHelperWindow;
+
+    /// <summary>
+    /// On click event handler of the corresponding menu item.
+    /// </summary>
+    private void ShowAiHelperMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        _aiHelperWindow ??= new AiHelperWindow(OllamaClientController.Client, BinanceClientController.Client)
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        _aiHelperWindow.Show();
+        _aiHelperWindow.Activate();
+    }
 
     /// <summary>
     /// Handles click of the "build cache" menu item.
