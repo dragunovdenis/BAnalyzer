@@ -29,7 +29,9 @@ public record ModelsResult(bool Available, IReadOnlyList<ModelInfo> Models, stri
 /// <param name="Size">Size of the model on disk, in bytes, or "null" if not reported.</param>
 /// <param name="ParameterSize">Human-readable parameter count, for example "8B", or "null" if not reported.</param>
 /// <param name="QuantizationLevel">Quantization level, for example "Q4_K_M", or "null" if not reported.</param>
-public sealed record ModelInfo(string Name, long? Size, string ParameterSize, string QuantizationLevel)
+/// <param name="ContextWindow">Context window of the model, or "null" if not reported.</param>
+public sealed record ModelInfo(string Name, long? Size, string ParameterSize, 
+    string QuantizationLevel, long ContextWindow)
 {
     /// <summary>
     /// Human-readable summary of the extra details (size, parameter count,
@@ -50,6 +52,14 @@ public sealed record ModelInfo(string Name, long? Size, string ParameterSize, st
 
             if (!string.IsNullOrWhiteSpace(QuantizationLevel))
                 parts.Add(QuantizationLevel);
+
+            if (ContextWindow > 0)
+            {
+                var contextText = ContextWindow >= 1024
+                    ? $"{ContextWindow / 1024.0:0.#}K ctx"
+                    : $"{ContextWindow} ctx";
+                parts.Add(contextText);
+            }
 
             return string.Join(" · ", parts);
         }

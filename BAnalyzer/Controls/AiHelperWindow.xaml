@@ -121,7 +121,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                         <DataTemplate>
                             <Border Margin="4" Padding="8" CornerRadius="6"
                                     HorizontalAlignment="{Binding Alignment}"
-                                    MaxWidth="{Binding MaxWidth}"
                                     Background="{DynamicResource BackgroundAltColor}"
                                     BorderThickness="1" BorderBrush="{DynamicResource ForegroundColor}">
                                 <StackPanel>

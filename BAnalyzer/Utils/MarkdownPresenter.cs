@@ -154,27 +154,4 @@ public static class MarkdownPresenter
                 ApplyThemeForeground(span.Inlines);
         }
     }
-
-    /// <summary>
-    /// Indicates that the given "markdown" contains a table, i.e. a construct
-    /// that does not fit the width an ordinary message is displayed within.
-    /// </summary>
-    public static bool ContainsTable(string markdown)
-    {
-        if (string.IsNullOrEmpty(markdown)) return false;
-
-        // A table is recognized by its delimiter row (the one that separates
-        // the header from the body), because that is the only line whose shape
-        // is fixed by the syntax: pipes, dashes, colons and spaces alone.
-        foreach (var line in markdown.Split('\n'))
-        {
-            var trimmed = line.Trim();
-
-            if (trimmed.Length < 3 || !trimmed.Contains('-') || !trimmed.Contains('|')) continue;
-
-            if (trimmed.All(c => c is '|' or '-' or ':' or ' ' or '\r')) return true;
-        }
-
-        return false;
-    }
 }

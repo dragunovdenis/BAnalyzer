@@ -74,7 +74,7 @@ public class OllamaClientTest
             {
                 // Models that do not have "tool" capability will be ignored.
                 // // Make sure that the response contains the "tools" capability.
-                return Json(HttpStatusCode.OK, """{ "capabilities":["completion", "vision", "tools", "thinking"]}""");
+                return Json(HttpStatusCode.OK, """{ "capabilities":["completion", "vision", "tools", "thinking"], "model_info":{"llama.context_length":1024}}""");
             }
 
             throw new InvalidOperationException("Unexpected request");
@@ -85,8 +85,8 @@ public class OllamaClientTest
         result.Available.Should().BeTrue();
         result.Error.Should().BeNull();
         result.Models.Should().Equal(
-            new ModelInfo("qwen3.8:27b", 123, "27B", "Q4_K_M"),
-            new ModelInfo("ornith-1.5:35b", null, null, null));
+            new ModelInfo("qwen3.8:27b", 123, "27B", "Q4_K_M", 1024),
+            new ModelInfo("ornith-1.5:35b", null, null, null, 1024));
     }
 
     [TestMethod]

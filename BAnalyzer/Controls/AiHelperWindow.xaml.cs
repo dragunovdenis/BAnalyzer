@@ -35,7 +35,7 @@ namespace BAnalyzer.Controls;
 /// without disturbing the rest of the properties or the selection in the
 /// drop-down list the instances are displayed in.
 /// </summary>
-public class ModelOptionVm(ModelInfo model) : INotifyPropertyChanged
+public class ModelOptionVm(ModelInfo model)
 {
     /// <summary>
     /// Name of the model (the identifier accepted by the "/api/chat" end-point).
@@ -43,51 +43,11 @@ public class ModelOptionVm(ModelInfo model) : INotifyPropertyChanged
     public string Name { get; } = model.Name;
 
     /// <summary>
-    /// Context window of the model, in tokens, or "null" if not fetched (yet)
-    /// or not reported by the service.
-    /// </summary>
-    public int? ContextWindow
-    {
-        get;
-        set
-        {
-            if (field == value) return;
-
-            field = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(Description));
-        }
-    }
-
-    /// <summary>
     /// Human-readable summary of the model's size, parameter count,
     /// quantization level and context window, suitable for display next to
     /// the model name. Empty if none of the details are available.
     /// </summary>
-    public string Description
-    {
-        get
-        {
-            var description = model.Description;
-
-            if (ContextWindow is not > 0) return description;
-
-            var contextText = ContextWindow.Value >= 1024
-                ? $"{ContextWindow.Value / 1024.0:0.#}K ctx"
-                : $"{ContextWindow.Value} ctx";
-
-            return string.IsNullOrEmpty(description) ? contextText : $"{description} · {contextText}";
-        }
-    }
-
-    /// <inheritdoc/>
-    public event PropertyChangedEventHandler PropertyChanged;
-
-    /// <summary>
-    /// Raises the "PropertyChanged" event.
-    /// </summary>
-    protected void OnPropertyChanged([CallerMemberName] string propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    public string Description => model.Description;
 }
 
 /// <summary>
@@ -168,7 +128,6 @@ public class ChatMessageVm : INotifyPropertyChanged
             _content = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasContent));
-            OnPropertyChanged(nameof(MaxWidth));
         }
     }
 
@@ -213,26 +172,7 @@ public class ChatMessageVm : INotifyPropertyChanged
     public void Complete()
     {
         IsFormatted = true;
-        OnPropertyChanged(nameof(MaxWidth));
     }
-
-    /// <summary>
-    /// Width the item is allowed to occupy. A table does not wrap, so a message
-    /// that contains one is given more room than an ordinary one, which would
-    /// otherwise be squeezed into a barely readable column of clipped cells.
-    /// </summary>
-    public double MaxWidth => IsFormatted && MarkdownPresenter.ContainsTable(Content)
-        ? WideWidth : NormalWidth;
-
-    /// <summary>
-    /// Width of an ordinary message.
-    /// </summary>
-    private const double NormalWidth = 480;
-
-    /// <summary>
-    /// Width of a message containing a table.
-    /// </summary>
-    private const double WideWidth = 640;
 
     /// <summary>
     /// The "reasoning" the model produced before the answer. Stays empty for
@@ -549,30 +489,6 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         SelectedModel = Models[0].Name;
         Status = AiHelperStatus.Ready;
         StatusText = null;
-
-        // Fetching the context window takes a separate, slower request per
-        // model, so it is not worth holding the "ready" status up for it: the
-        // drop-down list is updated progressively as the answers come in.
-        _ = FetchContextWindowsAsync();
-    }
-
-    /// <summary>
-    /// Retrieves and displays the context window of every model currently
-    /// listed in <see cref="Models"/>.
-    /// </summary>
-    private async Task FetchContextWindowsAsync()
-    {
-        var options = Models.ToArray();
-
-        var tasks = options.Select(async option =>
-        {
-            var caps = await _ollamaClient
-                .GetModelCapsAsync(option.Name, CancellationToken.None).ConfigureAwait(true);
-
-            option.ContextWindow = caps?.ContextWindow ?? -1;
-        });
-
-        await Task.WhenAll(tasks).ConfigureAwait(true);
     }
 
     /// <summary>

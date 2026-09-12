@@ -188,19 +188,26 @@ public sealed class OllamaClient : IOllamaClient
 
             var payload = await response.Content.ReadFromJsonAsync<OllamaTagsResponse>(cts.Token).ConfigureAwait(false);
 
-            var models = payload?.Models?
-                .Where(x => !string.IsNullOrWhiteSpace(x?.Name))
-                .Select(x => new ModelInfo(x.Name, x.Size, x.Details?.ParameterSize, x.Details?.QuantizationLevel))
-                .ToArray() ?? [];
+            if (payload?.Models == null)
+                throw new InvalidOperationException("Failed to get models.");
 
-            // Make sure that all the models we are about to deal with actually support tools,
-            // because the service doesn't filter them out.
-            models = (await Task.WhenAll(models.Select(async m => (m, await SupportsToolsAsync(m.Name, ct).ConfigureAwait(false)))))
+            var acceptedModels = (await Task.WhenAll(payload.Models.Select(async m => 
+                    (m, await SupportsToolsAsync(m.Name, ct).ConfigureAwait(false)))))
                 .Where(x => x.Item2)
                 .Select(x => x.m)
                 .ToArray();
 
-            return new ModelsResult(true, models, null);
+            var modelsInfos = new List<ModelInfo>();
+
+            foreach (var x in acceptedModels.Where(x => !string.IsNullOrWhiteSpace(x?.Name)))
+            {
+                // At this point the capabilities of all the models have been cached,
+                // so the call below is guaranteed to complete without any actual I/O.
+                var contextWindow = (await GetModelCapsAsync(x.Name, ct).ConfigureAwait(false))?.ContextWindow ?? -1;
+                modelsInfos.Add(new ModelInfo(x.Name, x.Size, x.Details?.ParameterSize, x.Details?.QuantizationLevel, contextWindow));
+            }
+
+            return new ModelsResult(true, modelsInfos, null);
         }
         catch (Exception e)
         {
