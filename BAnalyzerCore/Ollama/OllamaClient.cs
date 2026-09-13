@@ -37,7 +37,7 @@ public sealed class OllamaClient : IOllamaClient
     /// the Ollama service listens at. It is respected by the "ollama" command
     /// line tool, so honoring it here is essential to stay in sync with it.
     /// </summary>
-    public const string HostEnvironmentVariable = "OLLAMA_HOST";
+    private const string HostEnvironmentVariable = "OLLAMA_HOST";
 
     /// <summary>
     /// Port the Ollama service listens at by default.
@@ -48,8 +48,11 @@ public sealed class OllamaClient : IOllamaClient
     /// Returns the address of the Ollama service, taking the
     /// <see cref="HostEnvironmentVariable"/> into account.
     /// </summary>
-    public static Uri ResolveBaseAddress() =>
-        ParseHost(Environment.GetEnvironmentVariable(HostEnvironmentVariable));
+    private static Uri ResolveBaseAddress()
+    {
+        var networkHost = Environment.GetEnvironmentVariable(HostEnvironmentVariable);
+        return ParseHost(networkHost);
+    }
 
     /// <summary>
     /// Converts the given value of the "host" environment variable into an address.
@@ -63,7 +66,7 @@ public sealed class OllamaClient : IOllamaClient
     {
         var fallback = new Uri(DefaultBaseAddress);
 
-        if (string.IsNullOrWhiteSpace(host))
+        if (string.IsNullOrEmpty(host))
             return fallback;
 
         host = host.Trim();
@@ -81,12 +84,30 @@ public sealed class OllamaClient : IOllamaClient
         if (string.IsNullOrEmpty(builder.Host))
             builder.Host = fallback.Host;
 
+        // "0.0.0.0" (or its IPv6 equivalent "::") is a "listen on all interfaces"
+        // wildcard address. It is what the "ollama" server itself falls back to
+        // (and thus what "OLLAMA_HOST" may end up containing), but it is not a
+        // valid address to connect to, so it needs to be substituted with the
+        // loopback host used to actually reach the service.
+        if (IsWildcardHost(builder.Host))
+            builder.Host = fallback.Host;
+
         // "UriBuilder" substitutes the default port of the scheme (80 for "http")
         // when the port is not given explicitly, which is not what we want here.
         if (result.IsDefaultPort && !HasExplicitPort(host))
             builder.Port = DefaultPort;
 
         return builder.Uri;
+    }
+
+    /// <summary>
+    /// Returns "true" if the given host string represents a "listen on all
+    /// interfaces" wildcard address (such as "0.0.0.0" or "::"), which is not
+    /// a valid address to connect to.
+    /// </summary>
+    private static bool IsWildcardHost(string host)
+    {
+        return host is "0.0.0.0" or "::" or "[::]";
     }
 
     /// <summary>
