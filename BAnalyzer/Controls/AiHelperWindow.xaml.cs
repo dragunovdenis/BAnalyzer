@@ -25,7 +25,6 @@ using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using BAnalyzerCore.Ollama;
-using BAnalyzer.Utils;
 
 namespace BAnalyzer.Controls;
 
@@ -307,33 +306,21 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         "reliability of your conclusions." +
         "You are not a financial advisor; do not give investment advice.";
 
-    private readonly IOllamaClient _ollamaClient;
-    private readonly CandleToolExecutor _toolExecutor;
-    private readonly ChatTurnRunner _turnRunner;
-
-    /// <summary>
-    /// The conversation as it is sent to the model (includes the invisible
-    /// "system" messages, unlike <see cref="Transcript"/>).
-    /// </summary>
-    private readonly List<ChatMessage> _history = [new(ChatRoles.System, SystemPrompt)];
-
-    /// <summary>
-    /// Cancellation source of the request that is currently in progress (if any).
-    /// </summary>
-    private CancellationTokenSource _requestCts;
+    private readonly AiAgent _agent;
 
     /// <summary>
     /// Constructor.
     /// </summary>
     public AiHelperWindow(IOllamaClient ollamaClient, IMultiExchange exchange)
     {
-        _ollamaClient = ollamaClient ?? throw new ArgumentNullException(nameof(ollamaClient));
+        if (ollamaClient == null)
+            throw new ArgumentNullException(nameof(ollamaClient));
 
         if (exchange == null)
             throw new ArgumentNullException(nameof(exchange));
 
-        _toolExecutor = new CandleToolExecutor(exchange[ExchangeId.Binance]);
-        _turnRunner = new ChatTurnRunner(_ollamaClient, _toolExecutor);
+        var toolExecutor = new CandleToolExecutor(exchange[ExchangeId.Binance]);
+        _agent = new AiAgent(ollamaClient, toolExecutor, SystemPrompt, new StatusObserver(this));
 
         InitializeComponent();
     }
@@ -459,10 +446,9 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     private async Task ConnectAsync()
     {
         Status = AiHelperStatus.Checking;
-        StatusText = "Looking for the Ollama service...";
         BannerText = null;
 
-        var result = await _ollamaClient.TryGetModelsAsync(CancellationToken.None).ConfigureAwait(true);
+        var result = await _agent.ConnectAsync(CancellationToken.None).ConfigureAwait(true);
 
         Models.Clear();
 
@@ -529,36 +515,37 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         InputBox.Clear();
         Status = AiHelperStatus.Busy;
 
-        using var cts = new CancellationTokenSource();
-        _requestCts = cts;
-
         var model = SelectedModel;
 
         try
         {
-            // A model that can fetch the data on its own is given the means to do
-            // so instead of a fixed snapshot it has not asked for.
-            var tools = await ResolveToolsAsync(model, cts.Token).ConfigureAwait(true);
-
-            if (tools == null)
-            {
-                throw new InvalidOperationException($"The model {model} does not support tools and cannot fetch the data on its own.");
-            }
-            else AddToTranscript("You", text, isRequest: true);
-
-            _history.Add(new ChatMessage(ChatRoles.User, text));
-
-            StatusText = $"Waiting for \"{model}\"... this may take a while for large models.";
+            var request = new ChatMessageVm("You", text, isRequest: true);
+            AddToTranscript(request);
 
             var response = new ChatMessageVm(model, string.Empty, isRequest: false,
                 model, text, DateTime.Now);
 
-            var result = await _turnRunner.RunAsync(model, _history, tools,
-                new TranscriptObserver(this, response, model), cts.Token).ConfigureAwait(true);
+            var result = await _agent.SendAsync(model, text,
+                new TranscriptObserver(this, response, model)).ConfigureAwait(true);
+
+            if (result.ToolsUnavailable)
+            {
+                // Nothing has been asked of the model, so the message goes back
+                // to the input box for the user to re-send once the market data
+                // can be served again.
+                RemoveFromTranscript(request);
+                RestoreInput(text);
+
+                AddToTranscript("Error", "No market data tools are available for this " +
+                                         "conversation, so the question was not asked.",
+                    isRequest: false);
+
+                return;
+            }
 
             if (!result.Success)
             {
-                if (cts.IsCancellationRequested)
+                if (result.Cancelled)
                 {
                     // Whatever has been generated so far is kept visible, but the
                     // conversation proceeds as if the turn never happened.
@@ -569,16 +556,11 @@ public partial class AiHelperWindow : INotifyPropertyChanged
                             isRequest: false);
 
                     // Give the user a chance to edit and re-send the message.
-                    InputBox.Text = text;
-                    InputBox.CaretIndex = text.Length;
+                    RestoreInput(text);
                 }
                 else
                 {
-                    if (Transcript.Contains(response))
-                    {
-                        Transcript.Remove(response);
-                        OnPropertyChanged(nameof(HasTranscript));
-                    }
+                    RemoveFromTranscript(response);
 
                     AddToTranscript("Error", $"Failed to reach Ollama: " +
                                              $"{result.Error ?? "The model returned an empty answer."}",
@@ -593,28 +575,37 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         }
         finally
         {
-            _requestCts = null;
             StatusText = null;
             Status = AiHelperStatus.Ready;
         }
     }
 
     /// <summary>
-    /// Returns the tools the given <paramref name="model"/> is to be offered or
-    /// "null" if it can't call them, in which case the caller is responsible
-    /// for supplying the market data itself.
+    /// Puts the activities reported by <see cref="AiAgent"/> into words and
+    /// displays them as <see cref="StatusText"/>.
     /// </summary>
-    private async Task<IReadOnlyList<ToolDefinition>> ResolveToolsAsync(string model, CancellationToken ct)
+    /// <remarks>
+    /// The agent, being unaware of the user interface, reports from whatever
+    /// thread the operation happens to be running on, so the update is
+    /// marshalled here.
+    /// </remarks>
+    private sealed class StatusObserver(AiHelperWindow window) : IAiAgentObserver
     {
-        StatusText = "Checking the capabilities of the model...";
+        /// <inheritdoc/>
+        public void OnActivityChanged(AiAgentActivity activity, string model)
+        {
+            var text = activity switch
+            {
+                AiAgentActivity.Connecting => "Looking for the Ollama service...",
+                AiAgentActivity.CheckingModelCapabilities => "Checking the capabilities of the model...",
+                AiAgentActivity.WaitingForModel =>
+                    $"Waiting for \"{model}\"... this may take a while for large models.",
+                _ => null
+            };
 
-        var caps = await _ollamaClient.GetModelCapsAsync(model, ct).ConfigureAwait(true);
-        if (caps is not { Tools: true })
-            return null;
-
-        var definition = _toolExecutor.GetToolDefinition();
-
-        return definition == null ? null : new[] { definition };
+            if (window.Dispatcher.CheckAccess()) window.StatusText = text;
+            else window.Dispatcher.Invoke(() => window.StatusText = text);
+        }
     }
 
     /// <summary>
@@ -715,21 +706,7 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     private void Terminate_OnClick(object sender, RoutedEventArgs e)
     {
         StatusText = "Terminating...";
-
-        // Read once: the field is cleared by the "sending" method, so testing
-        // it and using it separately could well be done on different objects.
-        var cts = _requestCts;
-
-        if (cts == null) return;
-
-        try
-        {
-            cts.Cancel();
-        }
-        catch (ObjectDisposedException)
-        {
-            // The request has finished on its own in the meantime.
-        }
+        _agent.Cancel();
     }
 
     /// <summary>
@@ -753,8 +730,7 @@ public partial class AiHelperWindow : INotifyPropertyChanged
 
         Transcript.Clear();
 
-        _history.Clear();
-        _history.Add(new ChatMessage(ChatRoles.System, SystemPrompt));
+        _agent.ClearHistory();
 
         OnPropertyChanged(nameof(HasTranscript));
     }
@@ -781,6 +757,26 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         Transcript.Add(item);
         OnPropertyChanged(nameof(HasTranscript));
         TranscriptScroll.ScrollToEnd();
+    }
+
+    /// <summary>
+    /// Removes the given item from the visible transcript, if it is there.
+    /// </summary>
+    private void RemoveFromTranscript(ChatMessageVm item)
+    {
+        if (!Transcript.Remove(item)) return;
+
+        OnPropertyChanged(nameof(HasTranscript));
+    }
+
+    /// <summary>
+    /// Puts the given message back into the input box, so that the user can
+    /// edit and re-send it.
+    /// </summary>
+    private void RestoreInput(string text)
+    {
+        InputBox.Text = text;
+        InputBox.CaretIndex = text.Length;
     }
 
     /// <summary>
