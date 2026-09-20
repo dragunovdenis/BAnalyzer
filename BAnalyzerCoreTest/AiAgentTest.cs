@@ -104,7 +104,8 @@ public class AiAgentTest
             new("get_candles", "Returns candles.",
                 [new ToolParameter("symbol", "string", "Trading pair.")]);
 
-        public ToolDefinition GetToolDefinition() => Definition;
+        public IReadOnlyList<ToolDefinition> GetToolDefinitions() =>
+            Definition == null ? [] : [Definition];
 
         public Task<ToolCallResult> ExecuteAsync(ToolCall call, CancellationToken ct) =>
             Task.FromResult(new ToolCallResult($"Data for {call.Name}", $"Summary of {call.Name}", true));

@@ -4,16 +4,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <Copyright>Copyright © 2026 Denys Dragunov, dragunovdenis@gmail.com</Copyright>
-    <AssemblyVersion>3.0.1.0</AssemblyVersion>
-    <FileVersion>3.0.1.0</FileVersion>
+    <AssemblyVersion>3.1.0.0</AssemblyVersion>
+    <FileVersion>3.1.0.0</FileVersion>
     <Platforms>x64</Platforms>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>$(SolutionDir)\$(Platform)\$(Configuration)\</OutputPath>
     <Configurations>Debug;Release;DebugSingle;ReleaseSingle;IntelCompiler;IntelCompilerSingle</Configurations>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Binance.Net" Version="13.1.1" />
-    <PackageReference Include="Bybit.Net" Version="7.1.0" />
+    <PackageReference Include="Binance.Net" Version="13.5.1" />
+    <PackageReference Include="Bybit.Net" Version="7.5.0" />
     <PackageReference Include="Microsoft.ML.TimeSeries" Version="5.0.0" />
   </ItemGroup>
   <ItemGroup>

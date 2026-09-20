@@ -76,9 +76,9 @@ public class ClientByBit : IClient
     }
 
     /// <inheritdoc/>
-    public async Task<IOrderBook> GetOrderBookAsync(string symbol)
+    public async Task<IOrderBook> GetOrderBookAsync(string symbol, int maxOrderItems = 50)
     {
-        var result = await _client.V5Api.ExchangeData.GetOrderbookAsync(Category.Spot, symbol, limit: 50);
+        var result = await _client.V5Api.ExchangeData.GetOrderbookAsync(Category.Spot, symbol, limit: maxOrderItems);
 
         if (!result.Success)
             return null;

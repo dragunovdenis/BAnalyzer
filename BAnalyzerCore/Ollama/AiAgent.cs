@@ -180,9 +180,9 @@ public sealed class AiAgent
 
         var caps = await _ollamaClient.GetModelCapsAsync(model, ct).ConfigureAwait(false);
 
-        var definition = caps is { Tools: true } ? _toolExecutor.GetToolDefinition() : null;
+        var definitions = caps is { Tools: true } ? _toolExecutor.GetToolDefinitions() : null;
 
-        return definition == null ? null : new[] { definition };
+        return definitions is { Count: > 0 } ? definitions : null;
     }
 
     /// <summary>

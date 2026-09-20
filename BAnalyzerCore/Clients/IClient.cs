@@ -48,9 +48,10 @@ public interface IClient : IDisposable
     Task<IPriceData> GetPriceAsync(string symbol);
 
     /// <summary>
-    /// Returns the current order-book for the given <paramref name="symbol"/>.
+    /// Returns the current order-book for the given <paramref name="symbol"/>
+    /// containing the given maximum number of order items per side ("asks" and "bids").
     /// </summary>
-    Task<IOrderBook> GetOrderBookAsync(string symbol);
+    Task<IOrderBook> GetOrderBookAsync(string symbol, int maxOrderItems = 50);
 
     /// <summary>
     /// Minimal time (UTC) that the given client can process.

@@ -187,7 +187,8 @@ public class ExchangeClient<C> : IClientCached
     /// <summary>
     /// Returns an order book for the given exchange symbol.
     /// </summary>
-    public async Task<IOrderBook> GetOrderBookAsync(string symbol) => await _client.GetOrderBookAsync(symbol);
+    public async Task<IOrderBook> GetOrderBookAsync(string symbol, int maxOrderItems = 50) => 
+        await _client.GetOrderBookAsync(symbol, maxOrderItems);
 
     /// <summary>
     /// Cache of a spot-price data.

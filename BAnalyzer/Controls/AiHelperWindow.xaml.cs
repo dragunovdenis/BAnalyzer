@@ -299,11 +299,15 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     /// </summary>
     private const string SystemPrompt =
         "You are an analysis assistant embedded in BAnalyzer, a crypto market analysis application. " +
-        "When market data context is provided, base your answers on it and state the figures you used. " +
-        "You are free to use statistical analysis to build hypotheses and validate your conclusions. " +
-        "Whenever you come up with a hypothesis on how the market behaves (including forecasts on how " +
-        "market may behave in future), explain your reasoning and give a statistical estimate of the " +
-        "reliability of your conclusions." +
+        "You are supposed to answer questions asked by users. To build your answers use the relevant " +
+        "market data context provided by the available tools. When market data context is provided, " +
+        "base your answers on it and clearly state the reasoning you used to arrive at those answers. " +
+        "Base your reasoning, hypothesis and conclusions on a thorough statistical analysis of " +
+        "the relevant market data context provided by relevant tools. Whenever you come up with a " +
+        "hypothesis on how the market behaves (including forecasts on how market may behave in future), " +
+        "explain your reasoning and give a statistical estimate of the reliability of your conclusions. " +
+        "In case answering a question requires an extra market data which can't be retrieved via the " +
+        "available set of tools, clearly state to the user what exact piece of data is missing. " +
         "You are not a financial advisor; do not give investment advice.";
 
     private readonly AiAgent _agent;
@@ -319,7 +323,9 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         if (exchange == null)
             throw new ArgumentNullException(nameof(exchange));
 
-        var toolExecutor = new CandleToolExecutor(exchange[ExchangeId.Binance]);
+        var client = exchange[ExchangeId.Binance];
+        var toolExecutor = new ToolRegistry(new CandleTool(client), new OrderBookTool(client));
+
         _agent = new AiAgent(ollamaClient, toolExecutor, SystemPrompt, new StatusObserver(this));
 
         InitializeComponent();

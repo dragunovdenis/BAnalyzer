@@ -109,7 +109,7 @@ public class ChatTurnRunnerTest
         /// </summary>
         public List<ToolCall> Executed { get; } = [];
 
-        public ToolDefinition GetToolDefinition() => SomeTool();
+        public IReadOnlyList<ToolDefinition> GetToolDefinitions() => [SomeTool()];
 
         public Task<ToolCallResult> ExecuteAsync(ToolCall call, CancellationToken ct)
         {

@@ -17,49 +17,15 @@
 
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
 using BAnalyzerCore.Clients;
 using BAnalyzerCore.DataStructures;
 
 namespace BAnalyzerCore.Ollama;
 
 /// <summary>
-/// Outcome of a single tool call: the text to be sent back to the model
-/// together with a short description of what has been done, to be shown to the user.
+/// Serves the requests for the candlestick data that a model issues on its own.
 /// </summary>
-/// <param name="Content">Text to be put into the conversation as a "tool" message.</param>
-/// <param name="Summary">Human-readable description of the call.</param>
-/// <param name="Success">Whether the requested data could be retrieved.</param>
-public sealed record ToolCallResult(string Content, string Summary, bool Success);
-
-/// <summary>
-/// Serves the requests for the data that a model issues on its own.
-/// </summary>
-public interface IToolExecutor
-{
-    /// <summary>
-    /// Returns the declaration of the tool to be offered to a model, or "null"
-    /// if there is nothing to offer.
-    /// </summary>
-    ToolDefinition GetToolDefinition();
-
-    /// <summary>
-    /// Executes the given <paramref name="call"/> and returns the result to be
-    /// reported back to the model.
-    /// </summary>
-    Task<ToolCallResult> ExecuteAsync(ToolCall call, CancellationToken ct);
-}
-
-/// <summary>
-/// Executes the requests for the candlestick data that a model issues on its own.
-/// </summary>
-/// <remarks>
-/// Unlike <see cref="MarketContextBuilder"/>, which supplies a fixed amount of
-/// data whether it is needed or not, this class lets the model decide what
-/// exactly it wants to look at. The two are alternatives: the builder serves
-/// the models that can't call tools.
-/// </remarks>
-public sealed class CandleToolExecutor : IToolExecutor
+public sealed class CandleTool : ITool
 {
     /// <summary>
     /// Name of the tool exposed to the models.
@@ -83,7 +49,11 @@ public sealed class CandleToolExecutor : IToolExecutor
     /// <summary>
     /// Constructor.
     /// </summary>
-    public CandleToolExecutor(IClientCached client) => _client = client;
+    public CandleTool(IClientCached client) => _client = client;
+
+    private const string SymbolParameterName = "symbol";
+    private const string GranularityParameterName = "granularity";
+    private const string CountParameterName = "count";
 
     /// <summary>
     /// Returns the declaration of the tool to be offered to a model, or "null"
@@ -95,7 +65,7 @@ public sealed class CandleToolExecutor : IToolExecutor
     /// is therefore unable to ask for anything unsupported, which removes a
     /// whole class of failures instead of handling it.
     /// </remarks>
-    public ToolDefinition GetToolDefinition()
+    public ToolDefinition GetDefinition()
     {
         var granularities = _client?.Granularities?
             .Where(x => x.IsValid).Select(x => x.Name).ToArray();
@@ -110,11 +80,11 @@ public sealed class CandleToolExecutor : IToolExecutor
             "last day, 30 candles of \"1d\" for the last month, or 52 candles of \"1w\" for the last year. " +
             "The tool can be called for any trading pair, including the ones the user has not mentioned.",
             [
-                new ToolParameter("symbol", "string",
+                new ToolParameter(SymbolParameterName, "string",
                     "Trading pair to retrieve the data for, for example \"BTCUSDT\" or \"ETHUSDT\"."),
-                new ToolParameter("granularity", "string",
+                new ToolParameter(GranularityParameterName, "string",
                     "Duration of a single candle.", granularities),
-                new ToolParameter("count", "integer",
+                new ToolParameter(CountParameterName, "integer",
                     $"Number of the most recent candles to return, from 1 to {MaxCandlesPerCall}.")
             ]);
     }
@@ -123,52 +93,23 @@ public sealed class CandleToolExecutor : IToolExecutor
     /// Executes the given <paramref name="call"/> and returns the result to be
     /// reported back to the model.
     /// </summary>
-    /// <remarks>
-    /// Never throws and never reports a failure by any means other than the
-    /// returned record: a model must always get an answer it can react to,
-    /// because an exception here would cost the user the entire conversation turn.
-    /// </remarks>
     public async Task<ToolCallResult> ExecuteAsync(ToolCall call, CancellationToken ct)
     {
-        if (call == null)
-            return Failure("The tool call is empty.", "Invalid tool call");
-
-        if (!string.Equals(call.Name, ToolName, StringComparison.OrdinalIgnoreCase))
-            return Failure($"There is no tool named \"{call.Name}\". The only available tool is \"{ToolName}\".",
-                $"Unknown tool \"{call.Name}\"");
-
-        try
-        {
-            return await ExecuteImplAsync(call, ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception e)
-        {
-            return Failure($"The data could not be retrieved: {e.Message}", "Market data request failed");
-        }
-    }
-
-    /// <summary>
-    /// Does the actual work of <see cref="ExecuteAsync"/>.
-    /// </summary>
-    private async Task<ToolCallResult> ExecuteImplAsync(ToolCall call, CancellationToken ct)
-    {
-        var symbol = ReadString(call.Arguments, "symbol")?.Trim().ToUpperInvariant();
+        var symbol = ToolArguments.ReadString(call.Arguments, SymbolParameterName)?.Trim().ToUpperInvariant();
 
         if (string.IsNullOrEmpty(symbol))
-            return Failure("The \"symbol\" argument is missing.", "Market data request without a symbol");
+            return ToolCallResult.Failure($"The {SymbolParameterName} argument is missing.",
+                "Market data request without a symbol");
 
-        var granularity = ResolveGranularity(ReadString(call.Arguments, "granularity"));
+        var granularity = ResolveGranularity(ToolArguments.ReadString(call.Arguments, GranularityParameterName));
 
         if (!granularity.IsValid)
-            return Failure("The \"granularity\" argument is missing or not supported. Supported values are: " +
-                           $"{string.Join(", ", _client.Granularities.Where(x => x.IsValid).Select(x => x.Name))}.",
+            return ToolCallResult.Failure(
+                $"The {GranularityParameterName} argument is missing or not supported. Supported values are: " +
+                $"{string.Join(", ", _client.Granularities.Where(x => x.IsValid).Select(x => x.Name))}.",
                 "Market data request with an unsupported granularity");
 
-        var requested = ReadInt(call.Arguments, "count") ?? DefaultCandleCount;
+        var requested = ToolArguments.ReadInt(call.Arguments, CountParameterName) ?? DefaultCandleCount;
         var count = Math.Clamp(requested, 1, MaxCandlesPerCall);
 
         var end = DateTime.UtcNow;
@@ -178,15 +119,15 @@ public sealed class CandleToolExecutor : IToolExecutor
             begin, end, ensureLatestData: true).ConfigureAwait(false);
 
         if (!success || sticks == null)
-            return Failure($"No data could be retrieved for \"{symbol}\". The trading pair may not exist " +
-                           "on the exchange; try a different one.", $"No data for {symbol}");
+            return ToolCallResult.Failure($"No data could be retrieved for \"{symbol}\". The trading pair may not exist " +
+                                          "on the exchange; try a different one.", $"No data for {symbol}");
 
         var valid = sticks.Where(x => x != null && !x.IsInvalid())
             .OrderBy(x => x.OpenTime).TakeLast(count).ToArray();
 
         if (valid.Length == 0)
-            return Failure($"No candlestick data is available for \"{symbol}\" at the \"{granularity.Name}\" " +
-                           "granularity.", $"No data for {symbol}");
+            return ToolCallResult.Failure($"No candlestick data is available for \"{symbol}\" at the \"{granularity.Name}\" " +
+                                          "granularity.", $"No data for {symbol}");
 
         return new ToolCallResult(Render(symbol, granularity, valid, requested, count, end),
             $"{symbol}: {valid.Length} × {granularity.Name}", true);
@@ -236,47 +177,4 @@ public sealed class CandleToolExecutor : IToolExecutor
         return _client.Granularities.FirstOrDefault(x => x.IsValid &&
             string.Equals(x.Name, name.Trim(), StringComparison.OrdinalIgnoreCase), TimeGranularity.Invalid);
     }
-
-    /// <summary>
-    /// Returns the string value of the property with the given
-    /// <paramref name="name"/> or "null" if there is no such property.
-    /// </summary>
-    private static string ReadString(JsonElement arguments, string name)
-    {
-        if (arguments.ValueKind != JsonValueKind.Object ||
-            !arguments.TryGetProperty(name, out var property))
-            return null;
-
-        return property.ValueKind == JsonValueKind.String ? property.GetString() : null;
-    }
-
-    /// <summary>
-    /// Returns the integer value of the property with the given
-    /// <paramref name="name"/> or "null" if there is no such property.
-    /// </summary>
-    /// <remarks>
-    /// Models are known to report numbers as strings, hence
-    /// the extra parsing attempt.
-    /// </remarks>
-    private static int? ReadInt(JsonElement arguments, string name)
-    {
-        if (arguments.ValueKind != JsonValueKind.Object ||
-            !arguments.TryGetProperty(name, out var property))
-            return null;
-
-        if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var number))
-            return number;
-
-        if (property.ValueKind == JsonValueKind.String &&
-            int.TryParse(property.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
-            return parsed;
-
-        return null;
-    }
-
-    /// <summary>
-    /// Builds a result reporting a failure to the model.
-    /// </summary>
-    private static ToolCallResult Failure(string content, string summary) =>
-        new(content, summary, false);
 }

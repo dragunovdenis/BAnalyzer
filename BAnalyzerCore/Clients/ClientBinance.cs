@@ -73,9 +73,9 @@ public class ClientBinance : IClient
     }
 
     /// <inheritdoc/>
-    public async Task<IOrderBook> GetOrderBookAsync(string symbol)
+    public async Task<IOrderBook> GetOrderBookAsync(string symbol, int maxOrderItems = 50)
     {
-        var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(symbol, limit: 50);
+        var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(symbol, limit: maxOrderItems);
 
         if (!result.Success)
             return null;

@@ -51,7 +51,7 @@ public interface IClientCached : IDisposable
     /// <summary>
     /// Returns an order book for the given exchange symbol.
     /// </summary>
-    Task<IOrderBook> GetOrderBookAsync(string symbol);
+    Task<IOrderBook> GetOrderBookAsync(string symbol, int maxOrderItems = 50);
 
     /// <summary>
     /// Returns cached spot-price object for the given <paramref name="symbol"/>
