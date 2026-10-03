@@ -73,6 +73,22 @@ public class ClientBinance : IClient
     }
 
     /// <inheritdoc/>
+    public async Task<IMarketStats> GetMarketStatsAsync(string symbol)
+    {
+        var ticker = await _client.SpotApi.ExchangeData.GetTickerAsync(symbol);
+
+        if (!ticker.Success)
+            return null;
+
+        var data = ticker.Data;
+
+        return new MarketStats(data.Symbol, (double)data.LastPrice, (double)data.OpenPrice, (double)data.HighPrice,
+            (double)data.LowPrice, (double)data.PriceChangePercent, (double)data.Volume, (double)data.QuoteVolume,
+            (double)data.BestBidPrice, (double)data.BestBidQuantity, (double)data.BestAskPrice,
+            (double)data.BestAskQuantity, (double)data.WeightedAveragePrice, data.TotalTrades, DateTime.UtcNow);
+    }
+
+    /// <inheritdoc/>
     public async Task<IOrderBook> GetOrderBookAsync(string symbol, int maxOrderItems = 50)
     {
         var result = await _client.SpotApi.ExchangeData.GetOrderBookAsync(symbol, limit: maxOrderItems);

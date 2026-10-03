@@ -66,6 +66,13 @@ public interface IClientCached : IDisposable
     Task<IPriceData> GetPriceAsync(string symbol, int acceptableStalenessMs);
 
     /// <summary>
+    /// Returns the rolling 24-hour statistics for the given <paramref name="symbol"/>
+    /// together with the current top of the order book, or "null" if they
+    /// could not be retrieved.
+    /// </summary>
+    Task<IMarketStats> GetMarketStatsAsync(string symbol);
+
+    /// <summary>
     /// Saves the cache to the folder with the given <paramref name="folderPath"/>.
     /// </summary>
     Task SaveCacheAsync(string folderPath, GeneralProgressReportingDelegate progressReporter);

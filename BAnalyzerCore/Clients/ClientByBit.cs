@@ -68,11 +68,38 @@ public class ClientByBit : IClient
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// Delegates to <see cref="GetMarketStatsAsync"/>: the "ticker" endpoint the
+    /// latter is built upon reports the spot price as part of its data, so there
+    /// is no point in issuing a separate request for it.
+    /// </remarks>
     public async Task<IPriceData> GetPriceAsync(string symbol)
     {
-        var price = await _client.V5Api.ExchangeData.GetSpotTickersAsync(symbol);
+        var stats = await GetMarketStatsAsync(symbol);
 
-        return price.Success ? new PriceData((double)price.Data.List.First().LastPrice, price.Data.Symbol, DateTime.UtcNow) : null;
+        return stats != null ? new PriceData(stats.LastPrice, stats.Symbol, stats.TimeStamp) : null;
+    }
+
+    /// <inheritdoc/>
+    public async Task<IMarketStats> GetMarketStatsAsync(string symbol)
+    {
+        var ticker = await _client.V5Api.ExchangeData.GetSpotTickersAsync(symbol);
+
+        if (!ticker.Success)
+            return null;
+
+        var data = ticker.Data.List.FirstOrDefault();
+
+        if (data == null)
+            return null;
+
+        // Bybit reports neither the weighted average price nor the number of trades.
+        return new MarketStats(data.Symbol, (double)data.LastPrice, (double)data.PreviousPrice24h, 
+            (double)data.HighPrice24h, (double)data.LowPrice24h, 
+            (double)data.PriceChangePercentag24h * 100,
+            (double)data.Volume24h, (double)data.Turnover24h, (double)data.BestBidPrice,
+            (double)data.BestBidQuantity, (double)data.BestAskPrice, (double)data.BestAskQuantity,
+            WeightedAveragePrice24H: null, TradeCount24H: null, DateTime.UtcNow);
     }
 
     /// <inheritdoc/>

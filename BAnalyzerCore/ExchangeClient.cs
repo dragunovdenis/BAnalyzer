@@ -227,6 +227,16 @@ public class ExchangeClient<C> : IClientCached
     }
 
     /// <summary>
+    /// Returns the rolling 24-hour statistics for the given symbol.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not cached: the statistics are only ever requested on
+    /// demand and become stale as quickly as the price does.
+    /// </remarks>
+    public async Task<IMarketStats> GetMarketStatsAsync(string symbol) =>
+        symbol is null or "" ? null : await _client.GetMarketStatsAsync(symbol);
+
+    /// <summary>
     /// Saves the cache to the folder with the given <paramref name="folderPath"/>.
     /// </summary>
     public async Task SaveCacheAsync(string folderPath, GeneralProgressReportingDelegate progressReporter = null) =>

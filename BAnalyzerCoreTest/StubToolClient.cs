@@ -32,7 +32,8 @@ namespace BAnalyzerCoreTest;
 /// to care about the data it is actually interested in.
 /// </remarks>
 internal sealed class StubToolClient(IList<KLine> data, bool success = true,
-    IReadOnlyList<TimeGranularity> granularities = null, IOrderBook orderBook = null) : IClientCached
+    IReadOnlyList<TimeGranularity> granularities = null, IOrderBook orderBook = null,
+    IMarketStats marketStats = null) : IClientCached
 {
     private static readonly TimeGranularity Hourly = new("1h", 3600);
     private static readonly TimeGranularity Daily = new("1d", 86400);
@@ -42,6 +43,7 @@ internal sealed class StubToolClient(IList<KLine> data, bool success = true,
     public string LastSymbol { get; private set; }
     public TimeGranularity LastGranularity { get; private set; }
     public string LastOrderBookSymbol { get; private set; }
+    public string LastMarketStatsSymbol { get; private set; }
 
     public Task<(IList<KLine> Data, bool Success)> GetKLinesAsync(string symbol, TimeGranularity granularity,
         DateTime timeBegin, DateTime timeEnd, bool ensureLatestData)
@@ -57,6 +59,13 @@ internal sealed class StubToolClient(IList<KLine> data, bool success = true,
         LastOrderBookSymbol = symbol;
 
         return Task.FromResult(orderBook);
+    }
+
+    public Task<IMarketStats> GetMarketStatsAsync(string symbol)
+    {
+        LastMarketStatsSymbol = symbol;
+
+        return Task.FromResult(marketStats);
     }
 
     /// <summary>

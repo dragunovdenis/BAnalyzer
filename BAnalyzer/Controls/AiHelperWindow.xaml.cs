@@ -324,7 +324,8 @@ public partial class AiHelperWindow : INotifyPropertyChanged
             throw new ArgumentNullException(nameof(exchange));
 
         var client = exchange[ExchangeId.Binance];
-        var toolExecutor = new ToolRegistry(new CandleTool(client), new OrderBookTool(client));
+        var toolExecutor = new ToolRegistry(new CandleTool(client),
+            new OrderBookTool(client), new MarketStatsTool(client));
 
         _agent = new AiAgent(ollamaClient, toolExecutor, SystemPrompt, new StatusObserver(this));
 

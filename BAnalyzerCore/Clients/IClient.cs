@@ -48,6 +48,13 @@ public interface IClient : IDisposable
     Task<IPriceData> GetPriceAsync(string symbol);
 
     /// <summary>
+    /// Returns the rolling 24-hour statistics for the given <paramref name="symbol"/>
+    /// together with the current top of the order book, or "null" if they
+    /// could not be retrieved.
+    /// </summary>
+    Task<IMarketStats> GetMarketStatsAsync(string symbol);
+
+    /// <summary>
     /// Returns the current order-book for the given <paramref name="symbol"/>
     /// containing the given maximum number of order items per side ("asks" and "bids").
     /// </summary>
