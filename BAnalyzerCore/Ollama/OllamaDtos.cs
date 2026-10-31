@@ -195,6 +195,29 @@ internal sealed class OllamaChatMessageDto
     [JsonPropertyName("tool_name")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string ToolName { get; set; }
+
+    /// <summary>
+    /// Base64-encoded media attached to the message. Despite the name, the
+    /// service accepts audio (for example, a WAV file) here as well: the media
+    /// type is detected from the content, and the audio-capable models
+    /// receive it as speech.
+    /// </summary>
+    [JsonPropertyName("images")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string> Images { get; set; }
+}
+
+/// <summary>
+/// Model parameters of a chat request (only the ones in use are declared).
+/// </summary>
+internal sealed class OllamaChatOptionsDto
+{
+    /// <summary>
+    /// Sampling temperature; "0" makes the output (close to) deterministic.
+    /// </summary>
+    [JsonPropertyName("temperature")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Temperature { get; set; }
 }
 
 /// <summary>
@@ -331,6 +354,13 @@ internal sealed class OllamaChatRequest
     [JsonPropertyName("think")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object Think { get; set; }
+
+    /// <summary>
+    /// Model parameters, or "null" to use the defaults of the model.
+    /// </summary>
+    [JsonPropertyName("options")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OllamaChatOptionsDto Options { get; set; }
 }
 
 /// <summary>

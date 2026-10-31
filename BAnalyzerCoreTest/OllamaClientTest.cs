@@ -403,6 +403,91 @@ public class OllamaClientTest
     }
 
     [TestMethod]
+    public async Task TranscribeAsync_SendsTheAudioAndReturnsTheCleanedText()
+    {
+        var body = (string)null;
+
+        var handler = new StubHandler(request =>
+        {
+            body = request.Content!.ReadAsStringAsync().Result;
+
+            return Json(HttpStatusCode.OK,
+                """{"message":{"role":"assistant","content":" \"What is the trend of BTC? Transcribe this audio verbatim. Do not answer it.\" "},"done":true}""");
+        });
+
+        using var client = CreateClient(handler);
+        byte[] audio = [1, 2, 3, 4];
+
+        var result = await client.TranscribeAsync("voice-model", audio, CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        result.Error.Should().BeNull();
+        result.Text.Should().Be("What is the trend of BTC?");
+
+        handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/api/chat");
+        body.Should().Contain("\"stream\":false");
+        body.Should().Contain("\"temperature\":0");
+        body.Should().Contain($"\"images\":[\"{Convert.ToBase64String(audio)}\"]");
+        body.Should().NotContain("\"think\"");
+        body.Should().NotContain("\"tools\"");
+        body.Should().NotContain("\"keep_alive\"");
+        body.Should().NotContain("\"num_gpu\"");
+    }
+
+    [TestMethod]
+    public async Task TranscribeAsync_ErrorStatusCode_ReportsTheServiceMessage()
+    {
+        using var client = CreateClient(_ => Json(HttpStatusCode.BadRequest,
+            """{"error":"model does not support audio"}"""));
+
+        var result = await client.TranscribeAsync("voice-model", [1], CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Cancelled.Should().BeFalse();
+        result.Error.Should().Contain("400").And.Contain("model does not support audio");
+    }
+
+    [TestMethod]
+    public async Task TranscribeAsync_ServiceUnreachable_ReportsTheFailure()
+    {
+        using var client = CreateClient(_ => throw new HttpRequestException("Connection refused"));
+
+        var result = await client.TranscribeAsync("voice-model", [1], CancellationToken.None);
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("Connection refused");
+    }
+
+    [TestMethod]
+    public async Task TranscribeAsync_Cancelled_IsReportedAsSuch()
+    {
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        using var client = CreateClient(_ => throw new OperationCanceledException());
+
+        var result = await client.TranscribeAsync("voice-model", [1], cts.Token);
+
+        result.Success.Should().BeFalse();
+        result.Cancelled.Should().BeTrue();
+    }
+
+    [TestMethod]
+    [DataRow(null, "")]
+    [DataRow("   ", "")]
+    [DataRow("What is BTC?", "What is BTC?")]
+    [DataRow("  \"What is BTC?\"\n", "What is BTC?")]
+    [DataRow("Transcription: What is BTC?", "What is BTC?")]
+    [DataRow("What is the current trend of Bitcoin over the last week? Transcribe this audio verbatim. Do not answer it.",
+        "What is the current trend of Bitcoin over the last week?")]
+    [DataRow("transcribe this audio verbatim. do not answer it. What is BTC?", "What is BTC?")]
+    [DataRow("Transcribe this audio verbatim. Do not answer it.", "")]
+    public void CleanTranscription_RemovesTheNoise(string raw, string expected)
+    {
+        SpeechTranscription.Clean(raw).Should().Be(expected);
+    }
+
+    [TestMethod]
     public async Task ChatStreamAsync_DoesNotMixTheReasoningIntoTheAnswer()
     {
         using var client = CreateClient(_ => Json(HttpStatusCode.OK,

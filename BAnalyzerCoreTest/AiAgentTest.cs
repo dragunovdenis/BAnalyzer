@@ -76,6 +76,36 @@ public class AiAgentTest
         /// </summary>
         public List<ChatRequestOptions> Options { get; } = [];
 
+        /// <summary>
+        /// The result of a transcription, or "null" to block until the given
+        /// cancellation token is triggered.
+        /// </summary>
+        public TranscriptionResult Transcription { get; set; } = new(true, "Hello", null);
+
+        /// <summary>
+        /// The (model, audio) pairs the client was asked to transcribe, in order.
+        /// </summary>
+        public List<(string Model, byte[] Audio)> Transcribed { get; } = [];
+
+        public async Task<TranscriptionResult> TranscribeAsync(string model, byte[] wavAudio, CancellationToken ct)
+        {
+            Transcribed.Add((model, wavAudio));
+
+            if (Transcription != null)
+                return Transcription;
+
+            try
+            {
+                await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Mimics the real client, which reports rather than throws.
+            }
+
+            return new TranscriptionResult(false, string.Empty, "The request was canceled.", true);
+        }
+
         public async IAsyncEnumerable<ChatChunk> ChatStreamAsync(string model,
             IReadOnlyList<ChatMessage> history, IReadOnlyList<ToolDefinition> tools,
             ChatRequestOptions options, [EnumeratorCancellation] CancellationToken ct)
@@ -227,6 +257,45 @@ public class AiAgentTest
 
         // Assert
         client.Options.Should().ContainSingle().Which.Thinking.Should().Be(ThinkingLevel.Low);
+    }
+
+    [TestMethod]
+    public async Task TranscribeAsync_ReturnsTheTextAndLeavesTheHistoryAlone()
+    {
+        // Arrange
+        var client = new StubClient { Transcription = new TranscriptionResult(true, "What about BTC?", null) };
+        var observer = new RecordingAgentObserver();
+        var agent = new AiAgent(client, new StubExecutor(), SystemPrompt, observer);
+        byte[] audio = [1, 2, 3];
+
+        // Act
+        var result = await agent.TranscribeAsync("voice-model", audio);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.Text.Should().Be("What about BTC?");
+        client.Transcribed.Should().ContainSingle().Which.Should().Be(("voice-model", audio));
+        agent.History.Should().ContainSingle().Which.Role.Should().Be(ChatRoles.System);
+        observer.Activities.Should().ContainSingle()
+            .Which.Should().Be((AiAgentActivity.Transcribing, "voice-model"));
+    }
+
+    [TestMethod]
+    public async Task TranscribeAsync_CanBeCancelled()
+    {
+        // Arrange
+        var client = new StubClient { Transcription = null };
+        var agent = new AiAgent(client, new StubExecutor(), SystemPrompt);
+
+        // Act
+        var task = agent.TranscribeAsync("voice-model", [1, 2, 3]);
+        agent.Cancel();
+        var result = await task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Cancelled.Should().BeTrue();
+        agent.History.Should().ContainSingle();
     }
 
     [TestMethod]

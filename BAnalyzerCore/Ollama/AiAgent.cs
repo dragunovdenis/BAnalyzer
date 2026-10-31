@@ -39,7 +39,12 @@ public enum AiAgentActivity
     /// <summary>
     /// A request has been issued and the answer of the model is awaited.
     /// </summary>
-    WaitingForModel
+    WaitingForModel,
+
+    /// <summary>
+    /// A voice recording is being converted into text.
+    /// </summary>
+    Transcribing
 }
 
 /// <summary>
@@ -227,8 +232,53 @@ public sealed class AiAgent
     /// <param name="thinking">
     /// The thinking level to request (applies to every request of the turn).
     /// </param>
-    public async Task<AiTurnResult> SendAsync(string model, string userText, ThinkingLevel? thinking,
-        IChatTurnObserver turnObserver, CancellationToken ct = default)
+    public Task<AiTurnResult> SendAsync(string model, string userText, ThinkingLevel? thinking,
+        IChatTurnObserver turnObserver, CancellationToken ct = default) => RunCancellableAsync(async token =>
+    {
+        // A model that can fetch the data on its own is given the means to
+        // do so instead of a fixed snapshot it has not asked for.
+        var tools = await ResolveToolsAsync(model, token).ConfigureAwait(false);
+
+        if (tools == null)
+            return new AiTurnResult(string.Empty, null, ToolsUnavailable: true);
+
+        _history.Add(new ChatMessage(ChatRoles.User, userText));
+
+        _observer?.OnActivityChanged(AiAgentActivity.WaitingForModel, model);
+
+        var result = await _turnRunner.RunAsync(model, _history, tools,
+                new ChatRequestOptions(thinking), turnObserver, token)
+            .ConfigureAwait(false);
+
+        return new AiTurnResult(result.Answer, result.Error,
+            Cancelled: !result.Success && _cancelRequested);
+    }, ct);
+
+    /// <summary>
+    /// Converts the speech contained in the given <paramref name="wavAudio"/>
+    /// into text using the given audio-capable <paramref name="voiceModel"/>.
+    /// The conversation history is not affected. The operation can be
+    /// interrupted with <see cref="Cancel"/> or through <paramref name="ct"/>.
+    /// </summary>
+    public Task<TranscriptionResult> TranscribeAsync(string voiceModel, byte[] wavAudio,
+        CancellationToken ct = default) => RunCancellableAsync(async token =>
+    {
+        _observer?.OnActivityChanged(AiAgentActivity.Transcribing, voiceModel);
+
+        var result = await _ollamaClient.TranscribeAsync(voiceModel, wavAudio, token)
+            .ConfigureAwait(false);
+
+        return !result.Success && _cancelRequested && !result.Cancelled
+            ? result with { Cancelled = true }
+            : result;
+    }, ct);
+
+    /// <summary>
+    /// Runs the given operation so that it can be interrupted with
+    /// <see cref="Cancel"/> as well as through <paramref name="ct"/>.
+    /// </summary>
+    private async Task<T> RunCancellableAsync<T>(Func<CancellationToken, Task<T>> operation,
+        CancellationToken ct)
     {
         _cancelRequested = false;
 
@@ -237,23 +287,7 @@ public sealed class AiAgent
 
         try
         {
-            // A model that can fetch the data on its own is given the means to
-            // do so instead of a fixed snapshot it has not asked for.
-            var tools = await ResolveToolsAsync(model, cts.Token).ConfigureAwait(false);
-
-            if (tools == null)
-                return new AiTurnResult(string.Empty, null, ToolsUnavailable: true);
-
-            _history.Add(new ChatMessage(ChatRoles.User, userText));
-
-            _observer?.OnActivityChanged(AiAgentActivity.WaitingForModel, model);
-
-            var result = await _turnRunner.RunAsync(model, _history, tools,
-                    new ChatRequestOptions(thinking), turnObserver, cts.Token)
-                .ConfigureAwait(false);
-
-            return new AiTurnResult(result.Answer, result.Error,
-                Cancelled: !result.Success && _cancelRequested);
+            return await operation(cts.Token).ConfigureAwait(false);
         }
         finally
         {

@@ -152,6 +152,15 @@ public enum ThinkingLevel
 public sealed record ChatRequestOptions(ThinkingLevel? Thinking = null);
 
 /// <summary>
+/// Outcome of an attempt to convert speech into text.
+/// </summary>
+/// <param name="Success">Indicates that the transcription has been obtained.</param>
+/// <param name="Text">The transcription (empty if nothing was recognized or the attempt failed).</param>
+/// <param name="Error">Description of the failure or "null" if there was none.</param>
+/// <param name="Cancelled">Indicates that the attempt was terminated by the user.</param>
+public sealed record TranscriptionResult(bool Success, string Text, string Error, bool Cancelled = false);
+
+/// <summary>
 /// Interface of a client of the local Ollama service.
 /// </summary>
 /// <remarks>
@@ -205,4 +214,13 @@ public interface IOllamaClient : IDisposable
     IAsyncEnumerable<ChatChunk> ChatStreamAsync(string model,
         IReadOnlyList<ChatMessage> history, IReadOnlyList<ToolDefinition> tools,
         ChatRequestOptions options, CancellationToken ct);
+
+    /// <summary>
+    /// Converts the speech contained in the given <paramref name="wavAudio"/>
+    /// (a complete WAV file) into text using the given audio-capable <paramref name="model"/>.
+    /// </summary>
+    /// <param name="model">Name of the audio-capable model.</param>
+    /// <param name="wavAudio">The recording.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task<TranscriptionResult> TranscribeAsync(string model, byte[] wavAudio, CancellationToken ct);
 }

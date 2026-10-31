@@ -486,6 +486,60 @@ public sealed class OllamaClient : IOllamaClient
     }
 
     /// <summary>
+    /// Time budget of a transcription request. A recording is at most a minute
+    /// long, while the audio models are small, so the budget covers loading
+    /// a "cold" model as well.
+    /// </summary>
+    public static readonly TimeSpan TranscriptionTimeout = TimeSpan.FromSeconds(60);
+
+    /// <inheritdoc/>
+    public async Task<TranscriptionResult> TranscribeAsync(string model, byte[] wavAudio, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(model))
+            return new TranscriptionResult(false, string.Empty, "No voice model selected.");
+
+        if (wavAudio == null || wavAudio.Length == 0)
+            return new TranscriptionResult(false, string.Empty, "Nothing to transcribe.");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TranscriptionTimeout);
+
+        try
+        {
+            var body = new OllamaChatRequest
+            {
+                Model = model,
+                Stream = false,
+                Options = new OllamaChatOptionsDto { Temperature = 0 },
+                Messages = SpeechTranscription.BuildMessages(wavAudio)
+            };
+
+            using var response = await _client.PostAsJsonAsync("/api/chat", body, cts.Token)
+                .ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await ReadErrorAsync(response, cts.Token).ConfigureAwait(false);
+                return new TranscriptionResult(false, string.Empty, DescribeStatus(response, error));
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<OllamaChatResponse>(cts.Token)
+                .ConfigureAwait(false);
+
+            if (payload?.Message == null)
+                throw new JsonException("No message in the response.");
+
+            return new TranscriptionResult(true, SpeechTranscription.Clean(payload.Message.Content), null);
+        }
+        catch (Exception e)
+        {
+            var cancelled = e is OperationCanceledException && ct.IsCancellationRequested;
+            return new TranscriptionResult(false, string.Empty,
+                DescribeFailure(e, ct, "Failed to transcribe the recording"), cancelled);
+        }
+    }
+
+    /// <summary>
     /// Reads out the response of a streaming chat request and yields the portions of the answer as they arrive.
     /// </summary>
     /// <param name="response">The HTTP response message from the streaming chat request.</param>
@@ -548,10 +602,14 @@ public sealed class OllamaClient : IOllamaClient
     }
 
     /// <summary>
-    /// Describes the status of the given (failed) response.
+    /// Describes the status of the given (failed) response, optionally
+    /// followed by the error message the service has reported.
     /// </summary>
-    private static string DescribeStatus(HttpResponseMessage response) =>
-        $"Service responded with {(int)response.StatusCode} ({response.ReasonPhrase}).";
+    private static string DescribeStatus(HttpResponseMessage response, string error = null)
+    {
+        var message = $"Service responded with {(int)response.StatusCode} ({response.ReasonPhrase})";
+        return string.IsNullOrWhiteSpace(error) ? message + "." : $"{message}: {error}";
+    }
 
     /// <summary>
     /// Converts the given exception into a message suitable for the user.
