@@ -204,8 +204,7 @@ public sealed class OllamaClient : IOllamaClient
             using var response = await _client.GetAsync("/api/tags", cts.Token).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
-                return new ModelsResult(false, [], $"Service responded with {(int)response.StatusCode} " +
-                                                   $"({response.ReasonPhrase}).");
+                return new ModelsResult(false, [], DescribeStatus(response));
 
             var payload = await response.Content.ReadFromJsonAsync<OllamaTagsResponse>(cts.Token).ConfigureAwait(false);
 
@@ -394,8 +393,7 @@ public sealed class OllamaClient : IOllamaClient
             HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"Service responded with {(int)response.StatusCode} " +
-                                           $"({response.ReasonPhrase}).");
+            throw new HttpRequestException(DescribeStatus(response));
 
         await foreach (var chunk in ReadOutResponse(response, ct))
         {
@@ -464,6 +462,12 @@ public sealed class OllamaClient : IOllamaClient
 
         return converted is { Length: > 0 } ? converted : null;
     }
+
+    /// <summary>
+    /// Describes the status of the given (failed) response.
+    /// </summary>
+    private static string DescribeStatus(HttpResponseMessage response) =>
+        $"Service responded with {(int)response.StatusCode} ({response.ReasonPhrase}).";
 
     /// <summary>
     /// Converts the given exception into a message suitable for the user.
