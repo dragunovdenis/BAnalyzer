@@ -375,6 +375,8 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         Speech.MaxDurationReached += async (_, _) => await StopRecordingAsync().ConfigureAwait(true);
 
         InitializeComponent();
+
+        ServerStatus.Client = ollamaClient;
     }
 
     /// <summary>
@@ -575,6 +577,9 @@ public partial class AiHelperWindow : INotifyPropertyChanged
             OnPropertyChanged(nameof(IsRecording));
             OnPropertyChanged(nameof(HasStatusPanel));
             OnPropertyChanged(nameof(CanUseMicrophone));
+
+            // Whatever has just happened could have changed what the server has loaded.
+            _ = ServerStatus?.RefreshAsync();
         }
     } = AiHelperStatus.Checking;
 
