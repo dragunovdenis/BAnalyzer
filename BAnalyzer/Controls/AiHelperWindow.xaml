@@ -80,7 +80,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                       ItemsSource="{Binding ElementName=Ui, Path=Models}"
                       SelectedValuePath="Name"
                       SelectedValue="{Binding ElementName=Ui, Path=SelectedModel, Mode=TwoWay}"
-                      IsEnabled="{Binding ElementName=Ui, Path=CanInteract}">
+                      IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
+                      ToolTip="Models capable of both calling tools and thinking">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal">

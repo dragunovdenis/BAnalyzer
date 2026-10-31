@@ -211,21 +211,19 @@ public sealed class OllamaClient : IOllamaClient
             if (payload?.Models == null)
                 throw new InvalidOperationException("Failed to get models.");
 
-            var acceptedModels = (await Task.WhenAll(payload.Models.Select(async m => 
-                    (m, await SupportsToolsAsync(m.Name, ct).ConfigureAwait(false)))))
-                .Where(x => x.Item2)
-                .Select(x => x.m)
+            var namedModels = payload.Models
+                .Where(x => !string.IsNullOrWhiteSpace(x?.Name))
                 .ToArray();
 
-            var modelsInfos = new List<ModelInfo>();
+            // The capabilities are fetched in parallel and cached, so that the
+            // later questions about the same models cost no extra requests.
+            var caps = await Task.WhenAll(namedModels.Select(m => GetModelCapsAsync(m.Name, ct)))
+                .ConfigureAwait(false);
 
-            foreach (var x in acceptedModels.Where(x => !string.IsNullOrWhiteSpace(x?.Name)))
-            {
-                // At this point the capabilities of all the models have been cached,
-                // so the call below is guaranteed to complete without any actual I/O.
-                var contextWindow = (await GetModelCapsAsync(x.Name, ct).ConfigureAwait(false))?.ContextWindow ?? -1;
-                modelsInfos.Add(new ModelInfo(x.Name, x.Size, x.Details?.ParameterSize, x.Details?.QuantizationLevel, contextWindow));
-            }
+            var modelsInfos = namedModels.Select((x, i) => new ModelInfo(x.Name, x.Size,
+                    x.Details?.ParameterSize, x.Details?.QuantizationLevel,
+                    caps[i]?.ContextWindow ?? -1, caps[i]))
+                .ToList();
 
             return new ModelsResult(true, modelsInfos, null);
         }
@@ -291,6 +289,9 @@ public sealed class OllamaClient : IOllamaClient
             const string visionCapability = "vision";
             var vision = CheckCapability(payload, visionCapability);    
 
+            const string audioCapability = "audio";
+            var audio = CheckCapability(payload, audioCapability);
+
             // The key is prefixed with the model family (e.g. "llama.context_length"),
             // so it can't be looked up directly and a suffix match is used instead.
             var entry = payload?.ModelInfo?
@@ -299,7 +300,7 @@ public sealed class OllamaClient : IOllamaClient
             var contextWindow = entry?.Value.ValueKind == JsonValueKind.Number &&
                                 entry.Value.Value.TryGetInt32(out var value) ? value : -1;
 
-            caps = new ModelCaps(contextWindow, thinking, completion, vision, tools);
+            caps = new ModelCaps(contextWindow, thinking, completion, vision, tools, audio);
 
         }
         catch (Exception)

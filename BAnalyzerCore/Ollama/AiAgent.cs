@@ -87,6 +87,20 @@ public sealed record AiTurnResult(string Answer, string Error,
 }
 
 /// <summary>
+/// The models available on the Ollama service, sorted by the roles they can play.
+/// </summary>
+/// <param name="Available">Indicates that the service could be reached.</param>
+/// <param name="Error">Description of the failure or "null" if there was none.</param>
+/// <param name="ChatModels">
+/// The models fit to answer the questions (see <see cref="AiAgent.IsChatModel"/>).
+/// </param>
+/// <param name="VoiceModels">
+/// The models fit to convert speech into text (see <see cref="AiAgent.IsVoiceModel"/>).
+/// </param>
+public sealed record AiModelCatalog(bool Available, string Error,
+    IReadOnlyList<ModelInfo> ChatModels, IReadOnlyList<ModelInfo> VoiceModels);
+
+/// <summary>
 /// Drives a conversation with a model over the course of a session: looks the
 /// service up, keeps track of the history, resolves the tools a given model
 /// can be offered and runs the turns, one at a time.
@@ -155,14 +169,32 @@ public sealed class AiAgent
     public IReadOnlyList<ChatMessage> History => _history;
 
     /// <summary>
-    /// Looks the Ollama service up and returns the collection of the
-    /// available models.
+    /// Returns "true" if a model with the given capabilities can answer the
+    /// questions: it must be able to fetch the market data on its own (tools)
+    /// and to reason about it before answering (thinking).
     /// </summary>
-    public Task<ModelsResult> ConnectAsync(CancellationToken ct)
+    public static bool IsChatModel(ModelCaps caps) => caps.Tools && caps.Thinking;
+
+    /// <summary>
+    /// Returns "true" if a model with the given capabilities can convert speech into text.
+    /// </summary>
+    public static bool IsVoiceModel(ModelCaps caps) => caps.Audio;
+
+    /// <summary>
+    /// Looks the Ollama service up and returns the available models, sorted
+    /// by the roles they can play. A model can end up in both lists.
+    /// </summary>
+    public async Task<AiModelCatalog> ConnectAsync(CancellationToken ct)
     {
         _observer?.OnActivityChanged(AiAgentActivity.Connecting, null);
 
-        return _ollamaClient.TryGetModelsAsync(ct);
+        var result = await _ollamaClient.TryGetModelsAsync(ct).ConfigureAwait(false);
+
+        var models = result.Models ?? [];
+
+        return new AiModelCatalog(result.Available, result.Error,
+            models.Where(x => x.Capabilities is { } c && IsChatModel(c)).ToList(),
+            models.Where(x => x.Capabilities is { } c && IsVoiceModel(c)).ToList());
     }
 
     /// <summary>

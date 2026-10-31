@@ -175,6 +175,40 @@ public class AiAgentTest
             .Which.Activity.Should().Be(AiAgentActivity.Connecting);
     }
 
+    /// <summary>
+    /// Builds the description of a model with the given capabilities.
+    /// </summary>
+    private static ModelInfo Model(string name, ModelCaps? caps) =>
+        new(name, null, null, null, 0, caps);
+
+    [TestMethod]
+    public async Task ConnectAsync_SortsTheModelsByTheirRoles()
+    {
+        // Arrange
+        var client = new StubClient
+        {
+            ModelsResult = new ModelsResult(true,
+            [
+                Model("chat", new ModelCaps(0, Thinking: true, true, false, Tools: true)),
+                Model("tools-only", new ModelCaps(0, Thinking: false, true, false, Tools: true)),
+                Model("thinking-only", new ModelCaps(0, Thinking: true, true, false, Tools: false)),
+                Model("voice", new ModelCaps(0, false, true, false, Tools: true, Audio: true)),
+                Model("both", new ModelCaps(0, true, true, false, true, Audio: true)),
+                Model("unknown", null)
+            ], null)
+        };
+
+        var agent = new AiAgent(client, new StubExecutor(), SystemPrompt);
+
+        // Act
+        var result = await agent.ConnectAsync(CancellationToken.None);
+
+        // Assert
+        result.Available.Should().BeTrue();
+        result.ChatModels.Select(x => x.Name).Should().Equal("chat", "both");
+        result.VoiceModels.Select(x => x.Name).Should().Equal("voice", "both");
+    }
+
     [TestMethod]
     public async Task SendAsync_AppendsTheUserMessageAndRunsTheTurn()
     {

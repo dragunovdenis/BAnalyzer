@@ -6,7 +6,7 @@ Main Menu => Tools => Asset analysis :
 <img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/10b7588a-f50c-4bd5-8ee0-584af78490b8" />
 
 **Ollama-based AI Helper**
-Install Ollama service (https://ollama.com/download/windows), pull some models with "tools" capability (e.g., "qwen", "nemotron",...) and enjoy a possibility to use an **AI Helper** feature to analyze the crypto-market and build statistically backed up predictions on the future behavior of crypto assets. **Main Menu** -> **Tools** -> **AI Helper**. Use shortcut names of the coins you want to analyze in your request and AI agent will automatically fetch the data necessary for the analysis from "Binance" service. 
+Install Ollama service (https://ollama.com/download/windows), pull some models with both "tools" and "thinking" capabilities (e.g., "qwen3", "nemotron",...) and enjoy a possibility to use an **AI Helper** feature to analyze the crypto-market and build statistically backed up predictions on the future behavior of crypto assets. **Main Menu** -> **Tools** -> **AI Helper**. Use shortcut names of the coins you want to analyze in your request and AI agent will automatically fetch the data necessary for the analysis from "Binance" service. 
 
 ![AI Helper Menu](Image/AI_helper_menu.png)
 ![AI Helper Request](Image/AI_helper_prompt.png)

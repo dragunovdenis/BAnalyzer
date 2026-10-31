@@ -30,8 +30,12 @@ public record ModelsResult(bool Available, IReadOnlyList<ModelInfo> Models, stri
 /// <param name="ParameterSize">Human-readable parameter count, for example "8B", or "null" if not reported.</param>
 /// <param name="QuantizationLevel">Quantization level, for example "Q4_K_M", or "null" if not reported.</param>
 /// <param name="ContextWindow">Context window of the model, or "null" if not reported.</param>
+/// <param name="Capabilities">
+/// Capabilities of the model, or "null" if they could not be determined
+/// (in which case the model is not eligible for any role).
+/// </param>
 public sealed record ModelInfo(string Name, long? Size, string ParameterSize, 
-    string QuantizationLevel, long ContextWindow)
+    string QuantizationLevel, long ContextWindow, ModelCaps? Capabilities = null)
 {
     /// <summary>
     /// Human-readable summary of the extra details (size, parameter count,
@@ -121,8 +125,9 @@ public readonly record struct ChatChunk(string Content, string Thinking,
 /// <summary>
 /// Capabilities of a model, as reported by the Ollama service.
 /// </summary>
+/// <param name="Audio">Indicates that the model accepts audio input (for example, speech).</param>
 public readonly record struct ModelCaps(int ContextWindow, bool Thinking, 
-    bool Completion, bool Vision, bool Tools);
+    bool Completion, bool Vision, bool Tools, bool Audio = false);
 
 /// <summary>
 /// Interface of a client of the local Ollama service.
@@ -135,10 +140,14 @@ public readonly record struct ModelCaps(int ContextWindow, bool Thinking,
 public interface IOllamaClient : IDisposable
 {
     /// <summary>
-    /// Returns names of the models that are available locally. Doubles as a
-    /// "health check" of the service: <see cref="ModelsResult.Available"/> is
-    /// "false" if the service could not be reached.
+    /// Returns all the models that are available locally, together with their
+    /// capabilities. Doubles as a "health check" of the service:
+    /// <see cref="ModelsResult.Available"/> is "false" if the service could not be reached.
     /// </summary>
+    /// <remarks>
+    /// No filtering is done here: deciding which models are fit for which
+    /// purpose is up to the caller (see <see cref="AiAgent"/>).
+    /// </remarks>
     Task<ModelsResult> TryGetModelsAsync(CancellationToken ct);
 
     /// <summary>

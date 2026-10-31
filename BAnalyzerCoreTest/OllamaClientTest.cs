@@ -82,11 +82,41 @@ public class OllamaClientTest
 
         var result = await client.TryGetModelsAsync(CancellationToken.None);
 
+        var caps = new ModelCaps(1024, Thinking: true, Completion: true, Vision: true, Tools: true);
+
         result.Available.Should().BeTrue();
         result.Error.Should().BeNull();
         result.Models.Should().Equal(
-            new ModelInfo("qwen3.8:27b", 123, "27B", "Q4_K_M", 1024),
-            new ModelInfo("ornith-1.5:35b", null, null, null, 1024));
+            new ModelInfo("qwen3.8:27b", 123, "27B", "Q4_K_M", 1024, caps),
+            new ModelInfo("ornith-1.5:35b", null, null, null, 1024, caps));
+    }
+
+    [TestMethod]
+    public async Task TryGetModelsAsync_ReturnsAllModelsWithTheirCapabilities()
+    {
+        using var client = CreateClient(r =>
+        {
+            if (r!.RequestUri!.AbsolutePath.EndsWith("/api/tags"))
+                return Json(HttpStatusCode.OK,
+                    """{"models":[{"name":"chat"},{"name":"voice"},{"name":"broken"}]}""");
+
+            var body = r.Content!.ReadAsStringAsync().Result;
+
+            if (body.Contains("\"chat\""))
+                return Json(HttpStatusCode.OK, """{"capabilities":["completion","tools","thinking"]}""");
+
+            if (body.Contains("\"voice\""))
+                return Json(HttpStatusCode.OK, """{"capabilities":["completion","audio","speech"]}""");
+
+            return Json(HttpStatusCode.NotFound, "{}");
+        });
+
+        var result = await client.TryGetModelsAsync(CancellationToken.None);
+
+        result.Models.Select(x => x.Name).Should().Equal("chat", "voice", "broken");
+        result.Models[0].Capabilities.Should().Be(new ModelCaps(-1, true, true, false, true, false));
+        result.Models[1].Capabilities.Should().Be(new ModelCaps(-1, false, true, false, false, Audio: true));
+        result.Models[2].Capabilities.Should().BeNull();
     }
 
     [TestMethod]
@@ -289,6 +319,20 @@ public class OllamaClientTest
 
         body.Should().Contain("\"stream\":true");
         handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/api/chat");
+    }
+
+    [TestMethod]
+    public async Task GetModelCapsAsync_DetectsTheAudioCapability()
+    {
+        using var client = CreateClient(_ => Json(HttpStatusCode.OK,
+            """{"capabilities":["completion","audio","speech","tools"]}"""));
+
+        var caps = await client.GetModelCapsAsync("lfm-audio", CancellationToken.None);
+
+        caps.Should().NotBeNull();
+        caps!.Value.Audio.Should().BeTrue();
+        caps.Value.Tools.Should().BeTrue();
+        caps.Value.Thinking.Should().BeFalse();
     }
 
     [TestMethod]

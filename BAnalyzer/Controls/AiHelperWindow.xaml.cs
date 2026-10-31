@@ -338,7 +338,8 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     public ObservableCollection<ChatMessageVm> Transcript { get; } = [];
 
     /// <summary>
-    /// Collection of the locally available models.
+    /// Collection of the locally available models that can answer the questions
+    /// (see <see cref="AiAgent.IsChatModel"/>).
     /// </summary>
     public ObservableCollection<ModelOptionVm> Models { get; } = [];
 
@@ -468,15 +469,16 @@ public partial class AiHelperWindow : INotifyPropertyChanged
             return;
         }
 
-        if (result.Models.Count == 0)
+        if (result.ChatModels.Count == 0)
         {
             Status = AiHelperStatus.NoModels;
-            BannerText = "No models are available locally. Install one first, for example " +
-                         "by running \"ollama pull llama3\" in a terminal.";
+            BannerText = "No suitable models are available locally. The AI Helper needs a model " +
+                         "capable of both calling tools and thinking; install one first, for example " +
+                         "by running \"ollama pull qwen3\" in a terminal.";
             return;
         }
 
-        foreach (var model in result.Models)
+        foreach (var model in result.ChatModels)
             Models.Add(new ModelOptionVm(model));
 
         SelectedModel = Models[0].Name;
