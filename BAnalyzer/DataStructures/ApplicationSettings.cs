@@ -46,6 +46,12 @@ public interface IApplicationSettings : INotifyPropertyChanged
     /// View synchronization toggle.
     /// </summary>
     bool ControlSynchronization { get; }
+
+    /// <summary>
+    /// Name of the microphone the AI helper was last asked a question with
+    /// (or "null" if voice input has not been used yet).
+    /// </summary>
+    string AiHelperMicrophone { get; }
 }
 
 /// <summary>
@@ -88,6 +94,18 @@ public class ApplicationSettings : IApplicationSettings
     {
         get => _synchronization;
         set =>SetField(ref _synchronization, value);
+    }
+
+    [DataMember]
+    private string _aiHelperMicrophone;
+
+    /// <summary>
+    /// <inheritdoc/>
+    /// </summary>
+    public string AiHelperMicrophone
+    {
+        get => _aiHelperMicrophone;
+        set => SetField(ref _aiHelperMicrophone, value);
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
