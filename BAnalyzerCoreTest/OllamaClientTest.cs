@@ -204,7 +204,7 @@ public class OllamaClientTest
             """));
 
         var chunks = await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "Hi")], null, CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], null, null, CancellationToken.None));
 
         chunks.Select(x => x.Content).Should().Equal("Hello", " there", "!");
     }
@@ -220,7 +220,7 @@ public class OllamaClientTest
             """));
 
         var chunks = await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "2+2?")], null, CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "2+2?")], null, null, CancellationToken.None));
 
         string.Concat(chunks.Select(x => x.Thinking)).Should().Be("Let me check.");
         string.Concat(chunks.Select(x => x.Content)).Should().Be("Four.");
@@ -236,7 +236,7 @@ public class OllamaClientTest
             """));
 
         var chunks = await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "Hi")], null, CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], null, null, CancellationToken.None));
 
         chunks.Select(x => x.Content).Should().Equal("Answer");
     }
@@ -253,7 +253,7 @@ public class OllamaClientTest
             """));
 
         var chunks = await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "Hi")], null, CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], null, null, CancellationToken.None));
 
         chunks.Select(x => x.Content).Should().Equal("A", "B");
     }
@@ -264,7 +264,7 @@ public class OllamaClientTest
         using var client = CreateClient(_ => Json(HttpStatusCode.NotFound, "{}"));
 
         var act = async () => await CollectAsync(client.ChatStreamAsync("missing-model",
-            [new ChatMessage(ChatRoles.User, "Hi")], null, CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], null, null, CancellationToken.None));
 
         (await act.Should().ThrowAsync<HttpRequestException>()).WithMessage("*404*");
     }
@@ -278,7 +278,7 @@ public class OllamaClientTest
         using var client = CreateClient(handler);
 
         var act = async () => await CollectAsync(client.ChatStreamAsync(model,
-            [new ChatMessage(ChatRoles.User, "Hi")], null, CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], null, null, CancellationToken.None));
 
         await act.Should().ThrowAsync<ArgumentException>();
         handler.LastRequest.Should().BeNull();
@@ -291,7 +291,7 @@ public class OllamaClientTest
         using var client = CreateClient(handler);
 
         var act = async () => await CollectAsync(client.ChatStreamAsync("some-model",
-            [], null, CancellationToken.None));
+            [], null, null, CancellationToken.None));
 
         await act.Should().ThrowAsync<ArgumentException>();
         handler.LastRequest.Should().BeNull();
@@ -315,10 +315,77 @@ public class OllamaClientTest
         using var client = CreateClient(handler);
 
         await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "Hi")], null, CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], null, null, CancellationToken.None));
 
         body.Should().Contain("\"stream\":true");
         handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/api/chat");
+    }
+
+    [TestMethod]
+    [DataRow(null, null)]
+    [DataRow(ThinkingLevel.Low, "\"think\":\"low\"")]
+    [DataRow(ThinkingLevel.Medium, "\"think\":\"medium\"")]
+    [DataRow(ThinkingLevel.High, "\"think\":\"high\"")]
+    public async Task ChatStreamAsync_SendsTheThinkingLevel(ThinkingLevel? level, string expected)
+    {
+        var body = (string)null;
+
+        using var client = CreateClient(request =>
+        {
+            body = request.Content!.ReadAsStringAsync().Result;
+            return Json(HttpStatusCode.OK, """{"message":{"role":"assistant","content":"Hi"},"done":true}""");
+        });
+
+        await CollectAsync(client.ChatStreamAsync("some-model",
+            [new ChatMessage(ChatRoles.User, "Hi")], null, new ChatRequestOptions(level), CancellationToken.None));
+
+        if (expected == null)
+            body.Should().NotContain("\"think\"");
+        else
+            body.Should().Contain(expected);
+    }
+
+    [TestMethod]
+    public async Task ChatStreamAsync_UnsupportedThinkingLevel_IsRetriedWithThinkingOn()
+    {
+        var bodies = new List<string>();
+
+        using var client = CreateClient(request =>
+        {
+            bodies.Add(request.Content!.ReadAsStringAsync().Result);
+
+            return bodies.Count == 1
+                ? Json(HttpStatusCode.BadRequest, """{"error":"think value \"high\" is not supported for this model"}""")
+                : Json(HttpStatusCode.OK, """{"message":{"role":"assistant","content":"Hi"},"done":true}""");
+        });
+
+        var chunks = await CollectAsync(client.ChatStreamAsync("some-model",
+            [new ChatMessage(ChatRoles.User, "Hi")], null,
+            new ChatRequestOptions(ThinkingLevel.High), CancellationToken.None));
+
+        string.Concat(chunks.Select(x => x.Content)).Should().Be("Hi");
+        bodies.Should().HaveCount(2);
+        bodies[0].Should().Contain("\"think\":\"high\"");
+        bodies[1].Should().Contain("\"think\":true");
+    }
+
+    [TestMethod]
+    public async Task ChatStreamAsync_UnrelatedFailure_IsNotRetried()
+    {
+        var requests = 0;
+
+        using var client = CreateClient(_ =>
+        {
+            requests++;
+            return Json(HttpStatusCode.NotFound, """{"error":"model not found"}""");
+        });
+
+        var act = async () => await CollectAsync(client.ChatStreamAsync("some-model",
+            [new ChatMessage(ChatRoles.User, "Hi")], null,
+            new ChatRequestOptions(ThinkingLevel.Low), CancellationToken.None));
+
+        (await act.Should().ThrowAsync<HttpRequestException>()).WithMessage("*404*");
+        requests.Should().Be(1);
     }
 
     [TestMethod]
@@ -346,7 +413,7 @@ public class OllamaClientTest
             """));
 
         var chunks = await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "Hi")], null, CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], null, null, CancellationToken.None));
 
         // The reasoning must not leak into the answer.
         string.Concat(chunks.Select(x => x.Content)).Should().Be("Hello world");
@@ -436,7 +503,7 @@ public class OllamaClientTest
             """));
 
         var chunks = await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "How did BTC do?")], [SomeTool()], CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "How did BTC do?")], [SomeTool()], null, CancellationToken.None));
 
         var calls = chunks.Where(x => x.ToolCalls != null).SelectMany(x => x.ToolCalls).ToArray();
 
@@ -456,7 +523,7 @@ public class OllamaClientTest
             """));
 
         var chunks = await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "Hi")], [SomeTool()], CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], [SomeTool()], null, CancellationToken.None));
 
         chunks.Should().HaveCount(1);
     }
@@ -477,7 +544,7 @@ public class OllamaClientTest
         using var client = CreateClient(handler);
 
         await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "Hi")], null, CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], null, null, CancellationToken.None));
 
         body.Should().NotContain("\"tools\"");
     }
@@ -498,7 +565,7 @@ public class OllamaClientTest
         using var client = CreateClient(handler);
 
         await CollectAsync(client.ChatStreamAsync("some-model",
-            [new ChatMessage(ChatRoles.User, "Hi")], [SomeTool()], CancellationToken.None));
+            [new ChatMessage(ChatRoles.User, "Hi")], [SomeTool()], null, CancellationToken.None));
 
         body.Should().Contain("\"get_candles\"");
         body.Should().Contain("\"enum\":[\"1h\",\"1d\"]");
@@ -529,7 +596,7 @@ public class OllamaClientTest
             new ChatMessage(ChatRoles.User, "How did BTC do?"),
             new ChatMessage(ChatRoles.Assistant, "", [new ToolCall("call_1", "get_candles", arguments)]),
             new ChatMessage(ChatRoles.Tool, "BTCUSDT: 3 candles", ToolName: "get_candles")
-        ], [SomeTool()], CancellationToken.None));
+        ], [SomeTool()], null, CancellationToken.None));
 
         body.Should().Contain("\"tool_calls\"");
         body.Should().Contain("\"call_1\"");

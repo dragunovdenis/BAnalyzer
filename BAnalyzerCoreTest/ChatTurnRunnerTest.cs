@@ -68,14 +68,20 @@ public class ChatTurnRunnerTest
         public Task<bool> SupportsToolsAsync(string model, CancellationToken ct) =>
             throw new NotSupportedException();
 
+        /// <summary>
+        /// The options the client was called with, in order.
+        /// </summary>
+        public List<ChatRequestOptions> Options { get; } = [];
+
         public async IAsyncEnumerable<ChatChunk> ChatStreamAsync(string model,
             IReadOnlyList<ChatMessage> history, IReadOnlyList<ToolDefinition> tools,
-            [EnumeratorCancellation] CancellationToken ct)
+            ChatRequestOptions options, [EnumeratorCancellation] CancellationToken ct)
         {
             var index = Conversations.Count;
 
             Conversations.Add(history.ToList());
             OfferedTools.Add(tools);
+            Options.Add(options);
 
             if (Failure?.Index == index) throw Failure.Value.Error;
 
@@ -154,7 +160,8 @@ public class ChatTurnRunnerTest
     /// Runs a turn with the given client and returns everything it produced.
     /// </summary>
     private static async Task<(ChatTurnResult Result, List<ChatMessage> History, RecordingObserver Observer)>
-        RunAsync(StubClient client, IToolExecutor executor = null, IReadOnlyList<ToolDefinition> tools = null)
+        RunAsync(StubClient client, IToolExecutor executor = null, IReadOnlyList<ToolDefinition> tools = null,
+            ChatRequestOptions options = null)
     {
         var history = Conversation();
         var observer = new RecordingObserver();
@@ -162,7 +169,7 @@ public class ChatTurnRunnerTest
         var runner = new ChatTurnRunner(client, executor ?? new StubExecutor());
 
         var result = await runner.RunAsync("some-model", history,
-            tools ?? [SomeTool()], observer, CancellationToken.None);
+            tools ?? [SomeTool()], options, observer, CancellationToken.None);
 
         return (result, history, observer);
     }
@@ -352,7 +359,7 @@ public class ChatTurnRunnerTest
         var runner = new ChatTurnRunner(client, new StubExecutor());
 
         var result = await runner.RunAsync("some-model", history,
-            [SomeTool()], new RecordingObserver(), cts.Token);
+            [SomeTool()], null, new RecordingObserver(), cts.Token);
 
         result.Success.Should().BeFalse();
         result.Error.Should().Contain("canceled");
@@ -380,7 +387,7 @@ public class ChatTurnRunnerTest
         var runner = new ChatTurnRunner(new StubClient(), new StubExecutor());
 
         var act = async () => await runner.RunAsync("some-model", null,
-            [SomeTool()], new RecordingObserver(), CancellationToken.None);
+            [SomeTool()], null, new RecordingObserver(), CancellationToken.None);
 
         await act.Should().ThrowAsync<ArgumentNullException>();
     }
@@ -391,8 +398,31 @@ public class ChatTurnRunnerTest
         var runner = new ChatTurnRunner(new StubClient(), new StubExecutor());
 
         var act = async () => await runner.RunAsync("some-model", Conversation(),
-            [SomeTool()], null, CancellationToken.None);
+            [SomeTool()], null, null, CancellationToken.None);
 
         await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [TestMethod]
+    public async Task RunAsync_ForwardsTheOptionsToEveryRequest()
+    {
+        // Arrange: a data request, then (after the budget is spent) the forced
+        // final answer, so that both kinds of requests are covered.
+        var responses = Enumerable.Range(0, ChatTurnRunner.MaxToolIterations)
+            .Select(_ => new Response(null, [SomeCall()]))
+            .Append(new Response("Done"))
+            .ToArray();
+
+        var client = new StubClient(responses);
+        var options = new ChatRequestOptions(ThinkingLevel.High);
+
+        // Act
+        var (result, _, _) = await RunAsync(client, options: options);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        client.Options.Should().HaveCount(ChatTurnRunner.MaxToolIterations + 1)
+            .And.OnlyContain(x => ReferenceEquals(x, options));
+        client.OfferedTools.Last().Should().BeNull();
     }
 }

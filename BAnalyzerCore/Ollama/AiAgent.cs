@@ -224,7 +224,10 @@ public sealed class AiAgent
     /// through <paramref name="turnObserver"/>. The turn can be interrupted
     /// with <see cref="Cancel"/> or through <paramref name="ct"/>.
     /// </summary>
-    public async Task<AiTurnResult> SendAsync(string model, string userText,
+    /// <param name="thinking">
+    /// The thinking level to request (applies to every request of the turn).
+    /// </param>
+    public async Task<AiTurnResult> SendAsync(string model, string userText, ThinkingLevel? thinking,
         IChatTurnObserver turnObserver, CancellationToken ct = default)
     {
         _cancelRequested = false;
@@ -245,7 +248,8 @@ public sealed class AiAgent
 
             _observer?.OnActivityChanged(AiAgentActivity.WaitingForModel, model);
 
-            var result = await _turnRunner.RunAsync(model, _history, tools, turnObserver, cts.Token)
+            var result = await _turnRunner.RunAsync(model, _history, tools,
+                    new ChatRequestOptions(thinking), turnObserver, cts.Token)
                 .ConfigureAwait(false);
 
             return new AiTurnResult(result.Answer, result.Error,

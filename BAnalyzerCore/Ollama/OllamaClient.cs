@@ -318,11 +318,12 @@ public sealed class OllamaClient : IOllamaClient
     /// Builds a request body for the "/api/chat" end-point.
     /// </summary>
     private static OllamaChatRequest BuildRequest(string model, IReadOnlyList<ChatMessage> history,
-        IReadOnlyList<ToolDefinition> tools, bool stream) => new()
+        IReadOnlyList<ToolDefinition> tools, bool stream, ChatRequestOptions options) => new()
     {
         Model = model,
         Stream = stream,
         Tools = BuildTools(tools),
+        Think = ToWireValue(options?.Thinking),
         Messages = history.Select(x => new OllamaChatMessageDto
         {
             Role = x.Role,
@@ -366,9 +367,22 @@ public sealed class OllamaClient : IOllamaClient
         }).ToList();
     }
 
+    /// <summary>
+    /// Converts the given thinking level to the value of the "think" field of a
+    /// chat request ("null" means that the field is omitted).
+    /// </summary>
+    internal static object ToWireValue(ThinkingLevel? level) => level switch
+    {
+        ThinkingLevel.Low => "low",
+        ThinkingLevel.Medium => "medium",
+        ThinkingLevel.High => "high",
+        _ => null
+    };
+
     /// <inheritdoc/>
     public async IAsyncEnumerable<ChatChunk> ChatStreamAsync(string model, IReadOnlyList<ChatMessage> history,
-        IReadOnlyList<ToolDefinition> tools, [EnumeratorCancellation] CancellationToken ct)
+        IReadOnlyList<ToolDefinition> tools, ChatRequestOptions options,
+        [EnumeratorCancellation] CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(model))
             throw new ArgumentException("No model selected.", nameof(model));
@@ -383,15 +397,8 @@ public sealed class OllamaClient : IOllamaClient
         // answer is a normal thing, whereas a lengthy silence means a stall.
         cts.CancelAfter(ChatTimeout);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/chat")
-        {
-            Content = JsonContent.Create(BuildRequest(model, history, tools, stream: true))
-        };
-
-        // Without "ResponseHeadersRead" the entire body gets buffered before the
-        // first byte is handed over, which defeats the purpose of streaming.
-        using var response = await _client.SendAsync(request,
-            HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+        var body = BuildRequest(model, history, tools, stream: true, options);
+        using var response = await PostChatAsync(body, cts.Token).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException(DescribeStatus(response));
@@ -399,6 +406,82 @@ public sealed class OllamaClient : IOllamaClient
         await foreach (var chunk in ReadOutResponse(response, ct))
         {
             yield return chunk;
+        }
+    }
+
+    /// <summary>
+    /// Posts the given chat request and returns the response as soon as its
+    /// headers have been received. Some thinking-capable model families only
+    /// understand a boolean "think", so if the service rejects a thinking
+    /// <i>level</i>, the request is repeated with thinking simply switched on.
+    /// </summary>
+    private async Task<HttpResponseMessage> PostChatAsync(OllamaChatRequest body, CancellationToken ct)
+    {
+        var response = await SendChatAsync(body, ct).ConfigureAwait(false);
+
+        if (response.IsSuccessStatusCode || body.Think is not string)
+            return response;
+
+        try
+        {
+            var error = await ReadErrorAsync(response, ct).ConfigureAwait(false);
+
+            if (error == null || !error.Contains("think", StringComparison.OrdinalIgnoreCase))
+                return response;
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
+
+        response.Dispose();
+        body.Think = true;
+
+        return await SendChatAsync(body, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Posts the given request to the "/api/chat" end-point and returns the
+    /// response as soon as its headers have been received (without that the
+    /// entire body gets buffered, which defeats the purpose of streaming).
+    /// </summary>
+    private async Task<HttpResponseMessage> SendChatAsync(OllamaChatRequest body, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/chat")
+        {
+            Content = JsonContent.Create(body)
+        };
+
+        return await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the error message contained in the body of the given (failed)
+    /// response, or "null" if there is none.
+    /// </summary>
+    private static async Task<string> ReadErrorAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<OllamaErrorResponse>(text)?.Error ?? text;
+            }
+            catch (JsonException)
+            {
+                return text;
+            }
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return null;
         }
     }
 

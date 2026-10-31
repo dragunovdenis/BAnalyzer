@@ -12,6 +12,8 @@ Install Ollama service (https://ollama.com/download/windows), pull some models w
 ![AI Helper Request](Image/AI_helper_prompt.png)
 ![AI Helper Response](Image/AI_helper_response.png)
 
+The **Thinking** drop-down (low / medium / high) controls how much the model reasons before answering.
+
 **Disclaimer**: **AI Helper** is a statistics-based analysis tool, you are welcome to plan your investment activities based on its predictions but be aware of a risk that they may never come true.
 
 

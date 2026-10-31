@@ -322,6 +322,15 @@ internal sealed class OllamaChatRequest
     [JsonPropertyName("tools")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<OllamaToolDto> Tools { get; set; }
+
+    /// <summary>
+    /// Thinking mode: either a level ("low", "medium", "high") or a boolean.
+    /// Typed as "object" because the service accepts both kinds of values and
+    /// the serializer writes the runtime type. Omitted when "null".
+    /// </summary>
+    [JsonPropertyName("think")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public object Think { get; set; }
 }
 
 /// <summary>
@@ -340,4 +349,16 @@ internal sealed class OllamaChatResponse
     /// </summary>
     [JsonPropertyName("done")]
     public bool Done { get; set; }
+}
+
+/// <summary>
+/// Error response of the service (any end-point).
+/// </summary>
+internal sealed class OllamaErrorResponse
+{
+    /// <summary>
+    /// Description of the error.
+    /// </summary>
+    [JsonPropertyName("error")]
+    public string Error { get; set; }
 }

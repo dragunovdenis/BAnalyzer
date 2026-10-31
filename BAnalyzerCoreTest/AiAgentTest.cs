@@ -71,12 +71,18 @@ public class AiAgentTest
         public async Task<bool> SupportsToolsAsync(string model, CancellationToken ct) =>
             (await GetModelCapsAsync(model, ct).ConfigureAwait(false))?.Tools ?? false;
 
+        /// <summary>
+        /// The options the client was called with, in order.
+        /// </summary>
+        public List<ChatRequestOptions> Options { get; } = [];
+
         public async IAsyncEnumerable<ChatChunk> ChatStreamAsync(string model,
             IReadOnlyList<ChatMessage> history, IReadOnlyList<ToolDefinition> tools,
-            [EnumeratorCancellation] CancellationToken ct)
+            ChatRequestOptions options, [EnumeratorCancellation] CancellationToken ct)
         {
             Conversations.Add(history.ToList());
             OfferedTools.Add(tools);
+            Options.Add(options);
 
             if (Answer == null)
             {
@@ -210,6 +216,20 @@ public class AiAgentTest
     }
 
     [TestMethod]
+    public async Task SendAsync_ForwardsTheThinkingLevel()
+    {
+        // Arrange
+        var client = new StubClient();
+        var agent = BuildAgent(client);
+
+        // Act
+        await agent.SendAsync("some-model", "Hello", ThinkingLevel.Low, new RecordingTurnObserver());
+
+        // Assert
+        client.Options.Should().ContainSingle().Which.Thinking.Should().Be(ThinkingLevel.Low);
+    }
+
+    [TestMethod]
     public async Task SendAsync_AppendsTheUserMessageAndRunsTheTurn()
     {
         // Arrange
@@ -222,7 +242,7 @@ public class AiAgentTest
         var turnObserver = new RecordingTurnObserver();
 
         // Act
-        var result = await agent.SendAsync("some-model", "Hello", turnObserver);
+        var result = await agent.SendAsync("some-model", "Hello", ThinkingLevel.Medium, turnObserver);
 
         // Assert
         result.Success.Should().BeTrue();
@@ -254,7 +274,7 @@ public class AiAgentTest
         var agent = new AiAgent(client, new StubExecutor(), SystemPrompt);
 
         // Act
-        var result = await agent.SendAsync("no-tools-model", "Hello", new RecordingTurnObserver());
+        var result = await agent.SendAsync("no-tools-model", "Hello", ThinkingLevel.Medium, new RecordingTurnObserver());
 
         // Assert
         result.ToolsUnavailable.Should().BeTrue();
@@ -274,7 +294,7 @@ public class AiAgentTest
         var agent = new AiAgent(client, new StubExecutor { Definition = null }, SystemPrompt);
 
         // Act
-        var result = await agent.SendAsync("some-model", "Hello", new RecordingTurnObserver());
+        var result = await agent.SendAsync("some-model", "Hello", ThinkingLevel.Medium, new RecordingTurnObserver());
 
         // Assert
         result.ToolsUnavailable.Should().BeTrue();
@@ -290,7 +310,7 @@ public class AiAgentTest
         var agent = BuildAgent(client);
 
         // Act
-        var result = await agent.SendAsync("some-model", "Hello", new RecordingTurnObserver());
+        var result = await agent.SendAsync("some-model", "Hello", ThinkingLevel.Medium, new RecordingTurnObserver());
 
         // Assert
         result.Success.Should().BeFalse();
@@ -310,7 +330,7 @@ public class AiAgentTest
         var agent = BuildAgent(client);
 
         // Act
-        var sendTask = agent.SendAsync("some-model", "Hello", new RecordingTurnObserver());
+        var sendTask = agent.SendAsync("some-model", "Hello", ThinkingLevel.Medium, new RecordingTurnObserver());
 
         // Give the turn a chance to actually start before it is cancelled.
         while (client.Conversations.Count == 0)
@@ -334,7 +354,7 @@ public class AiAgentTest
         using var cts = new CancellationTokenSource();
 
         // Act
-        var sendTask = agent.SendAsync("some-model", "Hello", new RecordingTurnObserver(), cts.Token);
+        var sendTask = agent.SendAsync("some-model", "Hello", ThinkingLevel.Medium, new RecordingTurnObserver(), cts.Token);
 
         while (client.Conversations.Count == 0)
             await Task.Delay(10);
@@ -368,7 +388,7 @@ public class AiAgentTest
         var client = new StubClient { Answer = "Hi" };
         var agent = BuildAgent(client);
 
-        await agent.SendAsync("some-model", "Hello", new RecordingTurnObserver());
+        await agent.SendAsync("some-model", "Hello", ThinkingLevel.Medium, new RecordingTurnObserver());
         agent.History.Should().HaveCount(3);
 
         // Act

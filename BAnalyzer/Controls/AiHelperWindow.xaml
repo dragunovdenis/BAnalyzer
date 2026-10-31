@@ -73,6 +73,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="Model:" VerticalAlignment="Center"
                        Style="{StaticResource TextBlockStyle}" Margin="0,0,6,0"/>
@@ -94,10 +96,17 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
-            <Button Grid.Column="2" Content="Retry" Margin="6,0,0,0" Padding="8,0,8,0"
+            <TextBlock Grid.Column="2" Text="Thinking:" VerticalAlignment="Center"
+                       Style="{StaticResource TextBlockStyle}" Margin="10,0,6,0"/>
+            <ComboBox Grid.Column="3" Style="{StaticResource ComboBoxStyle}" MinWidth="70"
+                      ItemsSource="{Binding ElementName=Ui, Path=ThinkingLevels}"
+                      SelectedItem="{Binding ElementName=Ui, Path=SelectedThinkingLevel, Mode=TwoWay}"
+                      IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
+                      ToolTip="How much reasoning the model is asked to do before answering"/>
+            <Button Grid.Column="4" Content="Retry" Margin="6,0,0,0" Padding="8,0,8,0"
                     Style="{StaticResource ButtonStyle}" Click="Retry_OnClick"
                     Visibility="{Binding ElementName=Ui, Path=CanRetry, Converter={StaticResource BoolToVisibility}}"/>
-            <Button Grid.Column="3" Content="Clear context" Margin="6,0,0,0" Padding="8,0,8,0"
+            <Button Grid.Column="5" Content="Clear context" Margin="6,0,0,0" Padding="8,0,8,0"
                     Style="{StaticResource ButtonStyle}" Click="ClearContext_OnClick"
                     ToolTip="Forget the conversation and start over"
                     IsEnabled="{Binding ElementName=Ui, Path=HasTranscript}"/>

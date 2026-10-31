@@ -344,6 +344,26 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     public ObservableCollection<ModelOptionVm> Models { get; } = [];
 
     /// <summary>
+    /// The thinking levels the user can choose from.
+    /// </summary>
+    public IReadOnlyList<ThinkingLevel> ThinkingLevels { get; } = Enum.GetValues<ThinkingLevel>();
+
+    /// <summary>
+    /// The thinking level the questions are asked with.
+    /// </summary>
+    public ThinkingLevel SelectedThinkingLevel
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+
+            field = value;
+            OnPropertyChanged();
+        }
+    } = ThinkingLevel.Medium;
+
+    /// <summary>
     /// The model the conversation is run with.
     /// </summary>
     public string SelectedModel
@@ -525,6 +545,7 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         Status = AiHelperStatus.Busy;
 
         var model = SelectedModel;
+        var thinking = SelectedThinkingLevel;
 
         try
         {
@@ -534,7 +555,7 @@ public partial class AiHelperWindow : INotifyPropertyChanged
             var response = new ChatMessageVm(model, string.Empty, isRequest: false,
                 model, text, DateTime.Now);
 
-            var result = await _agent.SendAsync(model, text,
+            var result = await _agent.SendAsync(model, text, thinking,
                 new TranscriptObserver(this, response, model)).ConfigureAwait(true);
 
             if (result.ToolsUnavailable)

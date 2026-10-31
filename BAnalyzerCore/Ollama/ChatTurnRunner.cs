@@ -102,7 +102,8 @@ public sealed class ChatTurnRunner(IOllamaClient client, IToolExecutor toolExecu
     /// that sees its own half-produced answer tends to get confused by it.
     /// </remarks>
     public async Task<ChatTurnResult> RunAsync(string model, List<ChatMessage> history,
-        IReadOnlyList<ToolDefinition> tools, IChatTurnObserver observer, CancellationToken ct)
+        IReadOnlyList<ToolDefinition> tools, ChatRequestOptions options, IChatTurnObserver observer,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(observer);
@@ -118,7 +119,7 @@ public sealed class ChatTurnRunner(IOllamaClient client, IToolExecutor toolExecu
 
         try
         {
-            await RunIterationsAsync(model, history, tools, observer, answer, ct).ConfigureAwait(false);
+            await RunIterationsAsync(model, history, tools, options, observer, answer, ct).ConfigureAwait(false);
         }
         catch (Exception e)
         {
@@ -143,12 +144,12 @@ public sealed class ChatTurnRunner(IOllamaClient client, IToolExecutor toolExecu
     /// the opportunities to do so).
     /// </summary>
     private async Task RunIterationsAsync(string model, List<ChatMessage> history,
-        IReadOnlyList<ToolDefinition> tools, IChatTurnObserver observer,
+        IReadOnlyList<ToolDefinition> tools, ChatRequestOptions options, IChatTurnObserver observer,
         StringBuilder answer, CancellationToken ct)
     {
         for (var iteration = 0; ; iteration++)
         {
-            var calls = await StreamAsync(model, history, tools, observer, answer, ct)
+            var calls = await StreamAsync(model, history, tools, options, observer, answer, ct)
                 .ConfigureAwait(false);
 
             // There is no dedicated "the model wants a tool" terminator in the
@@ -176,7 +177,7 @@ public sealed class ChatTurnRunner(IOllamaClient client, IToolExecutor toolExecu
                 // model is unable to ask for anything else and has to answer.
                 // Merely telling it to stop would not do: the request that got
                 // us here proves it is willing to ignore that.
-                await StreamAsync(model, history, null, observer, answer, ct).ConfigureAwait(false);
+                await StreamAsync(model, history, null, options, observer, answer, ct).ConfigureAwait(false);
 
                 return;
             }
@@ -194,12 +195,12 @@ public sealed class ChatTurnRunner(IOllamaClient client, IToolExecutor toolExecu
     /// returning the tool calls it has requested (if any).
     /// </summary>
     private async Task<IReadOnlyList<ToolCall>> StreamAsync(string model, IReadOnlyList<ChatMessage> history,
-        IReadOnlyList<ToolDefinition> tools, IChatTurnObserver observer,
+        IReadOnlyList<ToolDefinition> tools, ChatRequestOptions options, IChatTurnObserver observer,
         StringBuilder answer, CancellationToken ct)
     {
         var calls = new List<ToolCall>();
 
-        await foreach (var chunk in client.ChatStreamAsync(model, history, tools, ct).ConfigureAwait(false))
+        await foreach (var chunk in client.ChatStreamAsync(model, history, tools, options, ct).ConfigureAwait(false))
         {
             if (chunk.ToolCalls != null) calls.AddRange(chunk.ToolCalls);
 

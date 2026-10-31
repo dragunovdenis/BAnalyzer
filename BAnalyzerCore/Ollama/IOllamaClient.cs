@@ -130,6 +130,28 @@ public readonly record struct ModelCaps(int ContextWindow, bool Thinking,
     bool Completion, bool Vision, bool Tools, bool Audio = false);
 
 /// <summary>
+/// How much "reasoning" a thinking-capable model is asked to do before answering.
+/// </summary>
+/// <remarks>
+/// Model families that do not distinguish the levels treat any of them as
+/// "thinking on".
+/// </remarks>
+public enum ThinkingLevel
+{
+    Low,
+    Medium,
+    High
+}
+
+/// <summary>
+/// Optional settings of a chat request.
+/// </summary>
+/// <param name="Thinking">
+/// The thinking level to request, or "null" to leave it up to the model.
+/// </param>
+public sealed record ChatRequestOptions(ThinkingLevel? Thinking = null);
+
+/// <summary>
 /// Interface of a client of the local Ollama service.
 /// </summary>
 /// <remarks>
@@ -172,6 +194,7 @@ public interface IOllamaClient : IDisposable
     /// own. Must be left "null" for the models that do not declare the
     /// corresponding capability (see <see cref="SupportsToolsAsync"/>).
     /// </param>
+    /// <param name="options">Optional settings of the request (can be "null").</param>
     /// <param name="ct">Cancellation token.</param>
     /// <remarks>
     /// Unlike the other members of the interface, this one <b>does throw</b> on
@@ -181,5 +204,5 @@ public interface IOllamaClient : IDisposable
     /// </remarks>
     IAsyncEnumerable<ChatChunk> ChatStreamAsync(string model,
         IReadOnlyList<ChatMessage> history, IReadOnlyList<ToolDefinition> tools,
-        CancellationToken ct);
+        ChatRequestOptions options, CancellationToken ct);
 }
