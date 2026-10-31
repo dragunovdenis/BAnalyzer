@@ -15,8 +15,11 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
+using BAnalyzer.Utils;
 using Microsoft.Win32;
+using NAudio;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -37,6 +40,24 @@ namespace BAnalyzer.Controls;
 public class ModelOptionVm(ModelInfo model)
 {
     /// <summary>
+    /// Name of the option that stands for "no model selected".
+    /// </summary>
+    private const string NoneName = "(none)";
+
+    /// <summary>
+    /// Creates the option that stands for "no model selected".
+    /// </summary>
+    public static ModelOptionVm CreateNone() => new(new ModelInfo(NoneName, null, null, null, -1))
+    {
+        IsNone = true
+    };
+
+    /// <summary>
+    /// Indicates that the option stands for "no model selected".
+    /// </summary>
+    public bool IsNone { get; private init; }
+
+    /// <summary>
     /// Name of the model (the identifier accepted by the "/api/chat" end-point).
     /// </summary>
     public string Name { get; } = model.Name;
@@ -46,7 +67,7 @@ public class ModelOptionVm(ModelInfo model)
     /// quantization level and context window, suitable for display next to
     /// the model name. Empty if none of the details are available.
     /// </summary>
-    public string Description => model.Description;
+    public string Description => IsNone ? null : model.Description;
 }
 
 /// <summary>
@@ -286,7 +307,9 @@ internal enum AiHelperStatus
     NoModels,
     Ready,
     Busy,
-    Streaming
+    Streaming,
+    Recording,
+    Transcribing
 }
 
 /// <summary>
@@ -329,6 +352,28 @@ public partial class AiHelperWindow : INotifyPropertyChanged
 
         _agent = new AiAgent(ollamaClient, toolExecutor, SystemPrompt, new StatusObserver(this));
 
+        Microphones = new MicrophoneSelection(
+            () => ApplicationController.Instance.ApplicationSettings.AiHelperMicrophone,
+            name =>
+            {
+                if (ApplicationController.Instance.ApplicationSettings is ApplicationSettings settings)
+                    settings.AiHelperMicrophone = name;
+            });
+        Microphones.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(MicrophoneSelection.IsAvailable)) return;
+
+            OnPropertyChanged(nameof(CanUseMicrophone));
+            OnPropertyChanged(nameof(MicrophoneToolTip));
+        };
+
+        Speech.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SpeechRecorder.Elapsed) && IsRecording)
+                UpdateRecordingStatus();
+        };
+        Speech.MaxDurationReached += async (_, _) => await StopRecordingAsync().ConfigureAwait(true);
+
         InitializeComponent();
     }
 
@@ -362,6 +407,56 @@ public partial class AiHelperWindow : INotifyPropertyChanged
             OnPropertyChanged();
         }
     } = ThinkingLevel.Medium;
+
+    /// <summary>
+    /// Collection of the locally available models that can convert speech
+    /// into text (see <see cref="AiAgent.IsVoiceModel"/>), headed by the
+    /// "none" option that switches the voice input off.
+    /// </summary>
+    public ObservableCollection<ModelOptionVm> VoiceModels { get; } = [];
+
+    /// <summary>
+    /// Indicates that there is at least one voice model to choose from.
+    /// </summary>
+    public bool HasVoiceModels => VoiceModels.Any(x => !x.IsNone);
+
+    /// <summary>
+    /// The model the questions asked by voice are transcribed with.
+    /// </summary>
+    public ModelOptionVm SelectedVoiceModel
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+
+            field = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasVoiceModelSelected));
+            OnPropertyChanged(nameof(ActiveVoiceModel));
+        }
+    }
+
+    /// <summary>
+    /// Indicates that the voice input is switched on.
+    /// </summary>
+    public bool HasVoiceModelSelected => SelectedVoiceModel is { IsNone: false };
+
+    /// <summary>
+    /// Name of the model the questions asked by voice are transcribed with
+    /// ("null" if the voice input is switched off).
+    /// </summary>
+    public string ActiveVoiceModel => HasVoiceModelSelected ? SelectedVoiceModel.Name : null;
+
+    /// <summary>
+    /// The choice of the device the questions asked by voice are recorded with.
+    /// </summary>
+    public MicrophoneSelection Microphones { get; }
+
+    /// <summary>
+    /// Records the questions asked by voice.
+    /// </summary>
+    public SpeechRecorder Speech { get; } = new();
 
     /// <summary>
     /// The model the conversation is run with.
@@ -420,7 +515,32 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     /// be shown. As soon as the answer starts arriving it becomes its own
     /// progress indication and the indicator is not needed anymore.
     /// </summary>
-    public bool IsBusy => Status is AiHelperStatus.Checking or AiHelperStatus.Busy;
+    public bool IsBusy => Status is AiHelperStatus.Checking or AiHelperStatus.Busy or AiHelperStatus.Transcribing;
+
+    /// <summary>
+    /// Indicates that the microphone is being recorded.
+    /// </summary>
+    public bool IsRecording => Status == AiHelperStatus.Recording;
+
+    /// <summary>
+    /// Indicates that the status panel (the description of the operation in
+    /// progress) should be shown.
+    /// </summary>
+    public bool HasStatusPanel => IsBusy || IsRecording;
+
+    /// <summary>
+    /// Indicates that the microphone button can be used (it stays enabled
+    /// while recording, so that it does not lose the mouse capture).
+    /// </summary>
+    public bool CanUseMicrophone => Microphones.IsAvailable &&
+                                    Status is AiHelperStatus.Ready or AiHelperStatus.Recording;
+
+    /// <summary>
+    /// Tool tip of the microphone button.
+    /// </summary>
+    public string MicrophoneToolTip => Microphones.IsAvailable
+        ? "Hold (or hold the space bar) and speak; release to convert the speech into text"
+        : "No microphone has been found";
 
     /// <summary>
     /// Indicates that the user can type and send messages.
@@ -435,7 +555,7 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     /// <summary>
     /// Indicates that there is a request that can be terminated.
     /// </summary>
-    public bool CanTerminate => Status is AiHelperStatus.Busy or AiHelperStatus.Streaming;
+    public bool CanTerminate => Status is AiHelperStatus.Busy or AiHelperStatus.Streaming or AiHelperStatus.Transcribing;
 
     /// <summary>
     /// Current state of the window.
@@ -452,6 +572,9 @@ public partial class AiHelperWindow : INotifyPropertyChanged
             OnPropertyChanged(nameof(CanInteract));
             OnPropertyChanged(nameof(CanRetry));
             OnPropertyChanged(nameof(CanTerminate));
+            OnPropertyChanged(nameof(IsRecording));
+            OnPropertyChanged(nameof(HasStatusPanel));
+            OnPropertyChanged(nameof(CanUseMicrophone));
         }
     } = AiHelperStatus.Checking;
 
@@ -479,6 +602,9 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         var result = await _agent.ConnectAsync(CancellationToken.None).ConfigureAwait(true);
 
         Models.Clear();
+        VoiceModels.Clear();
+        SelectedVoiceModel = null;
+        OnPropertyChanged(nameof(HasVoiceModels));
 
         if (!result.Available)
         {
@@ -501,10 +627,25 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         foreach (var model in result.ChatModels)
             Models.Add(new ModelOptionVm(model));
 
+        var none = ModelOptionVm.CreateNone();
+        VoiceModels.Add(none);
+
+        foreach (var model in result.VoiceModels)
+            VoiceModels.Add(new ModelOptionVm(model));
+
+        SelectedVoiceModel = VoiceModels.FirstOrDefault(x => !x.IsNone) ?? none;
+        OnPropertyChanged(nameof(HasVoiceModels));
+        Microphones.Refresh();
+
         SelectedModel = Models[0].Name;
         Status = AiHelperStatus.Ready;
         StatusText = null;
     }
+
+    /// <summary>
+    /// Refreshes the list of the recording devices (they could have been plugged in or out).
+    /// </summary>
+    private void MicrophoneSelector_OnDropDownOpened(object sender, EventArgs e) => Microphones.Refresh();
 
     /// <summary>
     /// Handles the "click" event of the "retry" button.
@@ -542,6 +683,7 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         if (string.IsNullOrEmpty(text)) return;
 
         InputBox.Clear();
+        BannerText = null;
         Status = AiHelperStatus.Busy;
 
         var model = SelectedModel;
@@ -630,6 +772,7 @@ public partial class AiHelperWindow : INotifyPropertyChanged
                 AiAgentActivity.CheckingModelCapabilities => "Checking the capabilities of the model...",
                 AiAgentActivity.WaitingForModel =>
                     $"Waiting for \"{model}\"... this may take a while for large models.",
+                AiAgentActivity.Transcribing => $"Converting the speech into text with \"{model}\"...",
                 _ => null
             };
 
@@ -750,7 +893,8 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     /// </remarks>
     private void ClearContext_OnClick(object sender, RoutedEventArgs e)
     {
-        if (Status is AiHelperStatus.Busy or AiHelperStatus.Streaming) return;
+        if (Status is AiHelperStatus.Busy or AiHelperStatus.Streaming
+            or AiHelperStatus.Recording or AiHelperStatus.Transcribing) return;
 
         if (Transcript.Count == 0) return;
 
@@ -921,7 +1065,148 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     /// <summary>
     /// Handles the "click-event" of the "close" button.
     /// </summary>
-    private void Close_OnClick(object sender, RoutedEventArgs e) => Hide();
+    private void Close_OnClick(object sender, RoutedEventArgs e)
+    {
+        // A recording nobody is going to release the button of is abandoned,
+        // and so is the transcription of one.
+        if (Status == AiHelperStatus.Recording)
+            _ = StopRecordingAsync(discard: true);
+        else if (Status == AiHelperStatus.Transcribing)
+            _agent.Cancel();
+
+        Hide();
+    }
+
+    /// <summary>
+    /// Starts recording the question asked by voice.
+    /// </summary>
+    private void StartRecording()
+    {
+        if (Status != AiHelperStatus.Ready || !HasVoiceModelSelected || Microphones.Selected is not { } microphone)
+            return;
+
+        try
+        {
+            Speech.Start(microphone.Number);
+        }
+        catch (MmException)
+        {
+            BannerText = "The microphone could not be opened. Make sure that it is connected and that " +
+                         "desktop applications are allowed to access it (Windows Settings > " +
+                         "Privacy & security > Microphone).";
+            return;
+        }
+        catch (Exception exception)
+        {
+            BannerText = $"Failed to start the recording: {exception.Message}";
+            return;
+        }
+
+        Microphones.RememberSelected();
+        BannerText = null;
+        Status = AiHelperStatus.Recording;
+        UpdateRecordingStatus();
+    }
+
+    /// <summary>
+    /// Displays the duration of the ongoing recording.
+    /// </summary>
+    private void UpdateRecordingStatus() =>
+        StatusText = $"Recording... {(int)Speech.Elapsed.TotalSeconds} s " +
+                     $"(up to {(int)SpeechRecorder.MaxDuration.TotalSeconds} s) - " +
+                     "release the button to convert the speech into text.";
+
+    /// <summary>
+    /// Stops the ongoing recording (if any), converts it into text and puts
+    /// the text into the input box for the user to review and send.
+    /// </summary>
+    /// <param name="discard">Indicates that the recording is to be thrown away.</param>
+    /// <remarks>
+    /// Can be called several times for the same recording (for example, by
+    /// both the "button up" and the "duration limit" events): only the first
+    /// call does anything.
+    /// </remarks>
+    private async Task StopRecordingAsync(bool discard = false)
+    {
+        if (Status != AiHelperStatus.Recording) return;
+
+        // Switching the status first is what makes the repeated calls harmless.
+        Status = AiHelperStatus.Transcribing;
+        StatusText = "Finishing the recording...";
+
+        try
+        {
+            var recording = await Speech.StopAsync(discard).ConfigureAwait(true);
+
+            BannerText = recording.Outcome switch
+            {
+                SpeechRecordingOutcome.Failed => $"Failed to record the microphone: {recording.Error}",
+                SpeechRecordingOutcome.TooShort =>
+                    "The recording is too short. Hold the microphone button down while speaking.",
+                SpeechRecordingOutcome.Silent =>
+                    $"Nothing but silence has been recorded from \"{Microphones.Selected?.Name}\". " +
+                    "Make sure that it is the microphone you are speaking into (choose another one " +
+                    "otherwise) and that it is not muted.",
+                _ => null
+            };
+
+            if (recording.Outcome != SpeechRecordingOutcome.Recorded) return;
+
+            var result = await _agent.TranscribeAsync(ActiveVoiceModel, recording.Audio).ConfigureAwait(true);
+
+            if (result.Cancelled) return;
+
+            if (!result.Success)
+                BannerText = $"Failed to convert the speech into text: {result.Error}";
+            else if (string.IsNullOrWhiteSpace(result.Text))
+                BannerText = "No speech has been recognized. Please try again.";
+            else
+                InsertIntoInput(result.Text);
+        }
+        finally
+        {
+            StatusText = null;
+            Status = AiHelperStatus.Ready;
+
+            // The input box gets enabled together with the "ready" status, and
+            // only then it can take the focus.
+            InputBox.Focus();
+        }
+    }
+
+    /// <summary>
+    /// Inserts the given text at the caret of the input box, separating it
+    /// with spaces from the text around it (if there is any).
+    /// </summary>
+    private void InsertIntoInput(string text)
+    {
+        var current = InputBox.Text ?? string.Empty;
+        var caret = Math.Clamp(InputBox.CaretIndex, 0, current.Length);
+
+        var prefix = caret > 0 && !char.IsWhiteSpace(current[caret - 1]) ? " " : string.Empty;
+        var suffix = caret < current.Length && !char.IsWhiteSpace(current[caret]) ? " " : string.Empty;
+
+        InputBox.Text = current.Insert(caret, prefix + text + suffix);
+        InputBox.CaretIndex = caret + prefix.Length + text.Length;
+    }
+
+    /// <summary>
+    /// Starts the recording when the microphone button is pressed.
+    /// </summary>
+    private void Mic_OnTalkStarted(object sender, EventArgs e) => StartRecording();
+
+    /// <summary>
+    /// Stops the recording when the microphone button is released.
+    /// </summary>
+    private async void Mic_OnTalkEnded(object sender, EventArgs e) =>
+        await StopRecordingAsync().ConfigureAwait(true);
+
+    /// <inheritdoc/>
+    protected override void OnClosed(EventArgs e)
+    {
+        Speech.Dispose();
+        base.OnClosed(e);
+    }
 
     /// <inheritdoc/>
     public event PropertyChangedEventHandler PropertyChanged;

@@ -33,6 +33,16 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
             <Setter Property="Background" Value="{DynamicResource BackgroundColor}"/>
         </Style>
         <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource ScrollBarStyle}"/>
+        <!-- Item of a model drop-down list: the name followed by the (dimmed) details -->
+        <DataTemplate x:Key="ModelOptionTemplate">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Name}" Style="{StaticResource TextBlockStyle}"/>
+                <TextBlock Text="{Binding Description, StringFormat=' ({0})'}"
+                           Style="{StaticResource TextBlockStyle}"
+                           Opacity="0.6" FontSize="10" VerticalAlignment="Center"
+                           Visibility="{Binding Description, Converter={StaticResource EmptyStringToVisibility}}"/>
+            </StackPanel>
+        </DataTemplate>
     </Window.Resources>
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0"/>
@@ -67,50 +77,80 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
         </Grid>
 
         <!-- Model selector -->
-        <Grid Grid.Row="1" Margin="20,4,8,4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Model:" VerticalAlignment="Center"
-                       Style="{StaticResource TextBlockStyle}" Margin="0,0,6,0"/>
-            <ComboBox Grid.Column="1" x:Name="ModelSelector" Style="{StaticResource ComboBoxStyle}"
-                      ItemsSource="{Binding ElementName=Ui, Path=Models}"
-                      SelectedValuePath="Name"
-                      SelectedValue="{Binding ElementName=Ui, Path=SelectedModel, Mode=TwoWay}"
-                      IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
-                      ToolTip="Models capable of both calling tools and thinking">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Name}" Style="{StaticResource TextBlockStyle}"/>
-                            <TextBlock Text="{Binding Description, StringFormat=' ({0})'}"
-                                       Style="{StaticResource TextBlockStyle}"
-                                       Opacity="0.6" FontSize="10" VerticalAlignment="Center"
-                                       Visibility="{Binding Description, Converter={StaticResource EmptyStringToVisibility}}"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-            <TextBlock Grid.Column="2" Text="Thinking:" VerticalAlignment="Center"
-                       Style="{StaticResource TextBlockStyle}" Margin="10,0,6,0"/>
-            <ComboBox Grid.Column="3" Style="{StaticResource ComboBoxStyle}" MinWidth="70"
-                      ItemsSource="{Binding ElementName=Ui, Path=ThinkingLevels}"
-                      SelectedItem="{Binding ElementName=Ui, Path=SelectedThinkingLevel, Mode=TwoWay}"
-                      IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
-                      ToolTip="How much reasoning the model is asked to do before answering"/>
-            <Button Grid.Column="4" Content="Retry" Margin="6,0,0,0" Padding="8,0,8,0"
-                    Style="{StaticResource ButtonStyle}" Click="Retry_OnClick"
-                    Visibility="{Binding ElementName=Ui, Path=CanRetry, Converter={StaticResource BoolToVisibility}}"/>
-            <Button Grid.Column="5" Content="Clear context" Margin="6,0,0,0" Padding="8,0,8,0"
-                    Style="{StaticResource ButtonStyle}" Click="ClearContext_OnClick"
-                    ToolTip="Forget the conversation and start over"
-                    IsEnabled="{Binding ElementName=Ui, Path=HasTranscript}"/>
-        </Grid>
+        <StackPanel Grid.Row="1" Margin="20,4,8,4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Model:" VerticalAlignment="Center"
+                           Style="{StaticResource TextBlockStyle}" Margin="0,0,6,0"/>
+                <ComboBox Grid.Column="1" x:Name="ModelSelector" Style="{StaticResource ComboBoxStyle}"
+                          ItemsSource="{Binding ElementName=Ui, Path=Models}"
+                          SelectedValuePath="Name"
+                          SelectedValue="{Binding ElementName=Ui, Path=SelectedModel, Mode=TwoWay}"
+                          IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
+                          ItemTemplate="{StaticResource ModelOptionTemplate}"
+                          ToolTip="Models capable of both calling tools and thinking"/>
+                <TextBlock Grid.Column="2" Text="Thinking:" VerticalAlignment="Center"
+                           Style="{StaticResource TextBlockStyle}" Margin="10,0,6,0"/>
+                <ComboBox Grid.Column="3" Style="{StaticResource ComboBoxStyle}" MinWidth="70"
+                          ItemsSource="{Binding ElementName=Ui, Path=ThinkingLevels}"
+                          SelectedItem="{Binding ElementName=Ui, Path=SelectedThinkingLevel, Mode=TwoWay}"
+                          IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
+                          ToolTip="How much reasoning the model is asked to do before answering"/>
+                <Button Grid.Column="4" Content="Retry" Margin="6,0,0,0" Padding="8,0,8,0"
+                        Style="{StaticResource ButtonStyle}" Click="Retry_OnClick"
+                        Visibility="{Binding ElementName=Ui, Path=CanRetry, Converter={StaticResource BoolToVisibility}}"/>
+                <Button Grid.Column="5" Content="Clear context" Margin="6,0,0,0" Padding="8,0,8,0"
+                        Style="{StaticResource ButtonStyle}" Click="ClearContext_OnClick"
+                        ToolTip="Forget the conversation and start over"
+                        IsEnabled="{Binding ElementName=Ui, Path=HasTranscript}"/>
+            </Grid>
+
+            <!-- Voice model and microphone selectors (only shown if there are audio-capable models and recording devices respectively) -->
+            <UniformGrid Rows="1" Margin="0,4,0,0"
+                         Visibility="{Binding ElementName=Ui, Path=HasVoiceModels, Converter={StaticResource BoolToVisibility}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Voice model:" VerticalAlignment="Center"
+                               Style="{StaticResource TextBlockStyle}" Margin="0,0,6,0"/>
+                    <ComboBox Grid.Column="1" Style="{StaticResource ComboBoxStyle}"
+                              ItemsSource="{Binding ElementName=Ui, Path=VoiceModels}"
+                              SelectedItem="{Binding ElementName=Ui, Path=SelectedVoiceModel, Mode=TwoWay}"
+                              IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
+                              ItemTemplate="{StaticResource ModelOptionTemplate}"
+                              ToolTip="Audio-capable model used to convert the questions asked by voice into text"/>
+                </Grid>
+                <Grid Visibility="{Binding ElementName=Ui, Path=Microphones.IsAvailable, Converter={StaticResource BoolToVisibility}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Microphone:" VerticalAlignment="Center"
+                               Style="{StaticResource TextBlockStyle}" Margin="10,0,6,0"/>
+                    <ComboBox Grid.Column="1" Style="{StaticResource ComboBoxStyle}"
+                              ItemsSource="{Binding ElementName=Ui, Path=Microphones.Devices}"
+                              SelectedItem="{Binding ElementName=Ui, Path=Microphones.Selected, Mode=TwoWay}"
+                              IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
+                              DropDownOpened="MicrophoneSelector_OnDropDownOpened"
+                              ToolTip="Recording device the questions are asked with">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource TextBlockStyle}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+            </UniformGrid>
+        </StackPanel>
 
         <!-- Warning banner -->
         <Border Grid.Row="2" Margin="20,0,8,4" Padding="8" BorderThickness="1"
@@ -190,12 +230,19 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
 
         <!-- Busy indicator -->
         <StackPanel Grid.Row="4" Margin="20,0,8,4"
-                    Visibility="{Binding ElementName=Ui, Path=IsBusy, Converter={StaticResource BoolToVisibility}}">
+                    Visibility="{Binding ElementName=Ui, Path=HasStatusPanel, Converter={StaticResource BoolToVisibility}}">
             <TextBlock Text="{Binding ElementName=Ui, Path=StatusText}" TextWrapping="Wrap"
                        Style="{StaticResource TextBlockStyle}" FontSize="11"/>
             <ProgressBar IsIndeterminate="True" Height="6" Margin="0,3,0,0"
                          Foreground="{DynamicResource ForegroundColor}"
-                         Background="{DynamicResource BackgroundAltColor}"/>
+                         Background="{DynamicResource BackgroundAltColor}"
+                         Visibility="{Binding ElementName=Ui, Path=IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+            <ProgressBar Minimum="0" Maximum="1" Height="6" Margin="0,3,0,0"
+                         Value="{Binding ElementName=Ui, Path=Speech.Level, Mode=OneWay}"
+                         Foreground="LimeGreen"
+                         Background="{DynamicResource BackgroundAltColor}"
+                         ToolTip="Sound level of the microphone"
+                         Visibility="{Binding ElementName=Ui, Path=IsRecording, Converter={StaticResource BoolToVisibility}}"/>
         </StackPanel>
 
         <!-- Input -->
@@ -204,16 +251,42 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBox Grid.Column="0" x:Name="InputBox" Style="{StaticResource TextBoxStyle}"
                      AcceptsReturn="True" TextWrapping="Wrap" MinHeight="50" MaxHeight="120"
                      VerticalScrollBarVisibility="Auto"
                      IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"
                      PreviewKeyDown="InputBox_OnPreviewKeyDown"/>
-            <Button Grid.Column="1" Content="Send" Margin="6,0,0,0" Padding="12,0,12,0"
+            <!-- Push-to-talk: the recording lasts while the button is held down
+                 (with the mouse or the space bar). The button stays enabled while
+                 recording, because disabling it would take the mouse capture away. -->
+            <controls:PushToTalkButton Grid.Column="1" Margin="6,0,0,0" Padding="8,0,8,0"
+                    Style="{StaticResource ButtonStyle}"
+                    ToolTip="{Binding ElementName=Ui, Path=MicrophoneToolTip}"
+                    ToolTipService.ShowOnDisabled="True"
+                    Visibility="{Binding ElementName=Ui, Path=HasVoiceModelSelected, Converter={StaticResource BoolToVisibility}}"
+                    IsEnabled="{Binding ElementName=Ui, Path=CanUseMicrophone}"
+                    TalkStarted="Mic_OnTalkStarted" TalkEnded="Mic_OnTalkEnded">
+                <Path Width="14" Height="14" Stretch="Uniform"
+                      Data="M12,2 A3,3 0 0 1 15,5 V11 A3,3 0 0 1 9,11 V5 A3,3 0 0 1 12,2 Z M19,11 A7,7 0 0 1 5,11 H7 A5,5 0 0 0 17,11 Z M11,17.5 H13 V21 H11 Z M8,21 H16 V22.5 H8 Z">
+                    <Path.Style>
+                        <Style TargetType="Path">
+                            <Setter Property="Fill"
+                                    Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ElementName=Ui, Path=IsRecording}" Value="True">
+                                    <Setter Property="Fill" Value="Red"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Path.Style>
+                </Path>
+            </controls:PushToTalkButton>
+            <Button Grid.Column="2" Content="Send" Margin="6,0,0,0" Padding="12,0,12,0"
                     Style="{StaticResource ButtonStyle}" Click="Send_OnClick"
                     IsEnabled="{Binding ElementName=Ui, Path=CanInteract}"/>
-            <Button Grid.Column="2" Content="Terminate" Margin="6,0,0,0" Padding="12,0,12,0"
+            <Button Grid.Column="3" Content="Terminate" Margin="6,0,0,0" Padding="12,0,12,0"
                     Style="{StaticResource ButtonStyle}" Click="Terminate_OnClick"
                     IsEnabled="{Binding ElementName=Ui, Path=CanTerminate}"/>
         </Grid>
