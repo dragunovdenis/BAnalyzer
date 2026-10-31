@@ -485,6 +485,36 @@ public sealed class OllamaClient : IOllamaClient
         }
     }
 
+    /// <inheritdoc/>
+    public async Task<RunningModelsResult> GetRunningModelsAsync(CancellationToken ct)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(ModelsTimeout);
+
+        try
+        {
+            using var response = await _client.GetAsync("/api/ps", cts.Token).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+                return new RunningModelsResult(false, [], DescribeStatus(response));
+
+            var payload = await response.Content.ReadFromJsonAsync<OllamaPsResponse>(cts.Token)
+                .ConfigureAwait(false);
+
+            var models = (payload?.Models ?? [])
+                .Where(x => !string.IsNullOrWhiteSpace(x?.Name))
+                .Select(x => new RunningModel(x.Name, x.Size, x.SizeVram, x.ExpiresAt, x.ContextLength))
+                .ToList();
+
+            return new RunningModelsResult(true, models, null);
+        }
+        catch (Exception e)
+        {
+            return new RunningModelsResult(false, [], DescribeFailure(e, ct,
+                $"Could not reach the Ollama service at {_client.BaseAddress}"));
+        }
+    }
+
     /// <summary>
     /// Time budget of a transcription request. A recording is at most a minute
     /// long, while the audio models are small, so the budget covers loading

@@ -68,6 +68,9 @@ public class ChatTurnRunnerTest
         public Task<bool> SupportsToolsAsync(string model, CancellationToken ct) =>
             throw new NotSupportedException();
 
+        public Task<RunningModelsResult> GetRunningModelsAsync(CancellationToken ct) =>
+            throw new NotSupportedException();
+
         public Task<TranscriptionResult> TranscribeAsync(string model, byte[] wavAudio, CancellationToken ct) =>
             throw new NotSupportedException();
 

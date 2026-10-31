@@ -435,6 +435,62 @@ public class OllamaClientTest
     }
 
     [TestMethod]
+    public async Task ChatStreamAsync_LeavesTheModelLifetimeToTheService()
+    {
+        var body = (string)null;
+
+        using var client = CreateClient(request =>
+        {
+            body = request.Content!.ReadAsStringAsync().Result;
+            return Json(HttpStatusCode.OK, """{"message":{"role":"assistant","content":"Hi"},"done":true}""");
+        });
+
+        await CollectAsync(client.ChatStreamAsync("some-model", [new ChatMessage(ChatRoles.User, "Hi")],
+            null, new ChatRequestOptions(ThinkingLevel.High), CancellationToken.None));
+
+        body.Should().NotContain("\"keep_alive\"");
+        body.Should().NotContain("\"num_gpu\"");
+    }
+
+    [TestMethod]
+    public async Task GetRunningModelsAsync_ParsesTheLoadedModels()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK,
+            """{"models":[{"name":"chat","size":5000,"size_vram":3000,"expires_at":"2319-02-10T19:03:09.5+02:00","context_length":32768},{"name":"voice","size":2000,"size_vram":0,"expires_at":"2026-10-31T19:00:00Z"}]}"""));
+
+        using var client = CreateClient(handler);
+
+        var result = await client.GetRunningModelsAsync(CancellationToken.None);
+
+        handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/api/ps");
+        result.Available.Should().BeTrue();
+        result.Models.Should().HaveCount(2);
+
+        var chat = result.Models[0];
+        chat.Name.Should().Be("chat");
+        chat.SizeCpu.Should().Be(2000);
+        chat.IsKeptLoaded.Should().BeTrue();
+        chat.ContextLength.Should().Be(32768);
+
+        var voice = result.Models[1];
+        voice.SizeVram.Should().Be(0);
+        voice.IsKeptLoaded.Should().BeFalse();
+        voice.ContextLength.Should().BeNull();
+    }
+
+    [TestMethod]
+    public async Task GetRunningModelsAsync_ServiceUnreachable_ReportsTheFailure()
+    {
+        using var client = CreateClient(_ => throw new HttpRequestException("Connection refused"));
+
+        var result = await client.GetRunningModelsAsync(CancellationToken.None);
+
+        result.Available.Should().BeFalse();
+        result.Models.Should().BeEmpty();
+        result.Error.Should().Contain("Connection refused");
+    }
+
+    [TestMethod]
     public async Task TranscribeAsync_ErrorStatusCode_ReportsTheServiceMessage()
     {
         using var client = CreateClient(_ => Json(HttpStatusCode.BadRequest,

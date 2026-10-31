@@ -87,6 +87,14 @@ public class AiAgentTest
         /// </summary>
         public List<(string Model, byte[] Audio)> Transcribed { get; } = [];
 
+        /// <summary>
+        /// What the client reports as the models the service has loaded.
+        /// </summary>
+        public RunningModelsResult Running { get; set; } = new(true, [], null);
+
+        public Task<RunningModelsResult> GetRunningModelsAsync(CancellationToken ct) =>
+            Task.FromResult(Running);
+
         public async Task<TranscriptionResult> TranscribeAsync(string model, byte[] wavAudio, CancellationToken ct)
         {
             Transcribed.Add((model, wavAudio));

@@ -33,6 +33,54 @@ internal sealed class OllamaTagsResponse
 }
 
 /// <summary>
+/// Response of the Ollama "/api/ps" end-point.
+/// </summary>
+internal sealed class OllamaPsResponse
+{
+    /// <summary>
+    /// Collection of the models that are currently loaded.
+    /// </summary>
+    [JsonPropertyName("models")]
+    public List<OllamaRunningModelDto> Models { get; set; }
+}
+
+/// <summary>
+/// Description of a model that is currently loaded, as reported by the "/api/ps" end-point.
+/// </summary>
+internal sealed class OllamaRunningModelDto
+{
+    /// <summary>
+    /// Name of the model.
+    /// </summary>
+    [JsonPropertyName("name")]
+    public string Name { get; set; }
+
+    /// <summary>
+    /// Memory the model occupies, in bytes.
+    /// </summary>
+    [JsonPropertyName("size")]
+    public long Size { get; set; }
+
+    /// <summary>
+    /// Part of the memory the model occupies that resides in the video memory, in bytes.
+    /// </summary>
+    [JsonPropertyName("size_vram")]
+    public long SizeVram { get; set; }
+
+    /// <summary>
+    /// When the model is going to be unloaded.
+    /// </summary>
+    [JsonPropertyName("expires_at")]
+    public DateTimeOffset? ExpiresAt { get; set; }
+
+    /// <summary>
+    /// Context window the model has been loaded with.
+    /// </summary>
+    [JsonPropertyName("context_length")]
+    public long? ContextLength { get; set; }
+}
+
+/// <summary>
 /// Request body of the Ollama "/api/show" end-point.
 /// </summary>
 internal sealed class OllamaShowRequest

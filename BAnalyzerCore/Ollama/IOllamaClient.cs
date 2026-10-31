@@ -161,6 +161,37 @@ public sealed record ChatRequestOptions(ThinkingLevel? Thinking = null);
 public sealed record TranscriptionResult(bool Success, string Text, string Error, bool Cancelled = false);
 
 /// <summary>
+/// A model that is currently loaded into the memory of the service.
+/// </summary>
+/// <param name="Name">Name of the model.</param>
+/// <param name="Size">Memory the model occupies, in bytes.</param>
+/// <param name="SizeVram">Part of <paramref name="Size"/> that resides in the video memory, in bytes.</param>
+/// <param name="ExpiresAt">
+/// When the model is going to be unloaded, or "null" if not reported.
+/// Models that are kept loaded until unloaded explicitly report a date
+/// centuries away (see <see cref="IsKeptLoaded"/>).
+/// </param>
+/// <param name="ContextLength">Context window the model has been loaded with, or "null" if not reported.</param>
+public sealed record RunningModel(string Name, long Size, long SizeVram,
+    DateTimeOffset? ExpiresAt, long? ContextLength)
+{
+    /// <summary>
+    /// Part of <see cref="Size"/> that resides in the main memory (and is run by the CPU), in bytes.
+    /// </summary>
+    public long SizeCpu => Math.Max(0, Size - SizeVram);
+
+    /// <summary>
+    /// Indicates that the model stays loaded until it is unloaded explicitly.
+    /// </summary>
+    public bool IsKeptLoaded => ExpiresAt is { } expiry && expiry > DateTimeOffset.Now.AddYears(100);
+}
+
+/// <summary>
+/// Result of an attempt to find out which models are currently loaded by the service.
+/// </summary>
+public sealed record RunningModelsResult(bool Available, IReadOnlyList<RunningModel> Models, string Error);
+
+/// <summary>
 /// Interface of a client of the local Ollama service.
 /// </summary>
 /// <remarks>
@@ -223,4 +254,10 @@ public interface IOllamaClient : IDisposable
     /// <param name="wavAudio">The recording.</param>
     /// <param name="ct">Cancellation token.</param>
     Task<TranscriptionResult> TranscribeAsync(string model, byte[] wavAudio, CancellationToken ct);
+
+    /// <summary>
+    /// Returns the models that are currently loaded by the service
+    /// (by any of its clients) together with their memory footprint.
+    /// </summary>
+    Task<RunningModelsResult> GetRunningModelsAsync(CancellationToken ct);
 }
