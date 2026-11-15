@@ -33,7 +33,7 @@ namespace BAnalyzer.Utils;
 /// <param name="loadPreferredName">Returns the name of the device used last time.</param>
 /// <param name="savePreferredName">Stores the name of the device to be preferred next time.</param>
 public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<string> savePreferredName)
-    : INotifyPropertyChanged
+    : INotifyPropertyChanged, IDisposable
 {
     /// <summary>
     /// While there are no devices, the system is re-checked this often (one could get plugged in).
@@ -41,6 +41,7 @@ public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<s
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(3);
 
     private DispatcherTimer _pollTimer;
+    private bool _disposed;
 
     /// <summary>
     /// The devices to choose from.
@@ -101,6 +102,19 @@ public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<s
     }
 
     /// <summary>
+    /// Re-reads the devices of the system if they have changed since the last
+    /// time (the numbers of the devices shift when some get plugged in or out)
+    /// and returns the chosen one.
+    /// </summary>
+    public MicrophoneDevice RefreshIfChanged()
+    {
+        if (!MicrophoneDevice.GetAll().SequenceEqual(Devices))
+            Refresh();
+
+        return Selected;
+    }
+
+    /// <summary>
     /// Makes the chosen device the preferred one (the one chosen by default next time).
     /// </summary>
     public void RememberSelected()
@@ -114,7 +128,7 @@ public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<s
     /// </summary>
     private void UpdatePolling()
     {
-        if (IsAvailable)
+        if (IsAvailable || _disposed)
         {
             _pollTimer?.Stop();
             return;
@@ -127,6 +141,16 @@ public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<s
         }
 
         _pollTimer.Start();
+    }
+
+    /// <summary>
+    /// Stops re-checking the system (a running timer would keep the instance,
+    /// and everything listening to it, alive).
+    /// </summary>
+    public void Dispose()
+    {
+        _disposed = true;
+        _pollTimer?.Stop();
     }
 
     /// <inheritdoc/>

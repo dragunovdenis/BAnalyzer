@@ -33,14 +33,25 @@ public sealed record MicrophoneDevice(int Number, string Name)
     /// <summary>
     /// Returns the recording devices of the system.
     /// </summary>
+    /// <remarks>
+    /// WinMM cuts the names of the devices down to 31 characters, so different
+    /// devices can end up with the same name; such names get a "#2", "#3"...
+    /// suffix to make the devices distinguishable (by name, which, unlike the
+    /// number of a device, survives the plugging in and out of the others).
+    /// </remarks>
     public static IReadOnlyList<MicrophoneDevice> GetAll()
     {
         var result = new List<MicrophoneDevice>();
+        var nameCounts = new Dictionary<string, int>();
 
         try
         {
             for (var i = 0; i < WaveIn.DeviceCount; i++)
-                result.Add(new MicrophoneDevice(i, WaveIn.GetCapabilities(i).ProductName));
+            {
+                var name = WaveIn.GetCapabilities(i).ProductName;
+                var count = nameCounts[name] = nameCounts.GetValueOrDefault(name) + 1;
+                result.Add(new MicrophoneDevice(i, count == 1 ? name : $"{name} #{count}"));
+            }
         }
         catch (Exception)
         {

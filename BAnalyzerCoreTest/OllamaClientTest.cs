@@ -384,8 +384,19 @@ public class OllamaClientTest
             [new ChatMessage(ChatRoles.User, "Hi")], null,
             new ChatRequestOptions(ThinkingLevel.Low), CancellationToken.None));
 
-        (await act.Should().ThrowAsync<HttpRequestException>()).WithMessage("*404*");
+        (await act.Should().ThrowAsync<HttpRequestException>()).WithMessage("*404*model not found*");
         requests.Should().Be(1);
+    }
+
+    [TestMethod]
+    public async Task ChatStreamAsync_ErrorStatusCode_ReportsTheServiceMessage()
+    {
+        using var client = CreateClient(_ => Json(HttpStatusCode.NotFound, """{"error":"model not found"}"""));
+
+        var act = async () => await CollectAsync(client.ChatStreamAsync("missing-model",
+            [new ChatMessage(ChatRoles.User, "Hi")], null, null, CancellationToken.None));
+
+        (await act.Should().ThrowAsync<HttpRequestException>()).WithMessage("*404*model not found*");
     }
 
     [TestMethod]
@@ -428,7 +439,7 @@ public class OllamaClientTest
         body.Should().Contain("\"stream\":false");
         body.Should().Contain("\"temperature\":0");
         body.Should().Contain($"\"images\":[\"{Convert.ToBase64String(audio)}\"]");
-        body.Should().NotContain("\"think\"");
+        body.Should().Contain("\"think\":false");
         body.Should().NotContain("\"tools\"");
         body.Should().NotContain("\"keep_alive\"");
         body.Should().NotContain("\"num_gpu\"");

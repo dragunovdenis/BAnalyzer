@@ -217,7 +217,7 @@ public sealed class OllamaClient : IOllamaClient
 
             // The capabilities are fetched in parallel and cached, so that the
             // later questions about the same models cost no extra requests.
-            var caps = await Task.WhenAll(namedModels.Select(m => GetModelCapsAsync(m.Name, ct)))
+            var caps = await Task.WhenAll(namedModels.Select(m => GetModelCapsAsync(m.Name, cts.Token)))
                 .ConfigureAwait(false);
 
             var modelsInfos = namedModels.Select((x, i) => new ModelInfo(x.Name, x.Size,
@@ -401,7 +401,10 @@ public sealed class OllamaClient : IOllamaClient
         using var response = await PostChatAsync(body, cts.Token).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException(DescribeStatus(response));
+        {
+            var error = await ReadErrorAsync(response, cts.Token).ConfigureAwait(false);
+            throw new HttpRequestException(DescribeStatus(response, error));
+        }
 
         await foreach (var chunk in ReadOutResponse(response, ct))
         {
@@ -540,6 +543,9 @@ public sealed class OllamaClient : IOllamaClient
             {
                 Model = model,
                 Stream = false,
+                // Otherwise a thinking-capable model would reason about the recording
+                // before transcribing it (the service ignores "false" for the other models).
+                Think = false,
                 Options = new OllamaChatOptionsDto { Temperature = 0 },
                 Messages = SpeechTranscription.BuildMessages(wavAudio)
             };

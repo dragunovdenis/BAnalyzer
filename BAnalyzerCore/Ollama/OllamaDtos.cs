@@ -248,7 +248,9 @@ internal sealed class OllamaChatMessageDto
     /// Base64-encoded media attached to the message. Despite the name, the
     /// service accepts audio (for example, a WAV file) here as well: the media
     /// type is detected from the content, and the audio-capable models
-    /// receive it as speech.
+    /// receive it as speech. The REST API reference documents images only,
+    /// but this is how Ollama's own CLI attaches ".wav" files and how its
+    /// audio integration tests ("integration/audio_test.go") transcribe speech.
     /// </summary>
     [JsonPropertyName("images")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

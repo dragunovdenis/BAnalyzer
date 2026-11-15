@@ -1077,17 +1077,26 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         if (Status == AiHelperStatus.Recording)
             _ = StopRecordingAsync(discard: true);
         else if (Status == AiHelperStatus.Transcribing)
+        {
+            _discardTranscription = true;
             _agent.Cancel();
+        }
 
         Hide();
     }
+
+    /// <summary>
+    /// Indicates that the outcome of the recording being stopped or transcribed is to be thrown away.
+    /// </summary>
+    private bool _discardTranscription;
 
     /// <summary>
     /// Starts recording the question asked by voice.
     /// </summary>
     private void StartRecording()
     {
-        if (Status != AiHelperStatus.Ready || !HasVoiceModelSelected || Microphones.Selected is not { } microphone)
+        if (Status != AiHelperStatus.Ready || !HasVoiceModelSelected ||
+            Microphones.RefreshIfChanged() is not { } microphone)
             return;
 
         try
@@ -1138,10 +1147,14 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         // Switching the status first is what makes the repeated calls harmless.
         Status = AiHelperStatus.Transcribing;
         StatusText = "Finishing the recording...";
+        _discardTranscription = discard;
 
         try
         {
             var recording = await Speech.StopAsync(discard).ConfigureAwait(true);
+
+            // The window could have been closed in the meantime.
+            if (_discardTranscription) return;
 
             BannerText = recording.Outcome switch
             {
@@ -1159,7 +1172,7 @@ public partial class AiHelperWindow : INotifyPropertyChanged
 
             var result = await _agent.TranscribeAsync(ActiveVoiceModel, recording.Audio).ConfigureAwait(true);
 
-            if (result.Cancelled) return;
+            if (result.Cancelled || _discardTranscription) return;
 
             if (!result.Success)
                 BannerText = $"Failed to convert the speech into text: {result.Error}";
@@ -1175,7 +1188,8 @@ public partial class AiHelperWindow : INotifyPropertyChanged
 
             // The input box gets enabled together with the "ready" status, and
             // only then it can take the focus.
-            InputBox.Focus();
+            if (IsVisible)
+                InputBox.Focus();
         }
     }
 
@@ -1210,6 +1224,7 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     protected override void OnClosed(EventArgs e)
     {
         Speech.Dispose();
+        Microphones.Dispose();
         base.OnClosed(e);
     }
 

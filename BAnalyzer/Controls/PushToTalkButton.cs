@@ -29,6 +29,8 @@ namespace BAnalyzer.Controls;
 /// The button keeps the mouse captured while it is held down, so a release
 /// outside of it (or a loss of the capture, for example because the window
 /// has been deactivated or the button disabled) ends the "talk" as well.
+/// Likewise, a "talk" started with the space bar ends when the button loses
+/// the keyboard focus or gets disabled (the key-up would never arrive then).
 /// </remarks>
 public class PushToTalkButton : Button
 {
@@ -36,6 +38,18 @@ public class PushToTalkButton : Button
     {
         DefaultStyleKeyProperty.OverrideMetadata(typeof(PushToTalkButton),
             new FrameworkPropertyMetadata(typeof(Button)));
+    }
+
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    public PushToTalkButton()
+    {
+        IsEnabledChanged += (_, e) =>
+        {
+            if (e.NewValue is false)
+                EndTalk();
+        };
     }
 
     private bool _talking;
@@ -90,6 +104,13 @@ public class PushToTalkButton : Button
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         base.OnLostMouseCapture(e);
+        EndTalk();
+    }
+
+    /// <inheritdoc/>
+    protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
+    {
+        base.OnLostKeyboardFocus(e);
         EndTalk();
     }
 

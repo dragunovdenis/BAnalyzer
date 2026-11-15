@@ -111,15 +111,37 @@ public sealed class MicrophoneRecorder : IDisposable
     /// <summary>
     /// Stops the recording and returns the complete WAV file.
     /// </summary>
+    /// <remarks>
+    /// If the recording has already been stopped by the system (for example,
+    /// because the device has been unplugged), the exception it has ended
+    /// with is re-thrown.
+    /// </remarks>
     public async Task<byte[]> StopAsync()
     {
-        if (!IsRecording)
-            throw new InvalidOperationException("No recording is in progress.");
+        var completion = _stopped ?? throw new InvalidOperationException("No recording has been started.");
 
-        var stopped = _stopped.Task;
-        _waveIn.StopRecording();
+        if (_waveIn != null)
+        {
+            try
+            {
+                _waveIn.StopRecording();
+            }
+            catch (Exception exception)
+            {
+                completion.TrySetException(exception);
+                Cleanup();
+            }
+        }
 
-        return await stopped.ConfigureAwait(true);
+        try
+        {
+            return await completion.Task.ConfigureAwait(true);
+        }
+        finally
+        {
+            if (_stopped == completion)
+                _stopped = null;
+        }
     }
 
     /// <summary>
@@ -152,7 +174,8 @@ public sealed class MicrophoneRecorder : IDisposable
 
         try
         {
-            // Disposing the writer is what fills in the sizes in the RIFF header (the writer leaves the stream open).
+            // Disposing the writer is what fills in the sizes in the RIFF header. It disposes
+            // the stream as well, but the content of a disposed memory stream is still readable.
             _writer?.Dispose();
             _writer = null;
 
@@ -178,12 +201,22 @@ public sealed class MicrophoneRecorder : IDisposable
     /// </summary>
     private void Cleanup()
     {
-        if (_waveIn != null)
+        var waveIn = _waveIn;
+        _waveIn = null;
+
+        if (waveIn != null)
         {
-            _waveIn.DataAvailable -= OnDataAvailable;
-            _waveIn.RecordingStopped -= OnRecordingStopped;
-            _waveIn.Dispose();
-            _waveIn = null;
+            waveIn.DataAvailable -= OnDataAvailable;
+            waveIn.RecordingStopped -= OnRecordingStopped;
+
+            try
+            {
+                waveIn.Dispose();
+            }
+            catch (Exception)
+            {
+                // A failed device may fail to close as well; there is nothing to be done about it.
+            }
         }
 
         _writer?.Dispose();
