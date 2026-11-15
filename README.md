@@ -18,6 +18,15 @@ The **Thinking** drop-down (low / medium / high) controls how much the model rea
 
 **Disclaimer**: **AI Helper** is a statistics-based analysis tool, you are welcome to plan your investment activities based on its predictions but be aware of a risk that they may never come true.
 
+**Trade Simulator**
+**Main Menu** -> **Tools** -> **Trade Sim** opens a window where you can practise spot trading of USDT-quoted coins at live Binance or Bybit prices without risking real money.
+* Choose the exchange and the coin (e.g., "BTCUSDT"); the current price is refreshed every second.
+* Enter the amount either in the coin or in USDT. The field you are typing in (highlighted with a thicker border) keeps its value, and the other field is recalculated from the current price. The **Available** links fill in your whole balance.
+* **Buy** and **Sell** are market orders at the latest price, which is re-fetched when you click. The trade is rejected if the price has moved by more than 0.5 % since the quote you saw, or if you don't have enough USDT (buy) or coins (sell). The buttons are disabled while the displayed price is more than 5 seconds old.
+* A fee (0.1 % by default, adjustable in the account panel) is taken from the asset you receive.
+* Use **Deposit** / **Withdraw** to change your USDT balance. The account panel shows all your holdings and their current value in USDT; click a holding to switch to its market. The history panel lists the trades of the selected coin.
+* The account (balances, fee and trade history) is saved to `trade-sim.xml` next to `settings.xml` after every change, so you continue where you left off. **Reset…** clears the account after confirmation.
+
 
 
 

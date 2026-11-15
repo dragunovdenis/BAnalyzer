@@ -196,13 +196,8 @@ public partial class CryptoExchangeControl : INotifyPropertyChanged,
     /// <summary>
     /// Visualizes the given <paramref name="price"/>
     /// </summary>
-    private void VisualizePrice(double price)
-    {
-        if (price > 1e-3)
-            Price = double.IsNaN(price) ? "N/A" : $"Value: {price,7:F5} USDT";
-        else
-            Price = double.IsNaN(price) ? "N/A" : $"Value: {price,5:E4} USDT";
-    }
+    private void VisualizePrice(double price) =>
+        Price = double.IsNaN(price) ? "N/A" : $"Value: {DataFormatter.FormatPrice(price)} USDT";
 
     /// <summary>
     /// Updates order book control with the given content.

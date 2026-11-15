@@ -51,6 +51,11 @@ public interface IApplicationSettings : INotifyPropertyChanged
     /// Settings of the AI helper.
     /// </summary>
     AiHelperSettings AiHelper { get; }
+
+    /// <summary>
+    /// UI preferences of the trade simulator.
+    /// </summary>
+    TradeSimSettings TradeSim { get; }
 }
 
 /// <summary>
@@ -101,6 +106,12 @@ public class ApplicationSettings : IApplicationSettings
     [DataMember]
     public AiHelperSettings AiHelper { get; private set; } = new();
 
+    /// <summary>
+    /// <inheritdoc/>
+    /// </summary>
+    [DataMember]
+    public TradeSimSettings TradeSim { get; private set; } = new();
+
     public event PropertyChangedEventHandler PropertyChanged;
 
     protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
@@ -124,5 +135,6 @@ public class ApplicationSettings : IApplicationSettings
     {
         Assets ??= new ObservableCollection<AssetRecord>();
         AiHelper ??= new AiHelperSettings();
+        TradeSim ??= new TradeSimSettings();
     }
 }

@@ -1,0 +1,214 @@
+<!-- Copyright (c) 2026 Denys Dragunov, dragunovdenis@gmail.com
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files(the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+copies of the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions :
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.-->
+
+<UserControl x:Class="BAnalyzer.Controls.TradeSimControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d" d:DesignHeight="650" d:DesignWidth="740" Name="Ui">
+    <UserControl.Resources>
+        <Style x:Key="LabelStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource TextBlockStyle}">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="3"/>
+        </Style>
+        <Style x:Key="SectionHeaderStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource TextBlockStyle}">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="3,10,3,3"/>
+        </Style>
+        <Style x:Key="AmountBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource TextBoxStyle}">
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="ActionButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource ButtonStyle}">
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+        </Style>
+        <Style x:Key="LinkButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="10,3,3,3"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Foreground="{TemplateBinding Foreground}" Background="Transparent"
+                                   TextDecorations="Underline"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- 0: market -->
+            <RowDefinition Height="Auto"/> <!-- 1: amounts -->
+            <RowDefinition Height="Auto"/> <!-- 2: fee preview -->
+            <RowDefinition Height="Auto"/> <!-- 3: buy / sell -->
+            <RowDefinition Height="Auto"/> <!-- 4: trade status -->
+            <RowDefinition Height="Auto"/> <!-- 5: save warning -->
+            <RowDefinition Height="Auto"/> <!-- 6: account header -->
+            <RowDefinition Height="Auto"/> <!-- 7: USDT -->
+            <RowDefinition Height="Auto"/> <!-- 8: holdings -->
+            <RowDefinition Height="Auto"/> <!-- 9: total, fee, reset -->
+            <RowDefinition Height="Auto"/> <!-- 10: account status -->
+            <RowDefinition Height="Auto"/> <!-- 11: history header -->
+            <RowDefinition Height="*"/>    <!-- 12: history -->
+        </Grid.RowDefinitions>
+
+        <!-- Trade panel -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <ComboBox Name="ExchangeBox" ItemsSource="{Binding ElementName=Ui, Path=Exchanges}"
+                      SelectedItem="{Binding ElementName=Ui, Path=SelectedExchange}"
+                      Margin="3" Width="100" Style="{StaticResource ComboBoxStyle}"/>
+            <ComboBox Name="SymbolBox" ItemsSource="{Binding ElementName=Ui, Path=Symbols}"
+                      SelectedItem="{Binding ElementName=Ui, Path=SelectedSymbol}"
+                      Margin="3" Width="120" Style="{StaticResource ComboBoxStyle}"
+                      IsEditable="True" IsTextSearchEnabled="True"/>
+            <TextBlock Text="{Binding ElementName=Ui, Path=PriceText}" FontWeight="Bold" FontSize="13"
+                       Margin="20,3,3,3" Style="{StaticResource LabelStyle}"/>
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,5,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="50"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Amount" Style="{StaticResource LabelStyle}"/>
+            <TextBox Name="CoinBox" Grid.Row="0" Grid.Column="1" Style="{StaticResource AmountBoxStyle}"
+                     GotKeyboardFocus="CoinBox_OnGotKeyboardFocus"/>
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding ElementName=Ui, Path=CoinAsset}"
+                       Style="{StaticResource LabelStyle}"/>
+            <Button Grid.Row="0" Grid.Column="3" Content="{Binding ElementName=Ui, Path=CoinAvailableText}"
+                    Style="{StaticResource LinkButtonStyle}" Click="CoinAvailable_OnClick"
+                    ToolTip="Put the whole balance into the field (sell all)"/>
+            <TextBox Name="QuoteBox" Grid.Row="1" Grid.Column="1" Style="{StaticResource AmountBoxStyle}"
+                     GotKeyboardFocus="QuoteBox_OnGotKeyboardFocus"/>
+            <TextBlock Grid.Row="1" Grid.Column="2" Text="USDT" Style="{StaticResource LabelStyle}"/>
+            <Button Grid.Row="1" Grid.Column="3" Content="{Binding ElementName=Ui, Path=QuoteAvailableText}"
+                    Style="{StaticResource LinkButtonStyle}" Click="QuoteAvailable_OnClick"
+                    ToolTip="Put the whole balance into the field (buy with everything)"/>
+        </Grid>
+
+        <TextBlock Grid.Row="2" Text="{Binding ElementName=Ui, Path=FeePreview}" TextWrapping="Wrap"
+                   Style="{StaticResource LabelStyle}"/>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5">
+            <Button Content="Buy" Width="110" Height="28" Margin="10,3" Style="{StaticResource ActionButtonStyle}"
+                    IsEnabled="{Binding ElementName=Ui, Path=CanBuy}"
+                    ToolTip="{Binding ElementName=Ui, Path=BuyToolTip}" Click="Buy_OnClick"/>
+            <Button Content="Sell" Width="110" Height="28" Margin="10,3" Style="{StaticResource ActionButtonStyle}"
+                    IsEnabled="{Binding ElementName=Ui, Path=CanSell}"
+                    ToolTip="{Binding ElementName=Ui, Path=SellToolTip}" Click="Sell_OnClick"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="4" Text="{Binding ElementName=Ui, Path=StatusText}"
+                   Foreground="{Binding ElementName=Ui, Path=StatusBrush}" TextWrapping="Wrap"
+                   Style="{StaticResource LabelStyle}"/>
+
+        <TextBlock Grid.Row="5" Text="{Binding ElementName=Ui, Path=SaveWarning}" Foreground="OrangeRed"
+                   TextWrapping="Wrap" Style="{StaticResource LabelStyle}"
+                   Visibility="{Binding ElementName=Ui, Path=HasSaveWarning,
+                        Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+        <!-- Account panel -->
+        <TextBlock Grid.Row="6" Text="Account" Style="{StaticResource SectionHeaderStyle}"/>
+
+        <StackPanel Grid.Row="7" Orientation="Horizontal">
+            <TextBlock Text="USDT" FontWeight="Bold" Width="45" Style="{StaticResource LabelStyle}"/>
+            <TextBlock Text="{Binding ElementName=Ui, Path=UsdtBalanceText}" MinWidth="150"
+                       Style="{StaticResource LabelStyle}"/>
+            <TextBox Name="CashBox" Width="130" Style="{StaticResource AmountBoxStyle}"
+                     ToolTip="Amount of USDT to deposit or withdraw"/>
+            <Button Content="Deposit" Style="{StaticResource ActionButtonStyle}" Click="Deposit_OnClick"/>
+            <Button Content="Withdraw" Style="{StaticResource ActionButtonStyle}" Click="Withdraw_OnClick"/>
+        </StackPanel>
+
+        <DataGrid Name="HoldingsGrid" Grid.Row="8" MaxHeight="170" Margin="3" IsReadOnly="True"
+                  ItemsSource="{Binding ElementName=Ui, Path=Holdings}" Style="{StaticResource DataGridStyle}"
+                  SelectionChanged="HoldingsGrid_OnSelectionChanged"
+                  ToolTip="Click a coin to trade it">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Coin" Binding="{Binding Coin, Mode=OneWay}" Width="80"/>
+                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, Mode=OneWay}" Width="*"/>
+                <DataGridTextColumn Header="Price, USDT" Binding="{Binding Price, Mode=OneWay}" Width="*"/>
+                <DataGridTextColumn Header="Value, USDT" Binding="{Binding Value, Mode=OneWay}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <DockPanel Grid.Row="9" LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left" Text="{Binding ElementName=Ui, Path=TotalText}" FontWeight="Bold"
+                       Style="{StaticResource LabelStyle}"/>
+            <Button DockPanel.Dock="Right" Content="Reset…" Style="{StaticResource ActionButtonStyle}"
+                    Click="Reset_OnClick" ToolTip="Delete all the balances and the trade history"/>
+            <TextBlock DockPanel.Dock="Right" Text="%" Margin="0,3,15,3" Style="{StaticResource LabelStyle}"/>
+            <TextBox DockPanel.Dock="Right" Name="FeeBox" Width="60" Style="{StaticResource AmountBoxStyle}"
+                     KeyDown="FeeBox_OnKeyDown" LostKeyboardFocus="FeeBox_OnLostKeyboardFocus"
+                     ToolTip="Fee charged on every future trade (0 – 10 %); press Enter to apply"/>
+            <TextBlock DockPanel.Dock="Right" Text="Fee" Style="{StaticResource LabelStyle}"/>
+        </DockPanel>
+
+        <TextBlock Grid.Row="10" Text="{Binding ElementName=Ui, Path=AccountStatusText}"
+                   Foreground="{Binding ElementName=Ui, Path=AccountStatusBrush}" TextWrapping="Wrap"
+                   Style="{StaticResource LabelStyle}"/>
+
+        <!-- History panel -->
+        <TextBlock Grid.Row="11" Text="{Binding ElementName=Ui, Path=HistoryHeader}"
+                   Style="{StaticResource SectionHeaderStyle}"/>
+
+        <Grid Grid.Row="12">
+            <DataGrid Name="HistoryGrid" Margin="3" IsReadOnly="True" Style="{StaticResource DataGridStyle}"
+                      ItemsSource="{Binding ElementName=Ui, Path=History}"
+                      EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizing="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Time" Binding="{Binding Time, Mode=OneWay}" Width="135"/>
+                    <DataGridTemplateColumn Header="Side" Width="45">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Side, Mode=OneWay}" FontWeight="Bold"
+                                           Foreground="{Binding SideBrush, Mode=OneWay}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Price" Binding="{Binding Price, Mode=OneWay}" Width="*"/>
+                    <DataGridTextColumn x:Name="HistoryCoinColumn" Header="Coin"
+                                        Binding="{Binding Coin, Mode=OneWay}" Width="*"/>
+                    <DataGridTextColumn Header="USDT" Binding="{Binding Quote, Mode=OneWay}" Width="*"/>
+                    <DataGridTextColumn Header="Fee" Binding="{Binding Fee, Mode=OneWay}" Width="*"/>
+                    <DataGridTextColumn Header="Exchange" Binding="{Binding Exchange, Mode=OneWay}" Width="70"/>
+                </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock Text="{Binding ElementName=Ui, Path=HistoryEmptyText}" HorizontalAlignment="Center"
+                       VerticalAlignment="Center" Background="Transparent" Style="{StaticResource LabelStyle}"
+                       IsHitTestVisible="False"
+                       Visibility="{Binding ElementName=Ui, Path=IsHistoryEmpty,
+                            Converter={StaticResource BooleanToVisibilityConverter}}"/>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -15,6 +15,8 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+using System.Globalization;
+
 namespace BAnalyzer.Utils;
 
 public static class DataFormatter
@@ -51,5 +53,33 @@ public static class DataFormatter
             return "NaN";
 
         throw new ArgumentException("Unexpected range of the input argument.");
+    }
+
+    /// <summary>
+    /// Formats the given price: fixed-point notation for prices above 0.001, exponent notation below;
+    /// "N/A" for "NaN".
+    /// </summary>
+    public static string FormatPrice(double price, IFormatProvider provider = null)
+    {
+        if (double.IsNaN(price))
+            return "N/A";
+
+        return price > 1e-3 ? string.Format(provider, "{0,7:F5}", price) :
+            string.Format(provider, "{0,5:E4}", price);
+    }
+
+    /// <summary>
+    /// Formats the given amount (in the invariant culture) truncated to
+    /// the given number of <paramref name="decimals"/>, without trailing zeros.
+    /// </summary>
+    public static string FormatAmount(decimal value, int decimals, bool grouping = false)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(decimals);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(decimals, 28);
+
+        var truncated = decimal.Round(value, decimals, MidpointRounding.ToZero);
+        var format = (grouping ? "#,0" : "0") + (decimals > 0 ? "." + new string('#', decimals) : string.Empty);
+
+        return truncated.ToString(format, CultureInfo.InvariantCulture);
     }
 }

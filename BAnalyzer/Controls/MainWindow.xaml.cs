@@ -185,6 +185,8 @@ public partial class MainWindow
         _exchangeControls.Clear();
         _assetAnalysisWindow?.Close();
         _aiHelperWindow?.Close();
+
+        _tradeSimWindow?.Close();
     }
 
     /// <summary>
@@ -237,6 +239,29 @@ public partial class MainWindow
 
         _aiHelperWindow.Show();
         _aiHelperWindow.Activate();
+    }
+
+    private TradeSimWindow _tradeSimWindow;
+
+    /// <summary>
+    /// On click event handler of the corresponding menu item.
+    /// </summary>
+    private void ShowTradeSimMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_tradeSimWindow == null)
+        {
+            _tradeSimWindow = new TradeSimWindow(BinanceClientController.Client, Settings.TradeSim,
+                TradeSimController.Instance)
+            {
+                Owner = Application.Current.MainWindow
+            };
+
+            // A closed (e.g. by "Alt+F4") window can't be shown again; a new one is created next time.
+            _tradeSimWindow.Closed += (_, _) => _tradeSimWindow = null;
+        }
+
+        _tradeSimWindow.Show();
+        _tradeSimWindow.Activate();
     }
 
     /// <summary>
