@@ -24,13 +24,13 @@ namespace BAnalyzer.Utils;
 
 /// <summary>
 /// View model of the choice of the recording device: the devices to choose
-/// from and the chosen one, which defaults to (in this order) the one used
+/// from and the chosen one, which defaults to (in this order) the one chosen
 /// last time, the default device of Windows or the first one available.
 /// </summary>
 /// <remarks>
 /// To be used on the thread of the user interface.
 /// </remarks>
-/// <param name="loadPreferredName">Returns the name of the device used last time.</param>
+/// <param name="loadPreferredName">Returns the name of the device chosen last time.</param>
 /// <param name="savePreferredName">Stores the name of the device to be preferred next time.</param>
 public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<string> savePreferredName)
     : INotifyPropertyChanged, IDisposable
@@ -42,6 +42,7 @@ public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<s
 
     private DispatcherTimer _pollTimer;
     private bool _disposed;
+    private bool _refreshing;
 
     /// <summary>
     /// The devices to choose from.
@@ -49,7 +50,9 @@ public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<s
     public ObservableCollection<MicrophoneDevice> Devices { get; } = [];
 
     /// <summary>
-    /// The chosen device ("null" only if there are no devices).
+    /// The chosen device ("null" only if there are no devices). A device chosen
+    /// from outside (by the user) becomes the preferred one, i.e. the one chosen
+    /// by default next time.
     /// </summary>
     public MicrophoneDevice Selected
     {
@@ -60,6 +63,9 @@ public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<s
 
             field = value;
             OnPropertyChanged();
+
+            if (!_refreshing && value != null)
+                savePreferredName?.Invoke(value.Name);
         }
     }
 
@@ -87,15 +93,26 @@ public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<s
         var preferredName = loadPreferredName?.Invoke();
         var defaultNumber = MicrophoneDevice.GetDefaultNumber();
 
-        Devices.Clear();
+        // Neither the selection a bound list drops while being cleared nor
+        // a fallback chosen in place of a missing device is the user's choice.
+        _refreshing = true;
 
-        foreach (var device in MicrophoneDevice.GetAll())
-            Devices.Add(device);
+        try
+        {
+            Devices.Clear();
 
-        Selected = Devices.FirstOrDefault(x => x.Name == selectedName) ??
-                   Devices.FirstOrDefault(x => x.Name == preferredName) ??
-                   Devices.FirstOrDefault(x => x.Number == defaultNumber) ??
-                   Devices.FirstOrDefault();
+            foreach (var device in MicrophoneDevice.GetAll())
+                Devices.Add(device);
+
+            Selected = Devices.FirstOrDefault(x => x.Name == selectedName) ??
+                       Devices.FirstOrDefault(x => x.Name == preferredName) ??
+                       Devices.FirstOrDefault(x => x.Number == defaultNumber) ??
+                       Devices.FirstOrDefault();
+        }
+        finally
+        {
+            _refreshing = false;
+        }
 
         IsAvailable = Devices.Count > 0;
         UpdatePolling();
@@ -112,15 +129,6 @@ public sealed class MicrophoneSelection(Func<string> loadPreferredName, Action<s
             Refresh();
 
         return Selected;
-    }
-
-    /// <summary>
-    /// Makes the chosen device the preferred one (the one chosen by default next time).
-    /// </summary>
-    public void RememberSelected()
-    {
-        if (Selected != null)
-            savePreferredName?.Invoke(Selected.Name);
     }
 
     /// <summary>

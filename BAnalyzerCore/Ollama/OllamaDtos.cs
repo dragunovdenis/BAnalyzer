@@ -432,13 +432,13 @@ internal sealed class OllamaChatResponse
 }
 
 /// <summary>
-/// Error response of the service (any end-point).
+/// Response of the transcription end-point.
 /// </summary>
-internal sealed class OllamaErrorResponse
+internal sealed class OllamaTranscriptionResponse
 {
     /// <summary>
-    /// Description of the error.
+    /// The transcribed text.
     /// </summary>
-    [JsonPropertyName("error")]
-    public string Error { get; set; }
+    [JsonPropertyName("text")]
+    public string Text { get; set; }
 }

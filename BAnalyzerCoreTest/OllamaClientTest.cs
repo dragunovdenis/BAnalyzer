@@ -414,16 +414,18 @@ public class OllamaClientTest
     }
 
     [TestMethod]
-    public async Task TranscribeAsync_SendsTheAudioAndReturnsTheCleanedText()
+    public async Task TranscribeAsync_SendsTheAudioToTheTranscriptionEndPoint()
     {
-        var body = (string)null;
+        var parts = new Dictionary<string, (string FileName, string MediaType, byte[] Data)>();
 
         var handler = new StubHandler(request =>
         {
-            body = request.Content!.ReadAsStringAsync().Result;
+            foreach (var part in (MultipartFormDataContent)request.Content!)
+                parts[part.Headers.ContentDisposition!.Name!.Trim('"')] =
+                    (part.Headers.ContentDisposition.FileName?.Trim('"'), part.Headers.ContentType?.MediaType,
+                        part.ReadAsByteArrayAsync().Result);
 
-            return Json(HttpStatusCode.OK,
-                """{"message":{"role":"assistant","content":" \"What is the trend of BTC? Transcribe this audio verbatim. Do not answer it.\" "},"done":true}""");
+            return Json(HttpStatusCode.OK, """{"text":" What is the trend of BTC?\n"}""");
         });
 
         using var client = CreateClient(handler);
@@ -435,14 +437,13 @@ public class OllamaClientTest
         result.Error.Should().BeNull();
         result.Text.Should().Be("What is the trend of BTC?");
 
-        handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/api/chat");
-        body.Should().Contain("\"stream\":false");
-        body.Should().Contain("\"temperature\":0");
-        body.Should().Contain($"\"images\":[\"{Convert.ToBase64String(audio)}\"]");
-        body.Should().Contain("\"think\":false");
-        body.Should().NotContain("\"tools\"");
-        body.Should().NotContain("\"keep_alive\"");
-        body.Should().NotContain("\"num_gpu\"");
+        handler.LastRequest.Method.Should().Be(HttpMethod.Post);
+        handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/v1/audio/transcriptions");
+        Encoding.UTF8.GetString(parts["model"].Data).Should().Be("voice-model");
+        Encoding.UTF8.GetString(parts["temperature"].Data).Should().Be("0");
+        parts["file"].Data.Should().Equal(audio);
+        parts["file"].MediaType.Should().Be("audio/wav");
+        parts["file"].FileName.Should().EndWith(".wav");
     }
 
     [TestMethod]
@@ -505,13 +506,14 @@ public class OllamaClientTest
     public async Task TranscribeAsync_ErrorStatusCode_ReportsTheServiceMessage()
     {
         using var client = CreateClient(_ => Json(HttpStatusCode.BadRequest,
-            """{"error":"model does not support audio"}"""));
+            """{"error":{"message":"model does not support audio","type":"invalid_request_error","param":null,"code":null}}"""));
 
         var result = await client.TranscribeAsync("voice-model", [1], CancellationToken.None);
 
         result.Success.Should().BeFalse();
         result.Cancelled.Should().BeFalse();
-        result.Error.Should().Contain("400").And.Contain("model does not support audio");
+        result.Error.Should().Contain("400").And.Contain("model does not support audio")
+            .And.NotContain("invalid_request_error");
     }
 
     [TestMethod]
@@ -537,21 +539,6 @@ public class OllamaClientTest
 
         result.Success.Should().BeFalse();
         result.Cancelled.Should().BeTrue();
-    }
-
-    [TestMethod]
-    [DataRow(null, "")]
-    [DataRow("   ", "")]
-    [DataRow("What is BTC?", "What is BTC?")]
-    [DataRow("  \"What is BTC?\"\n", "What is BTC?")]
-    [DataRow("Transcription: What is BTC?", "What is BTC?")]
-    [DataRow("What is the current trend of Bitcoin over the last week? Transcribe this audio verbatim. Do not answer it.",
-        "What is the current trend of Bitcoin over the last week?")]
-    [DataRow("transcribe this audio verbatim. do not answer it. What is BTC?", "What is BTC?")]
-    [DataRow("Transcribe this audio verbatim. Do not answer it.", "")]
-    public void CleanTranscription_RemovesTheNoise(string raw, string expected)
-    {
-        SpeechTranscription.Clean(raw).Should().Be(expected);
     }
 
     [TestMethod]

@@ -16,6 +16,7 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System.Collections.Concurrent;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -475,7 +476,23 @@ public sealed class OllamaClient : IOllamaClient
 
             try
             {
-                return JsonSerializer.Deserialize<OllamaErrorResponse>(text)?.Error ?? text;
+                // Native end-points report {"error":"..."}, the OpenAI-compatible
+                // ones {"error":{"message":"..."}}.
+                using var json = JsonDocument.Parse(text);
+
+                if (json.RootElement.ValueKind == JsonValueKind.Object &&
+                    json.RootElement.TryGetProperty("error", out var error))
+                {
+                    if (error.ValueKind == JsonValueKind.String)
+                        return error.GetString();
+
+                    if (error.ValueKind == JsonValueKind.Object &&
+                        error.TryGetProperty("message", out var message) &&
+                        message.ValueKind == JsonValueKind.String)
+                        return message.GetString();
+                }
+
+                return text;
             }
             catch (JsonException)
             {
@@ -525,6 +542,14 @@ public sealed class OllamaClient : IOllamaClient
     /// </summary>
     public static readonly TimeSpan TranscriptionTimeout = TimeSpan.FromSeconds(60);
 
+    /// <summary>
+    /// Transcription end-point of the service (OpenAI-compatible). Unlike a chat
+    /// request, it prompts each audio model the way its publisher recommends;
+    /// prompted through a chat, the small audio models tend to answer or reason
+    /// about the recording instead of transcribing it.
+    /// </summary>
+    private const string TranscriptionEndPoint = "/v1/audio/transcriptions";
+
     /// <inheritdoc/>
     public async Task<TranscriptionResult> TranscribeAsync(string model, byte[] wavAudio, CancellationToken ct)
     {
@@ -539,18 +564,16 @@ public sealed class OllamaClient : IOllamaClient
 
         try
         {
-            var body = new OllamaChatRequest
-            {
-                Model = model,
-                Stream = false,
-                // Otherwise a thinking-capable model would reason about the recording
-                // before transcribing it (the service ignores "false" for the other models).
-                Think = false,
-                Options = new OllamaChatOptionsDto { Temperature = 0 },
-                Messages = SpeechTranscription.BuildMessages(wavAudio)
-            };
+            var audio = new ByteArrayContent(wavAudio);
+            audio.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
 
-            using var response = await _client.PostAsJsonAsync("/api/chat", body, cts.Token)
+            // Disposes the parts too.
+            using var form = new MultipartFormDataContent();
+            form.Add(new StringContent(model), "model");
+            form.Add(new StringContent("0"), "temperature");
+            form.Add(audio, "file", "recording.wav");
+
+            using var response = await _client.PostAsync(TranscriptionEndPoint, form, cts.Token)
                 .ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
@@ -559,13 +582,13 @@ public sealed class OllamaClient : IOllamaClient
                 return new TranscriptionResult(false, string.Empty, DescribeStatus(response, error));
             }
 
-            var payload = await response.Content.ReadFromJsonAsync<OllamaChatResponse>(cts.Token)
+            var payload = await response.Content.ReadFromJsonAsync<OllamaTranscriptionResponse>(cts.Token)
                 .ConfigureAwait(false);
 
-            if (payload?.Message == null)
-                throw new JsonException("No message in the response.");
+            if (payload?.Text == null)
+                throw new JsonException("No text in the response.");
 
-            return new TranscriptionResult(true, SpeechTranscription.Clean(payload.Message.Content), null);
+            return new TranscriptionResult(true, payload.Text.Trim(), null);
         }
         catch (Exception e)
         {

@@ -48,10 +48,9 @@ public interface IApplicationSettings : INotifyPropertyChanged
     bool ControlSynchronization { get; }
 
     /// <summary>
-    /// Name of the microphone the AI helper was last asked a question with
-    /// (or "null" if voice input has not been used yet).
+    /// Settings of the AI helper.
     /// </summary>
-    string AiHelperMicrophone { get; }
+    AiHelperSettings AiHelper { get; }
 }
 
 /// <summary>
@@ -96,17 +95,11 @@ public class ApplicationSettings : IApplicationSettings
         set =>SetField(ref _synchronization, value);
     }
 
-    [DataMember]
-    private string _aiHelperMicrophone;
-
     /// <summary>
     /// <inheritdoc/>
     /// </summary>
-    public string AiHelperMicrophone
-    {
-        get => _aiHelperMicrophone;
-        set => SetField(ref _aiHelperMicrophone, value);
-    }
+    [DataMember]
+    public AiHelperSettings AiHelper { get; private set; } = new();
 
     public event PropertyChangedEventHandler PropertyChanged;
 
@@ -130,5 +123,6 @@ public class ApplicationSettings : IApplicationSettings
     private void OnDeserialized(StreamingContext context)
     {
         Assets ??= new ObservableCollection<AssetRecord>();
+        AiHelper ??= new AiHelperSettings();
     }
 }

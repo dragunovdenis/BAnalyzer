@@ -229,7 +229,8 @@ public partial class MainWindow
     /// </summary>
     private void ShowAiHelperMenuItem_OnClick(object sender, RoutedEventArgs e)
     {
-        _aiHelperWindow ??= new AiHelperWindow(OllamaClientController.Client, BinanceClientController.Client)
+        _aiHelperWindow ??= new AiHelperWindow(OllamaClientController.Client, BinanceClientController.Client,
+            Settings.AiHelper)
         {
             Owner = Application.Current.MainWindow
         };

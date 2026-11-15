@@ -15,7 +15,6 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
 using BAnalyzer.Utils;
 using Microsoft.Win32;
@@ -336,9 +335,14 @@ public partial class AiHelperWindow : INotifyPropertyChanged
     private readonly AiAgent _agent;
 
     /// <summary>
+    /// Where the choices of the user are remembered.
+    /// </summary>
+    private readonly AiHelperSettings _settings;
+
+    /// <summary>
     /// Constructor.
     /// </summary>
-    public AiHelperWindow(IOllamaClient ollamaClient, IMultiExchange exchange)
+    public AiHelperWindow(IOllamaClient ollamaClient, IMultiExchange exchange, AiHelperSettings settings)
     {
         if (ollamaClient == null)
             throw new ArgumentNullException(nameof(ollamaClient));
@@ -346,19 +350,16 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         if (exchange == null)
             throw new ArgumentNullException(nameof(exchange));
 
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+
         var client = exchange[ExchangeId.Binance];
         var toolExecutor = new ToolRegistry(new CandleTool(client),
             new OrderBookTool(client), new MarketStatsTool(client));
 
         _agent = new AiAgent(ollamaClient, toolExecutor, SystemPrompt, new StatusObserver(this));
 
-        Microphones = new MicrophoneSelection(
-            () => ApplicationController.Instance.ApplicationSettings.AiHelperMicrophone,
-            name =>
-            {
-                if (ApplicationController.Instance.ApplicationSettings is ApplicationSettings settings)
-                    settings.AiHelperMicrophone = name;
-            });
+        Microphones = new MicrophoneSelection(() => _settings.Microphone,
+            name => _settings.Microphone = name);
         Microphones.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(MicrophoneSelection.IsAvailable)) return;
@@ -378,6 +379,12 @@ public partial class AiHelperWindow : INotifyPropertyChanged
 
         ServerStatus.Client = ollamaClient;
     }
+
+    /// <summary>
+    /// Indicates that the collections of models are being (re)populated, so
+    /// the changes of the selected models are not the choices of the user.
+    /// </summary>
+    private bool _loadingModels;
 
     /// <summary>
     /// The visible part of the conversation.
@@ -436,6 +443,9 @@ public partial class AiHelperWindow : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasVoiceModelSelected));
             OnPropertyChanged(nameof(ActiveVoiceModel));
+
+            if (!_loadingModels && value != null)
+                _settings.VoiceModel = value.IsNone ? string.Empty : value.Name;
         }
     }
 
@@ -472,6 +482,9 @@ public partial class AiHelperWindow : INotifyPropertyChanged
 
             field = value;
             OnPropertyChanged();
+
+            if (!_loadingModels && value != null)
+                _settings.ChatModel = value;
         }
     }
 
@@ -606,6 +619,24 @@ public partial class AiHelperWindow : INotifyPropertyChanged
 
         var result = await _agent.ConnectAsync(CancellationToken.None).ConfigureAwait(true);
 
+        _loadingModels = true;
+
+        try
+        {
+            PopulateModels(result);
+        }
+        finally
+        {
+            _loadingModels = false;
+        }
+    }
+
+    /// <summary>
+    /// Fills the collections of models in with the given ones and selects
+    /// the models chosen last time (if they are still available).
+    /// </summary>
+    private void PopulateModels(AiModelCatalog result)
+    {
         Models.Clear();
         VoiceModels.Clear();
         SelectedVoiceModel = null;
@@ -638,11 +669,16 @@ public partial class AiHelperWindow : INotifyPropertyChanged
         foreach (var model in result.VoiceModels)
             VoiceModels.Add(new ModelOptionVm(model));
 
-        SelectedVoiceModel = VoiceModels.FirstOrDefault(x => !x.IsNone) ?? none;
+        // An empty name stands for the voice input switched off by the user.
+        var savedVoiceModel = _settings.VoiceModel;
+        SelectedVoiceModel = (savedVoiceModel == string.Empty ? none :
+                                 VoiceModels.FirstOrDefault(x => !x.IsNone && x.Name == savedVoiceModel)) ??
+                             VoiceModels.FirstOrDefault(x => !x.IsNone) ?? none;
         OnPropertyChanged(nameof(HasVoiceModels));
         Microphones.Refresh();
 
-        SelectedModel = Models[0].Name;
+        SelectedModel = Models.FirstOrDefault(x => x.Name == _settings.ChatModel)?.Name ??
+                        Models[0].Name;
         Status = AiHelperStatus.Ready;
         StatusText = null;
     }
@@ -1116,7 +1152,6 @@ public partial class AiHelperWindow : INotifyPropertyChanged
             return;
         }
 
-        Microphones.RememberSelected();
         BannerText = null;
         Status = AiHelperStatus.Recording;
         UpdateRecordingStatus();
