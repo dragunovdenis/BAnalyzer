@@ -17,6 +17,7 @@
 
 using BAnalyzer.Controllers;
 using BAnalyzer.DataStructures;
+using BAnalyzer.Utils;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -87,6 +88,11 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         set => SetValue(ExchangeIdProperty, value);
     }
 
+    /// <summary>
+    /// Maximal number of decimal places of the amount and investment.
+    /// </summary>
+    private const int NumberDecimals = 8;
+
     private DispatcherTimer _updateTimer;
 
     /// <summary>
@@ -95,6 +101,9 @@ public partial class AssetManagerControl : INotifyPropertyChanged
     public AssetManagerControl()
     {
         InitializeComponent();
+
+        NumericTextBoxBehavior.Attach(AssetAmountBox, NumberDecimals);
+        NumericTextBoxBehavior.Attach(AssetInvestmentBox, NumberDecimals);
     }
 
     /// <summary>
@@ -136,48 +145,15 @@ public partial class AssetManagerControl : INotifyPropertyChanged
     private void OnAssetSelectionChanged(object sender, RoutedEventArgs e) => OnPropertyChanged(nameof(Assets));
 
     /// <summary>
-    /// Returns "true" if the given text can be converted into a double precision number.
+    /// Converts the text of a numeric box to a number ("no value" is treated as zero).
     /// </summary>
-    private static bool IsNumber(string text) => double.TryParse(text, CultureInfo.InvariantCulture, out _);
+    private static double ToNumber(string text) => (double)(NumericTextBoxBehavior.Parse(text) ?? 0m);
 
     /// <summary>
-    /// Converts given text to double precision number.
+    /// Converts the given number to a text acceptable by a numeric box.
     /// </summary>
-    private static double ToNumber(string text)
-    {
-        double.TryParse(text, CultureInfo.InvariantCulture, out var result);
-        return result;
-    }
-
-    /// <summary>
-    /// Handles "test change" event of the text boxes
-    /// and ensures that the entered data is always valid.
-    /// </summary>
-    private void OnTextChanged(object sender, TextChangedEventArgs e)
-    {
-        var tb = (TextBox)sender;
-
-        if (IsNumber(tb.Text))
-            return;
-
-        using (tb.DeclareChangeBlock())
-        {
-            var orderedChanges = e.Changes.
-                OrderByDescending(x => x.Offset);
-
-            // Revert changes one by one starting with the rightmost ones
-            // until the text of the constitutes a valid number
-            foreach (var c in orderedChanges)
-            {
-                if (c.AddedLength == 0) continue;
-                tb.Select(c.Offset, c.AddedLength);
-                tb.SelectedText = "";
-
-                if (IsNumber(tb.Text))
-                    break;
-            }
-        }
-    }
+    private static string ToText(double value) =>
+        value.ToString("0." + new string('#', NumberDecimals), CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Returns index of the record that corresponds to the given <param name="assetId"/>
@@ -196,9 +172,7 @@ public partial class AssetManagerControl : INotifyPropertyChanged
     /// </summary>
     private void UpdateAsset()
     {
-        if (!IsNumber(AssetAmountBox.Text) ||
-            !IsNumber(AssetInvestmentBox.Text) ||
-            !Symbols.Contains(AssetBox.Text))
+        if (!Symbols.Contains(AssetBox.Text))
         {
             AssetAmountBox.Text = "0";
             return;
@@ -219,7 +193,7 @@ public partial class AssetManagerControl : INotifyPropertyChanged
 
         var assetRecord = new AssetRecord()
         {
-            Amount = ToNumber(AssetAmountBox.Text),
+            Amount = amount,
             Investment = ToNumber(AssetInvestmentBox.Text),
             AssetId = AssetBox.Text,
             Selected = indexOfExistingRecord < 0 || Assets[indexOfExistingRecord].Selected,
@@ -265,8 +239,8 @@ public partial class AssetManagerControl : INotifyPropertyChanged
         if (e.AddedItems.Count > 0 && e.AddedItems[0] is AssetRecord record)
         {
             AssetBox.SelectedItem = record.AssetId;
-            AssetAmountBox.Text = record.Amount.ToString(CultureInfo.InvariantCulture);
-            AssetInvestmentBox.Text = record.Investment.ToString(CultureInfo.InvariantCulture);
+            AssetAmountBox.Text = ToText(record.Amount);
+            AssetInvestmentBox.Text = ToText(record.Investment);
         }
     }
 
