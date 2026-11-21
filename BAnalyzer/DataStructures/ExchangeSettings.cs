@@ -20,7 +20,7 @@ using BAnalyzerCore.DataStructures;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
-using BAnalyzer.Utils;
+using BAnalyzerCore.Utils;
 
 namespace BAnalyzer.DataStructures;
 

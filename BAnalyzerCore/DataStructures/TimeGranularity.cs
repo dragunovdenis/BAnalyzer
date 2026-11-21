@@ -17,7 +17,7 @@
 
 using BAnalyzerCore.DataConversionUtils;
 using System.Runtime.Serialization;
-using BAnalyzer.Utils;
+using BAnalyzerCore.Utils;
 
 namespace BAnalyzerCore.DataStructures;
 

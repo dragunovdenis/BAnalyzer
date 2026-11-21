@@ -18,7 +18,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Data;
-using BAnalyzer.Utils;
+using BAnalyzerCore.Utils;
 
 namespace BAnalyzer.Controls.Converters;
 

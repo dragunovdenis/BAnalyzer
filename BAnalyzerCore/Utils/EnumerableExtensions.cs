@@ -16,7 +16,7 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-namespace BAnalyzer.Utils;
+namespace BAnalyzerCore.Utils;
 
 /// <summary>
 /// Extension methods for IEnumerable implementing types.

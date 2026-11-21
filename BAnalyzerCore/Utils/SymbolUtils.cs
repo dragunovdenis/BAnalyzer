@@ -15,29 +15,28 @@
 //OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-namespace BAnalyzer.Utils
+namespace BAnalyzerCore.Utils;
+
+/// <summary>
+/// Utility methods to work with "symbols" (aka "exchange descriptors").
+/// </summary>
+public static class SymbolUtils
 {
+    private static readonly string Usdt = "USDT";
+
     /// <summary>
-    /// Utility methods to work with "symbols" (aka "exchange descriptors").
+    /// Converts given "symbol" into the corresponding "asset".
     /// </summary>
-    public static class SymbolUtils
+    public static string SymbolToAsset(string symbol)
     {
-        private static readonly string Usdt = "USDT";
+        if (!symbol.EndsWith(Usdt))
+            throw new ArgumentException("Unknown format of symbol");
 
-        /// <summary>
-        /// Converts given "symbol" into the corresponding "asset".
-        /// </summary>
-        public static string SymbolToAsset(string symbol)
-        {
-            if (!symbol.EndsWith(Usdt))
-                throw new ArgumentException("Unknown format of symbol");
-
-            return symbol.Remove(symbol.Length - Usdt.Length, Usdt.Length);
-        }
-
-        /// <summary>
-        /// Converts given "asset" into the corresponding "symbol".
-        /// </summary>
-        public static string AssetToSymbol(string asset) => asset + Usdt;
+        return symbol.Remove(symbol.Length - Usdt.Length, Usdt.Length);
     }
+
+    /// <summary>
+    /// Converts given "asset" into the corresponding "symbol".
+    /// </summary>
+    public static string AssetToSymbol(string asset) => asset + Usdt;
 }

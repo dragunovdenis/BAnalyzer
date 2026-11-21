@@ -21,6 +21,7 @@ using BAnalyzer.Interfaces;
 using BAnalyzer.Utils;
 using BAnalyzerCore;
 using BAnalyzerCore.DataStructures;
+using BAnalyzerCore.Utils;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;

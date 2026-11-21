@@ -29,6 +29,7 @@ using System.Windows;
 using System.Windows.Threading;
 using BAnalyzerCore.Clients;
 using BAnalyzerCore.DataStructures;
+using BAnalyzerCore.Utils;
 
 namespace BAnalyzer.Controls;
 

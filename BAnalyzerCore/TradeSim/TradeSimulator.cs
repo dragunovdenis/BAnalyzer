@@ -16,7 +16,7 @@
 //SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System.Globalization;
-using BAnalyzer.Utils;
+using BAnalyzerCore.Utils;
 
 namespace BAnalyzerCore.TradeSim;
 
